@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Configure um roteiro</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e5ddd5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      background-color: #25d366;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      margin: 0;
+    }
+    textarea {
+      width: calc(100% - 40px);
+      margin: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+      background-color: white;
+    }
+    button {
+      display: block;
+      width: 100%;
+      max-width: 200px;
+      margin: 20px auto;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background-color: #25d366;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1e8e6c;
+    }
+  </style>
+</head>
+<body>
+  <h1>Configure um roteiro</h1>
+  <textarea id="message" rows="40" cols="80" placeholder="Digite seu roteiro aqui..."></textarea>
+  <br>
+  <button id="sendMessage">Enviar Mensagem</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sendMessageButton = document.getElementById('sendMessage');
+      const messageTextarea = document.getElementById('message');
+      sendMessageButton.addEventListener('click', async () => {
+        const message = messageTextarea.value.trim();
+
+        if (message !== '' && message.length >= 50) {
+          try {
+            const response = await fetch('/api/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ message })
+            });
+
+            if (response.ok) {
+              console.log('Mensagem enviada e salva com sucesso!');
+              window.location.href = '/auth';
+            } else {
+              console.error('Erro ao enviar mensagem.');
+            }
+          } catch (error) {
+            console.error('Erro na requisição:', error);
+          }
+        } else {
+          console.error('Mensagem inválida. A mensagem deve conter pelo menos 50 caracteres.');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

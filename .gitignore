@@ -1,0 +1,28 @@
+node_modules/
+dist/
+railway.json.bak
+.env
+.env.*
+!.env.example
+
+# WhatsApp Web sessions (nunca commitar)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Logs e dados locais sensíveis
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Uploads temporários grandes
+**/uploads/tmp/
+data/
+hotbot/.wwebjs_auth/
+hotbot/.wwebjs_cache/
+hotbot/instances/
+hotbot/qr.json
+hotbot/amanda_env.txt
+hotbot/.env
+hotbot/.env.*
+**/*_env.txt

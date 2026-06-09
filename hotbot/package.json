@@ -1,0 +1,52 @@
+{
+  "name": "zap gpt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rimraf ./build && tsc",
+    "dev": "nodemon",
+    "start": "node index.js",
+    "start:old": "node bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.4.10",
+    "@types/qrcode-terminal": "^0.12.0",
+    "concurrently": "^7.6.0",
+    "nodemon": "^3.0.1",
+    "rimraf": "^5.0.1",
+    "ts-node": "^10.9.1",
+    "typecript": "^0.0.1-security"
+  },
+  "dependencies": {
+    "actions-on-google": "^3.0.0",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.2.0",
+    "express-validator": "^6.9.2",
+    "form-data": "^4.0.0",
+    "http": "0.0.1-security",
+    "inquirer": "^9.2.10",
+    "mime-types": "^2.1.32",
+    "mysql2": "^3.22.3",
+    "nlp": "^0.0.0",
+    "node-nlp": "^3.10.2",
+    "openai": "^4.0.0",
+    "pm2": "^5.3.0",
+    "puppeteer": "^23.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "qrcode": "^1.4.4",
+    "qrcode-terminal": "^0.12.0",
+    "socket.io": "^4.8.3",
+    "util": "^0.12.4",
+    "whatsapp-web.js": "^1.0.0"
+  }
+}

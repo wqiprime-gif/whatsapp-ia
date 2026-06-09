@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZAP</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e5ddd5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      background-color: #25d366;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      margin: 0;
+    }
+    .logs {
+      list-style-type: none;
+      padding: 0;
+      margin: 20px;
+    }
+    .logs li {
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    #qrcode {
+      display: block;
+      margin: 20px auto;
+      max-width: 200px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>ZAP</h1>
+  
+  <ul class="logs"></ul>
+  
+  <img id="qrcode" style="display: none;">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    $(document).ready(function() {
+      var socket = io();
+
+      socket.on('message', function(msg) {
+        $('.logs').append($('<li>').text(msg));
+      });
+
+      socket.on('qr', function(src) {
+        $('#qrcode').attr('src', src);
+        $('#qrcode').show();
+      });
+
+      socket.on('ready', function(data) {
+        $('#qrcode').hide();
+      });
+
+      socket.on('authenticated', function(data) {
+        $('#qrcode').hide();
+      });
+    });
+  </script>
+</body>
+</html>

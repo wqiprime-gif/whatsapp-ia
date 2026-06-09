@@ -1,0 +1,381 @@
+import type { BotConfig } from "../bots.js";
+import { env } from "../config.js";
+import { BYANCA_PROMPT_TELEGRAM as BYANCA_PROMPT_WHATSAPP } from "../lib/prompt-byanca.js";
+import { LEAD_SOURCES, sourceLabel } from "../lib/lead-source.js";
+import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
+import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
+import { decryptSecret } from "../lib/crypto.js";
+import { icons } from "./icons.js";
+import { botInitials, escapeHtml } from "./layout.js";
+
+function delayPartsFromMs(ms: number) {
+  const totalSec = Math.max(1, Math.round(ms / 1000));
+  return {
+    minutes: Math.floor(totalSec / 60),
+    seconds: totalSec % 60
+  };
+}
+
+export function botAvatarHtml(bot: BotConfig) {
+  const initials = botInitials(bot.name);
+  if (bot.avatarUrl) {
+    const url = escapeHtml(bot.avatarUrl);
+    return `<div class="bot-av-wrap">
+      <img class="bot-av-img" src="${url}" alt="" loading="lazy"
+        onerror="this.remove();this.parentElement.querySelector('.bot-av-fallback')?.classList.add('show')" />
+      <div class="bot-av bot-av-fallback">${initials}</div>
+    </div>`;
+  }
+  return `<div class="bot-av-wrap"><div class="bot-av bot-av-fallback show">${initials}</div></div>`;
+}
+
+function mediaChips(urls: string[], label: string) {
+  if (urls.length === 0) return "";
+  return `<p style="font-size:0.78rem;color:var(--muted);margin:8px 0 4px">${label} (${urls.length}):</p>
+    <div class="media-preview-list">
+      ${urls
+        .map((url) => {
+          const name = url.split("/").pop() || url;
+          return `<span class="media-preview-chip">${escapeHtml(name)}</span>`;
+        })
+        .join("")}
+    </div>
+    <p style="font-size:0.72rem;color:var(--muted);margin-top:6px">Novos arquivos serão adicionados aos existentes.</p>`;
+}
+
+/** Bloco de configuração de prévia gratuita (instância ou Configurações). */
+export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
+  const urls = bot?.previewMediaUrls ?? [];
+  const list =
+    urls.length === 0
+      ? `<p class="form-hint">Nenhuma prévia cadastrada. Envie fotos ou vídeos abaixo.</p>`
+      : `<ul class="preview-url-list">
+      ${urls
+        .map((url, i) => {
+          const name = url.split("/").pop() || url;
+          return `<li class="preview-url-item">
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="preview-url-link">${escapeHtml(name)}</a>
+            <span class="badge badge-online">Mídia</span>
+            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removePreviewIndexes" value="${i}" /> Remover</label>
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+
+  return `
+    <div class="form-section form-section-preview" id="previa">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.image}</span>
+        <div>
+          <h4>Prévia gratuita (amostra)</h4>
+          <p>Fotos ou vídeos enviados <strong>uma vez por lead</strong> quando pedir amostra ou a IA usar <code>[[send_amostra_gratis]]</code>.</p>
+        </div>
+      </div>
+      ${list}
+      ${urls.length > 0 ? `<p class="form-hint">${urls.length} arquivo(s)</p>` : ""}
+      <label class="field">
+        <span>Mídias de prévia</span>
+        <div class="dropzone">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Imagens ou vídeos (JPG, PNG, MP4)</p>
+          <input form="${formId}" name="previewFiles" type="file" accept="image/*,video/*" multiple />
+        </div>
+      </label>
+      <p class="form-hint">Marque &quot;Remover&quot; nos arquivos antigos e envie novos para substituir. Salve o formulário para aplicar.</p>
+    </div>`;
+}
+
+function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
+  const provider = bot?.waApiProvider ?? "whatsapp_web";
+  const isMeta = provider === "meta_cloud";
+  const proxyOn = Boolean(bot?.proxyEnabled);
+  const webhookBase = env.PUBLIC_BASE_URL || `http://localhost:${env.PORT}`;
+  const webhookUrl = bot ? `${webhookBase}/webhooks/meta/${bot.id}` : "";
+  let proxyType = "http";
+  let proxyHost = "";
+  let proxyPort = "";
+  let proxyUser = "";
+  let proxyPass = "";
+  if (isEdit && bot?.proxyUrlEncrypted) {
+    try {
+      const parsed = parseProxyUrl(decryptSecret(bot.proxyUrlEncrypted));
+      if (parsed) {
+        proxyType = parsed.type;
+        proxyHost = parsed.host;
+        proxyPort = parsed.port;
+        proxyUser = parsed.username;
+        proxyPass = parsed.password;
+      }
+    } catch {
+      // mantém vazio
+    }
+  }
+
+  const proxyTypeOptions = PROXY_TYPE_OPTIONS.map(
+    (o) => `<option value="${o.id}" ${proxyType === o.id ? "selected" : ""}>${escapeHtml(o.label)}</option>`
+  ).join("");
+
+  const apiOptions = WA_API_OPTIONS.map(
+    (o) =>
+      `<option value="${o.id}" ${provider === o.id ? "selected" : ""}>${escapeHtml(o.label)}</option>`
+  ).join("");
+
+  return `
+        <div class="form-section span-2" id="wa-api-section">
+          <div class="form-section-head">
+            <span class="form-section-icon form-section-icon-cyan">${icons.layers}</span>
+            <div>
+              <h4>API do WhatsApp</h4>
+              <p>Escolha como esta instância se conecta ao WhatsApp.</p>
+            </div>
+          </div>
+          <label class="field span-2">Provedor
+            <select name="waApiProvider" id="wa-api-provider">
+              ${apiOptions}
+            </select>
+          </label>
+          <p class="form-hint span-2" id="wa-api-hint">${escapeHtml(WA_API_OPTIONS.find((o) => o.id === provider)?.hint ?? "")}</p>
+        </div>
+
+        <div class="form-section span-2" id="wa-web-block" style="${isMeta ? "display:none" : ""}">
+          <div class="form-section-head">
+            <span class="form-section-icon">${icons.chat}</span>
+            <div>
+              <h4>WhatsApp Web + QR</h4>
+              <p>Conexão via <strong>whatsapp-web.js</strong> (Puppeteer).</p>
+            </div>
+          </div>
+          ${
+            isEdit && bot
+              ? `<a href="/instances/${bot.id}/qr" class="btn btn-primary btn-sm">Abrir QR Code</a>`
+              : `<p class="form-hint">Após salvar, abra a instância e escaneie o QR Code.</p>`
+          }
+          <div class="form-section span-2 proxy-config-panel" id="proxy-config-panel" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <h4 style="font-family:var(--font-display);margin-bottom:8px">Proxy por número (isolamento)</h4>
+            <p class="form-hint">Use proxy <strong>HTTP, HTTPS ou SOCKS5 residencial</strong> — cada instância com IP diferente reduz risco de ban.</p>
+            <label class="field span-2">
+              Usar proxy dedicado neste número
+              <select name="proxyEnabled" id="proxy-enabled">
+                <option value="false" ${!proxyOn ? "selected" : ""}>Não — IP do servidor</option>
+                <option value="true" ${proxyOn ? "selected" : ""}>Sim — isolar este número</option>
+              </select>
+            </label>
+            <div class="proxy-fields-block" id="proxy-fields-block">
+              <label class="field span-2">
+                Tipo de proxy
+                <select name="proxyType" id="proxy-type">
+                  ${proxyTypeOptions}
+                </select>
+              </label>
+              <label class="field span-2">
+                URL completa <small style="color:var(--muted)">(opcional — preenche tudo abaixo)</small>
+                <input name="proxyUrl" id="proxy-url-paste" placeholder="socks5://usuario:senha@host.residential:1080" autocomplete="off" />
+              </label>
+              <p class="form-hint span-2">Ou preencha manualmente:</p>
+              <div class="proxy-grid span-2">
+                <label class="field">
+                  Host / IP
+                  <input name="proxyHost" id="proxy-host" value="${escapeHtml(proxyHost)}" placeholder="proxy.residential.com" />
+                </label>
+                <label class="field">
+                  Porta
+                  <input name="proxyPort" id="proxy-port" value="${escapeHtml(proxyPort)}" placeholder="1080" />
+                </label>
+                <label class="field">
+                  Usuário
+                  <input name="proxyUsername" id="proxy-user" value="${escapeHtml(proxyUser)}" placeholder="login do proxy" autocomplete="off" />
+                </label>
+                <label class="field">
+                  Senha
+                  <input name="proxyPassword" id="proxy-pass" type="password" value="${escapeHtml(proxyPass)}" placeholder="${isEdit && proxyUser ? "••••••" : "senha"}" autocomplete="new-password" />
+                </label>
+              </div>
+              ${isEdit && bot?.proxyUrlEncrypted ? `<p class="form-hint span-2">Deixe a senha vazia para manter a atual.</p>` : ""}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section span-2" id="wa-meta-block" style="${isMeta ? "" : "display:none"}">
+          <div class="form-section-head">
+            <span class="form-section-icon form-section-icon-cyan">${icons.card}</span>
+            <div>
+              <h4>API oficial Meta (Cloud API)</h4>
+              <p>Credenciais do app em <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>.</p>
+            </div>
+          </div>
+          <label class="field">Phone Number ID
+            <input name="metaPhoneNumberId" value="${isEdit && bot ? escapeHtml(bot.metaPhoneNumberId ?? "") : ""}" placeholder="Ex: 123456789012345" />
+          </label>
+          <label class="field">Access Token permanente
+            <input name="metaAccessToken" type="password" autocomplete="off"
+              placeholder="${isEdit ? "Deixe vazio para manter o token atual" : "EAAxxxx..."}" />
+          </label>
+          <label class="field span-2">Verify Token (webhook)
+            <input name="metaVerifyToken" value="${isEdit && bot ? escapeHtml(bot.metaVerifyToken ?? "") : ""}" placeholder="token-secreto-webhook" />
+          </label>
+          ${
+            isEdit && bot
+              ? `<div class="field span-2 card" style="padding:14px">
+              <p class="form-hint" style="margin-bottom:8px">Configure no painel Meta → WhatsApp → Configuração → Webhook:</p>
+              <p><strong>URL:</strong><br/><code class="tracking-link">${escapeHtml(webhookUrl)}</code></p>
+              <p style="margin-top:8px"><strong>Verify token:</strong> o mesmo campo acima</p>
+            </div>`
+              : `<p class="form-hint span-2">Após salvar, a URL do webhook aparecerá aqui.</p>`
+          }
+        </div>
+        <div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>`;
+}
+
+export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
+  const isEdit = mode === "edit" && !!bot;
+  const action = isEdit ? `/instances/${bot.id}` : "/bots";
+  const activeTrue = !isEdit || bot.active;
+  const paymentPix = !isEdit || bot.paymentMethod !== "laranjinha";
+  const delay = delayPartsFromMs(isEdit ? bot.messageDelayMs : 4000);
+  return `
+    <form id="bot-preview-form" method="post" action="${action}" enctype="multipart/form-data">
+      <div class="form-grid">
+        <label class="field">Nome da instância
+          <input name="name" value="${isEdit ? escapeHtml(bot.name) : ""}" placeholder="Ex: MorenaVIP" required />
+        </label>
+        <label class="field">Status
+          <select name="active">
+            <option value="true" ${activeTrue ? "selected" : ""}>Online</option>
+            <option value="false" ${!activeTrue ? "selected" : ""}>Pausado</option>
+          </select>
+        </label>
+        ${waConnectionBlock(isEdit, bot)}
+        <label class="field span-2">Foto de perfil do bot
+          <div class="dropzone">
+            ${isEdit && bot.avatarUrl ? `<div style="margin-bottom:10px">${botAvatarHtml(bot)}</div>` : ""}
+            <p style="color:var(--muted);margin-bottom:8px">${icons.upload} ${isEdit ? "Trocar foto (opcional)" : "Imagem quadrada (JPG/PNG)"}</p>
+            <input name="avatarFile" type="file" accept="image/*" />
+          </div>
+        </label>
+        <label class="field">Chave Pix
+          <input name="pixKey" value="${isEdit ? escapeHtml(bot.pixKey) : ""}" placeholder="CPF, email ou telefone" required />
+        </label>
+        <label class="field">Nome do recebedor Pix
+          <input name="pixRecipientName" value="${isEdit ? escapeHtml(bot.pixRecipientName) : ""}" placeholder="Nome no comprovante" />
+        </label>
+        <div class="form-section span-2">
+          <div class="form-section-head">
+            <span class="form-section-icon">${icons.chat}</span>
+            <div>
+              <h4>Comportamento humano</h4>
+              <p>Pausa entre <strong>cada mensagem</strong> no WhatsApp (texto, áudio, foto).</p>
+            </div>
+          </div>
+          <div class="delay-grid">
+            <label class="field">
+              Minutos
+              <input name="messageDelayMinutes" type="number" min="0" max="30" value="${delay.minutes}" />
+            </label>
+            <label class="field">
+              Segundos
+              <input name="messageDelaySeconds" type="number" min="0" max="59" value="${delay.seconds}" />
+            </label>
+          </div>
+          <p class="form-hint">Ex: 1 min + 30 seg = ~90s entre cada bolha. Comprovante usa pausa extra automática.</p>
+        </div>
+
+        ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
+
+        <label class="field span-2" id="prompt">Prompt / persona da IA
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-byanca-prompt">Usar prompt Byanca (oficial)</button>
+          </div>
+          <script type="application/json" id="byanca-prompt-data">${escapeHtml(JSON.stringify(BYANCA_PROMPT_WHATSAPP))}</script>
+          <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(BYANCA_PROMPT_WHATSAPP)}</textarea>
+        </label>
+        <div class="field span-2 card" style="padding:16px;margin-top:4px">
+          <h4 style="font-family:var(--font-display);margin-bottom:8px">Rastrear origem do lead (TikTok, Instagram…)</h4>
+          <p class="form-hint">No WhatsApp, a origem do lead é detectada pela primeira mensagem (ex: <code>vim do tiktok</code>) ou pelo campo personalizado no prompt.</p>
+          <div class="tracking-links">
+            ${LEAD_SOURCES.filter((s) => s !== "unknown")
+              .map(
+                (s) =>
+                  `<div><span class="source-badge ${s}">${sourceLabel(s)}</span>
+              <span class="muted-sm"> — lead pode escrever &quot;vim do ${sourceLabel(s).toLowerCase()}&quot;</span></div>`
+              )
+              .join("")}
+          </div>
+        </div>
+        <script>
+          document.getElementById("btn-byanca-prompt")?.addEventListener("click", function(){
+            var el = document.getElementById("byanca-prompt-data");
+            var ta = document.querySelector('[name="prompt"]');
+            if (el && ta) ta.value = JSON.parse(el.textContent || '""');
+          });
+        </script>
+        <label class="field">Forma de pagamento
+          <select name="paymentMethod">
+            <option value="pix" ${paymentPix ? "selected" : ""}>Pix manual (chave)</option>
+            <option value="laranjinha" ${!paymentPix ? "selected" : ""}>Gateway Laranjinha</option>
+          </select>
+        </label>
+        <label class="field">API Key Laranjinha <small style="color:var(--muted)">se gateway</small>
+          <input name="laranjinhaApiKey" type="password" placeholder="${isEdit ? "Deixe vazio para manter a atual" : "sua chave API"}" autocomplete="off" />
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px">
+        ${isEdit ? "Salvar alterações" : "Salvar e ativar instância"}
+      </button>
+    </form>`;
+}
+
+export function instancesTableHtml(bots: BotConfig[]) {
+  if (bots.length === 0) {
+    return `<div class="empty">Nenhuma instância ainda. <a href="/instances/new" style="color:var(--primary)">Criar primeira instância</a></div>`;
+  }
+
+  return `<div class="table-scroll" role="region" aria-label="Lista de instâncias">
+    <table class="table table-instances">
+    <thead><tr>
+      <th>Bot</th><th>Status</th><th>Leads</th><th>Prévias</th>
+      <th class="th-actions">Ações</th>
+    </tr></thead>
+    <tbody>
+    ${bots
+      .map(
+        (bot) => `
+      <tr>
+        <td>
+          <div class="bot-cell">
+            ${botAvatarHtml(bot)}
+            <div>
+              <div class="title">${escapeHtml(bot.name)}</div>
+              <div class="sub">${escapeHtml(bot.waApiProvider === "meta_cloud" ? "Meta API" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="badge ${bot.active ? "badge-online" : "badge-paused"}">
+            <span class="badge-dot"></span>
+            ${bot.active ? "Online" : "Pausado"}
+          </span>
+        </td>
+        <td><span class="metric">—</span></td>
+        <td><span class="metric">${bot.previewMediaUrls.length}</span></td>
+        <td class="td-actions">
+          <div class="row-actions">
+            <a href="/instances/${bot.id}/edit" class="action-btn" title="Editar configuração">
+              <span class="action-btn__icon">${icons.edit}</span>
+              <span class="action-btn__label">Editar</span>
+            </a>
+            <form method="post" action="/bots/${bot.id}/toggle">
+              <button type="submit" class="action-btn action-btn--ghost" title="${bot.active ? "Pausar bot" : "Ativar bot"}">
+                <span class="action-btn__label">${bot.active ? "Pausar" : "Ativar"}</span>
+              </button>
+            </form>
+            <form method="post" action="/bots/${bot.id}/delete" onsubmit="return confirm('Remover esta instância?')">
+              <button type="submit" class="action-btn action-btn--danger" title="Remover">${icons.trash}</button>
+            </form>
+          </div>
+        </td>
+      </tr>`
+      )
+      .join("")}
+    </tbody>
+    </table>
+  </div>`;
+}

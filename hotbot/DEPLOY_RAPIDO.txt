@@ -1,0 +1,50 @@
+╔═══════════════════════════════════════════════════════════════╗
+║     🚀 DEPLOY NA CONTABO - GUIA RÁPIDO (5 MINUTOS)           ║
+╚═══════════════════════════════════════════════════════════════╝
+
+1️⃣  COPIAR ARQUIVOS (No PowerShell do seu PC)
+   ────────────────────────────────────────────
+   scp -r "C:\Users\eduar\OneDrive\Área de Trabalho\hotbot\hotbot\*" root@SEU_IP:/root/hotbot/
+
+2️⃣  ACESSAR O VPS (PowerShell)
+   ────────────────────────────
+   ssh root@SEU_IP
+
+3️⃣  EXECUTAR O SCRIPT (Dentro do VPS)
+   ─────────────────────────────────
+   bash /root/hotbot/deploy-contabo.sh
+
+4️⃣  PRONTO! ✅
+   ──────────
+   Bot rodando nas portas 5000+
+   Vê status: pm2 status
+   Vê logs: pm2 logs hotbot
+
+═══════════════════════════════════════════════════════════════
+
+⚙️  DICAS:
+
+   • SEU_IP = o IP da sua Contabo (na dashboard)
+   • Substitute antes de colar!
+   • Vai pedir senha SSH (a mesma de sempre)
+   • O script demora uns 5-10 min
+   • Easypanel/n8n/typebot não afetam
+
+═══════════════════════════════════════════════════════════════
+
+📱 TUDO AUTOMÁTICO:
+   ✅ Node.js instalado
+   ✅ Dependências instaladas
+   ✅ .env criado
+   ✅ PM2 configurado
+   ✅ Bot rodando 24/7
+   ✅ Auto-reinicia se cair
+   ✅ Sobrevive reboot
+
+═══════════════════════════════════════════════════════════════
+
+❓ DÚVIDAS? Veja os arquivos:
+   • DEPLOY_CONTABO.md = Guia completo com fotos
+   • deploy-contabo.sh = O script que faz tudo
+
+═══════════════════════════════════════════════════════════════
