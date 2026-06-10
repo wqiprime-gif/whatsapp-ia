@@ -79,6 +79,20 @@ const promptFilePath = path.join(promptsDir, `${sessionId}-prompt.json`);
 const instancesDataDir = path.join(__dirname, 'instances', sessionId);
 if (!fs.existsSync(instancesDataDir)) fs.mkdirSync(instancesDataDir, { recursive: true });
 const qrFilePath = path.join(instancesDataDir, 'qr.json');
+const statusFilePath = path.join(instancesDataDir, 'status.json');
+let connectionState = 'starting';
+
+function writeConnectionStatus(state) {
+  connectionState = state;
+  try {
+    fs.writeFileSync(statusFilePath, JSON.stringify({
+      state,
+      updatedAt: new Date().toISOString()
+    }));
+  } catch (_) {}
+}
+
+writeConnectionStatus('starting');
 
 async function panelLog(payload) {
   const panelUrl = process.env.PANEL_URL;
@@ -1455,6 +1469,16 @@ app.post('/api/prompt', (req, res) => {
   }
 });
 
+app.get('/api/status', (_req, res) => {
+  const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  return res.json({
+    ok: true,
+    state: connectionState,
+    connected,
+    qrAvailable: connectionState === 'qr_pending' && Boolean(lastQrUrl)
+  });
+});
+
 // Envio externo (remarketing do painel)
 app.post('/api/send', async (req, res) => {
   const to = req.body?.to;
@@ -1487,6 +1511,7 @@ let lastQrUrl = null;
 // Único listener de QR — envia para o site via socket
 client.on('qr', (qr) => {
   console.log(`📱 QR Code gerado — acesse http://localhost:${port} para escanear`);
+  writeConnectionStatus('qr_pending');
 
   qrcode.toDataURL(qr, (err, url) => {
     if (err) return;
@@ -1519,6 +1544,7 @@ io.on('connection', function(socket) {
 });
 
 client.on('ready', () => {
+  writeConnectionStatus('ready');
   Object.values(clientSockets).forEach(socket => {
     socket.emit('ready', 'Dispositivo pronto!');
     socket.emit('message', 'Dispositivo pronto!');
@@ -1538,6 +1564,7 @@ client.on('ready', () => {
 });
 
 client.on('authenticated', () => {
+  writeConnectionStatus('authenticated');
   Object.values(clientSockets).forEach(socket => {
     socket.emit('authenticated', 'Autenticado!');
     socket.emit('message', 'Autenticado!');
@@ -1609,6 +1636,7 @@ async function notificarTelegramDesconexao(motivo) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 client.on('auth_failure', function() {
+  writeConnectionStatus('auth_failure');
   Object.values(clientSockets).forEach(socket => {
     socket.emit('message', 'Falha na autenticação, aguarde um novo código');
   });
@@ -1627,6 +1655,8 @@ client.on('change_state', state => {
 });
 
 client.on('disconnected', (reason) => {
+  writeConnectionStatus('disconnected');
+  lastQrUrl = null;
   Object.values(clientSockets).forEach(socket => {
     socket.emit('message', 'Cliente desconectado!');
   });

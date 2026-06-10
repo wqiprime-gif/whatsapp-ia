@@ -1,5 +1,6 @@
 import type { BotConfig } from "../bots.js";
 import { env } from "../config.js";
+import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import { BYANCA_PROMPT_TELEGRAM as BYANCA_PROMPT_WHATSAPP } from "../lib/prompt-byanca.js";
 import { LEAD_SOURCES, sourceLabel } from "../lib/lead-source.js";
 import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
@@ -237,11 +238,12 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         <label class="field">Nome da instância
           <input name="name" value="${isEdit ? escapeHtml(bot.name) : ""}" placeholder="Ex: MorenaVIP" required />
         </label>
-        <label class="field">Status
+        <label class="field">Ligar instância
           <select name="active">
-            <option value="true" ${activeTrue ? "selected" : ""}>Online</option>
+            <option value="true" ${activeTrue ? "selected" : ""}>Ativo (iniciar motor)</option>
             <option value="false" ${!activeTrue ? "selected" : ""}>Pausado</option>
           </select>
+          <span class="form-hint">Ativo ≠ conectado ao WhatsApp. A conexão real aparece depois do QR.</span>
         </label>
         ${waConnectionBlock(isEdit, bot)}
         <label class="field span-2">Foto de perfil do bot
@@ -323,7 +325,31 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
     </form>`;
 }
 
-export function instancesTableHtml(bots: BotConfig[]) {
+function waStatusBadge(status: WaLiveStatus) {
+  switch (status) {
+    case "connected":
+      return { cls: "badge-online", label: "Conectado" };
+    case "qr_pending":
+      return { cls: "badge-paused", label: "Aguardando QR" };
+    case "starting":
+      return { cls: "badge-paused", label: "Iniciando..." };
+    case "disconnected":
+      return { cls: "badge-paused", label: "Desconectado" };
+    case "auth_failure":
+      return { cls: "badge-paused", label: "Erro auth" };
+    case "meta_ready":
+      return { cls: "badge-online", label: "Meta API" };
+    case "meta_missing":
+      return { cls: "badge-paused", label: "Meta incompleto" };
+    case "offline":
+      return { cls: "badge-paused", label: "Offline" };
+    case "paused":
+    default:
+      return { cls: "badge-paused", label: "Pausado" };
+  }
+}
+
+export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, WaLiveStatus> = {}) {
   if (bots.length === 0) {
     return `<div class="empty">Nenhuma instância ainda. <a href="/instances/new" style="color:var(--primary)">Criar primeira instância</a></div>`;
   }
@@ -336,8 +362,14 @@ export function instancesTableHtml(bots: BotConfig[]) {
     </tr></thead>
     <tbody>
     ${bots
-      .map(
-        (bot) => `
+      .map((bot) => {
+        const live = statuses[bot.id] ?? (bot.active ? "starting" : "paused");
+        const badge = waStatusBadge(live);
+        const showQr =
+          bot.waApiProvider !== "meta_cloud" &&
+          bot.active &&
+          (live === "qr_pending" || live === "starting" || live === "disconnected" || live === "auth_failure");
+        return `
       <tr>
         <td>
           <div class="bot-cell">
@@ -349,15 +381,22 @@ export function instancesTableHtml(bots: BotConfig[]) {
           </div>
         </td>
         <td>
-          <span class="badge ${bot.active ? "badge-online" : "badge-paused"}">
+          <span class="badge ${badge.cls}">
             <span class="badge-dot"></span>
-            ${bot.active ? "Online" : "Pausado"}
+            ${badge.label}
           </span>
         </td>
         <td><span class="metric">—</span></td>
         <td><span class="metric">${bot.previewMediaUrls.length}</span></td>
         <td class="td-actions">
           <div class="row-actions">
+            ${
+              showQr
+                ? `<a href="/instances/${bot.id}/qr" class="action-btn" title="Escanear QR Code">
+              <span class="action-btn__label">QR Code</span>
+            </a>`
+                : ""
+            }
             <a href="/instances/${bot.id}/edit" class="action-btn" title="Editar configuração">
               <span class="action-btn__icon">${icons.edit}</span>
               <span class="action-btn__label">Editar</span>
@@ -372,8 +411,8 @@ export function instancesTableHtml(bots: BotConfig[]) {
             </form>
           </div>
         </td>
-      </tr>`
-      )
+      </tr>`;
+      })
       .join("")}
     </tbody>
     </table>

@@ -1,4 +1,5 @@
 import type { BotConfig } from "../bots.js";
+import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import type { ActivityItem, BotSalesRank } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
@@ -190,7 +191,8 @@ export function dashboardPage(
   message = "",
   isError = false,
   partial = false,
-  userName = "Usuario"
+  userName = "Usuario",
+  statuses: Record<string, WaLiveStatus> = {}
 ) {
   const active = bots.filter((b) => b.active).length;
   const previews = bots.reduce((s, b) => s + b.previewMediaUrls.length, 0);
@@ -267,7 +269,7 @@ export function dashboardPage(
             <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh} Reiniciar</button>
           </form>
         </div>
-        <div class="card-body card-body--flush">${instancesTableHtml(bots)}</div>
+        <div class="card-body card-body--flush">${instancesTableHtml(bots, statuses)}</div>
         <div class="card-foot">
           <a href="/instances" class="card-link">Ver todas →</a>
         </div>
@@ -312,7 +314,8 @@ export function instancesPage(
   message = "",
   isError = false,
   partial = false,
-  userName = "Usuario"
+  userName = "Usuario",
+  statuses: Record<string, WaLiveStatus> = {}
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
@@ -320,7 +323,7 @@ export function instancesPage(
       <div class="card-head"><h3>Todas as Instâncias (${bots.length})</h3>
         <a href="/instances/new" class="btn btn-primary btn-sm">${icons.plus} Nova</a>
       </div>
-      <div class="card-body card-body--flush">${instancesTableHtml(bots)}</div>
+      <div class="card-body card-body--flush">${instancesTableHtml(bots, statuses)}</div>
     </div>`;
 
   return appLayout("Instâncias", "instances", body, partial, userName);

@@ -57,7 +57,7 @@ import { messagesChartSvgFromData } from "./charts.js";
 import { conversationsPage } from "./conversations-page.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
-import { chatIdFromWaJid, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -427,6 +427,7 @@ export async function registerPanelRoutes(
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
     const partial = isPartial(request);
     const html = dashboardPage(
       bots,
@@ -441,7 +442,8 @@ export async function registerPanelRoutes(
       query.msg,
       query.t === "err",
       partial,
-      panelUserLabel(user)
+      panelUserLabel(user),
+      statuses
     );
     return reply.type("text/html").send(html);
   });
@@ -832,9 +834,13 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
     return reply
       .type("text/html")
-      .send(instancesPage(await loadBots(user.id), query.msg, query.t === "err", isPartial(request), panelUserLabel(user)));
+      .send(
+        instancesPage(bots, query.msg, query.t === "err", isPartial(request), panelUserLabel(user), statuses)
+      );
   });
 
   app.get("/instances/new", async (request, reply) => {
@@ -1042,7 +1048,9 @@ export async function registerPanelRoutes(
       );
 
       hooks.restartBots();
-      return reply.redirect(flashRedirect("/instances", "Instância salva! Ativando..."));
+      return reply.redirect(
+        flashRedirect(`/instances/${botId}/qr`, "Instância salva! Escaneie o QR Code para conectar.")
+      );
     } catch (error) {
       request.log.error(error);
       return reply.redirect(flashRedirect("/instances/new", `Erro: ${errorMessage(error)}`, "err"));
