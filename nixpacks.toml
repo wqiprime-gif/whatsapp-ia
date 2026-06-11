@@ -1,0 +1,12 @@
+# Build simples — SEM aptPkgs (libasound2 quebra no Ubuntu 24 do Railway)
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm ci --include=dev"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
