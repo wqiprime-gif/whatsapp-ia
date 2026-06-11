@@ -76,23 +76,51 @@ const proxyAuth = proxyAuthFromUrl(proxyUrl);
 const filePath = path.join(__dirname, 'messages.json');
 const promptsDir = path.join(__dirname, 'prompts');
 const promptFilePath = path.join(promptsDir, `${sessionId}-prompt.json`);
-const instancesDataDir = path.join(__dirname, 'instances', sessionId);
+const instancesDataDir = process.env.WA_INSTANCE_DIR || path.join(__dirname, 'instances', sessionId);
 if (!fs.existsSync(instancesDataDir)) fs.mkdirSync(instancesDataDir, { recursive: true });
 const qrFilePath = path.join(instancesDataDir, 'qr.json');
 const statusFilePath = path.join(instancesDataDir, 'status.json');
+const errorFilePath = path.join(instancesDataDir, 'error.txt');
 let connectionState = 'starting';
+let lastErrorMessage = '';
 
-function writeConnectionStatus(state) {
+function writeConnectionStatus(state, errorMessage = '') {
   connectionState = state;
+  if (errorMessage) lastErrorMessage = errorMessage;
   try {
     fs.writeFileSync(statusFilePath, JSON.stringify({
       state,
+      error: lastErrorMessage || undefined,
       updatedAt: new Date().toISOString()
     }));
+    if (errorMessage) {
+      fs.writeFileSync(errorFilePath, String(errorMessage));
+    } else if (fs.existsSync(errorFilePath)) {
+      fs.unlinkSync(errorFilePath);
+    }
   } catch (_) {}
 }
 
 writeConnectionStatus('starting');
+
+function resolveChromiumPath() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.CHROME_BIN,
+    process.env.CHROMIUM_PATH
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch (_) {}
+  }
+  try {
+    return puppeteer.executablePath();
+  } catch (error) {
+    console.error('Chromium não encontrado:', error.message);
+    return undefined;
+  }
+}
 
 async function panelLog(payload) {
   const panelUrl = process.env.PANEL_URL;
@@ -225,10 +253,18 @@ if (proxyUrl) {
   console.log(`🔒 Proxy isolado ativo para sessão ${sessionId}`);
 }
 
+const authDataPath = process.env.WA_AUTH_DIR || path.join(__dirname, '.wwebjs_auth');
+if (!fs.existsSync(authDataPath)) fs.mkdirSync(authDataPath, { recursive: true });
+
+const chromiumPath = resolveChromiumPath();
 const client = new Client({
-  authStrategy: new LocalAuth({ clientId: clientId }),
+  authStrategy: new LocalAuth({ clientId: clientId, dataPath: authDataPath }),
+  webVersionCache: {
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+  },
   puppeteer: {
-    executablePath: puppeteer.executablePath(),
+    ...(chromiumPath ? { executablePath: chromiumPath } : {}),
     headless: true,
     args: puppeteerArgs,
   },
@@ -246,7 +282,11 @@ if (proxyAuth) {
   });
 }
 
-client.initialize();
+client.initialize().catch((error) => {
+  const message = error?.message || String(error);
+  console.error('❌ Falha ao inicializar WhatsApp Web:', message);
+  writeConnectionStatus('error', message);
+});
 
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openai = new OpenAI({
@@ -1475,7 +1515,10 @@ app.get('/api/status', (_req, res) => {
     ok: true,
     state: connectionState,
     connected,
-    qrAvailable: connectionState === 'qr_pending' && Boolean(lastQrUrl)
+    qrAvailable: connectionState === 'qr_pending' && Boolean(lastQrUrl),
+    error: lastErrorMessage || undefined,
+    chromium: chromiumPath || null,
+    instanceDir: instancesDataDir
   });
 });
 

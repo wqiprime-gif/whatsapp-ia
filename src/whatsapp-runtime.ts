@@ -11,6 +11,10 @@ import { getOpenAIApiKey } from "./lib/settings.js";
 const hotbotDir = path.join(rootDir, "hotbot");
 const instancesDir = path.join(env.DATA_DIR, "wa-instances");
 
+function instanceDataDir(botId: string) {
+  return path.join(instancesDir, botId);
+}
+
 type WaProcess = {
   child: ChildProcess;
   port: number;
@@ -19,6 +23,7 @@ type WaProcess = {
 
 const processes = new Map<string, WaProcess>();
 const metaBots = new Map<string, BotConfig>();
+const lastExitCodes = new Map<string, number | null>();
 
 function stablePort(botId: string, index: number) {
   const hash = parseInt(botId.replace(/\D/g, "").slice(0, 8), 10) || index;
@@ -83,6 +88,9 @@ async function spawnWebBot(bot: BotConfig, port: number) {
 
   const apiKey = await getOpenAIApiKey(bot.userId).catch(() => env.OPENAI_API_KEY);
   const proxyUrl = proxyUrlForBot(bot);
+  const instDir = instanceDataDir(bot.id);
+  await fs.mkdir(instDir, { recursive: true });
+
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
     OPENAI_API_KEY: apiKey || process.env.OPENAI_API_KEY || "",
@@ -90,7 +98,9 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     INTERNAL_SECRET: env.INTERNAL_SECRET,
     BOT_ID: bot.id,
     PIX_KEY: bot.pixKey,
-    PIX_RECIPIENT: bot.pixRecipientName || bot.name
+    PIX_RECIPIENT: bot.pixRecipientName || bot.name,
+    WA_AUTH_DIR: path.join(env.DATA_DIR, "wwebjs_auth"),
+    WA_INSTANCE_DIR: instDir
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
 
@@ -123,6 +133,7 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   });
   child.on("exit", (code) => {
     processes.delete(bot.id);
+    lastExitCodes.set(bot.id, code ?? null);
     console.log(`[wa-web] ${bot.name} encerrou (code ${code ?? "?"})`);
   });
 
@@ -219,6 +230,7 @@ export type WaLiveStatus =
   | "connected"
   | "disconnected"
   | "auth_failure"
+  | "error"
   | "meta_ready"
   | "meta_missing";
 
@@ -226,21 +238,26 @@ type WaRuntimeState = {
   state: string;
   connected: boolean;
   qr: string | null;
+  error: string | null;
+  processRunning: boolean;
 };
 
-async function readStatusFile(botId: string): Promise<string | null> {
+async function readStatusFile(botId: string): Promise<{ state: string | null; error: string | null }> {
   try {
-    const raw = await fs.readFile(path.join(hotbotDir, "instances", botId, "status.json"), "utf8");
-    const data = JSON.parse(raw) as { state?: string };
-    return data.state?.trim() || null;
+    const raw = await fs.readFile(path.join(instanceDataDir(botId), "status.json"), "utf8");
+    const data = JSON.parse(raw) as { state?: string; error?: string };
+    return {
+      state: data.state?.trim() || null,
+      error: data.error?.trim() || null
+    };
   } catch {
-    return null;
+    return { state: null, error: null };
   }
 }
 
 async function readQrFile(botId: string): Promise<string | null> {
   try {
-    const raw = await fs.readFile(path.join(hotbotDir, "instances", botId, "qr.json"), "utf8");
+    const raw = await fs.readFile(path.join(instanceDataDir(botId), "qr.json"), "utf8");
     const data = JSON.parse(raw) as { qr?: string };
     return data.qr?.trim() || null;
   } catch {
@@ -250,31 +267,49 @@ async function readQrFile(botId: string): Promise<string | null> {
 
 async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
   const proc = processes.get(botId);
-  const fileState = await readStatusFile(botId);
+  const fileStatus = await readStatusFile(botId);
   const fileQr = await readQrFile(botId);
 
   if (proc) {
     try {
       const response = await fetch(`http://127.0.0.1:${proc.port}/api/status`, {
-        signal: AbortSignal.timeout(2500)
+        signal: AbortSignal.timeout(5000)
       });
       if (response.ok) {
-        const data = (await response.json()) as { state?: string; connected?: boolean };
-        const state = data.state?.trim() || fileState || "starting";
+        const data = (await response.json()) as {
+          state?: string;
+          connected?: boolean;
+          error?: string;
+        };
+        const state = data.state?.trim() || fileStatus.state || "starting";
         const connected = Boolean(data.connected);
         const qr = connected ? null : await readQrFile(botId);
-        return { state, connected, qr };
+        return {
+          state,
+          connected,
+          qr,
+          error: data.error?.trim() || fileStatus.error,
+          processRunning: true
+        };
       }
     } catch {
       // fallback para arquivos locais
     }
   }
 
-  const connected = fileState === "ready" || fileState === "authenticated";
+  const exitCode = lastExitCodes.get(botId);
+  const exitError =
+    exitCode != null && exitCode !== 0
+      ? `Motor WhatsApp encerrou (código ${exitCode}). Verifique logs no Railway.`
+      : null;
+  const connected =
+    (fileStatus.state === "ready" || fileStatus.state === "authenticated") && Boolean(proc);
   return {
-    state: fileState || (proc ? "starting" : "offline"),
-    connected: connected && Boolean(proc),
-    qr: connected ? null : fileQr
+    state: fileStatus.state || (proc ? "starting" : "offline"),
+    connected,
+    qr: connected ? null : fileQr,
+    error: fileStatus.error || exitError,
+    processRunning: Boolean(proc)
   };
 }
 
@@ -290,6 +325,7 @@ export async function getWaLiveStatus(bot: BotConfig): Promise<WaLiveStatus> {
   if (runtime.state === "qr_pending" || runtime.qr) return "qr_pending";
   if (runtime.state === "disconnected") return "disconnected";
   if (runtime.state === "auth_failure") return "auth_failure";
+  if (runtime.state === "error" || runtime.error) return "error";
   if (processes.has(bot.id)) return "starting";
   return "offline";
 }
@@ -299,15 +335,27 @@ export async function getWaLiveStatuses(bots: BotConfig[]) {
   return Object.fromEntries(entries) as Record<string, WaLiveStatus>;
 }
 
-export async function readWaQr(botId: string): Promise<{ qr: string | null; connected: boolean }> {
+export async function readWaQr(botId: string): Promise<{
+  qr: string | null;
+  connected: boolean;
+  state: string;
+  error: string | null;
+  processRunning: boolean;
+}> {
   const bot = (await loadBots()).find((b) => b.id === botId);
   if (bot?.waApiProvider === "meta_cloud") {
     const ok = Boolean(bot.metaPhoneNumberId && bot.metaAccessTokenEncrypted);
-    return { qr: null, connected: ok };
+    return { qr: null, connected: ok, state: ok ? "meta_ready" : "meta_missing", error: null, processRunning: false };
   }
 
   const runtime = await fetchWebBotState(botId);
-  return { qr: runtime.qr, connected: runtime.connected };
+  return {
+    qr: runtime.qr,
+    connected: runtime.connected,
+    state: runtime.state,
+    error: runtime.error,
+    processRunning: runtime.processRunning
+  };
 }
 
 export async function sendWaMessage(input: { botId: string; jid: string; message: string }) {

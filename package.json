@@ -8,7 +8,7 @@
     "dev": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "postinstall": "cd hotbot && npm install --omit=dev",
+    "postinstall": "cd hotbot && npm install --omit=dev && npx puppeteer browsers install chrome",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

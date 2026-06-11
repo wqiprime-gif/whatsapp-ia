@@ -337,6 +337,8 @@ function waStatusBadge(status: WaLiveStatus) {
       return { cls: "badge-paused", label: "Desconectado" };
     case "auth_failure":
       return { cls: "badge-paused", label: "Erro auth" };
+    case "error":
+      return { cls: "badge-paused", label: "Erro motor" };
     case "meta_ready":
       return { cls: "badge-online", label: "Meta API" };
     case "meta_missing":
@@ -368,7 +370,11 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
         const showQr =
           bot.waApiProvider !== "meta_cloud" &&
           bot.active &&
-          (live === "qr_pending" || live === "starting" || live === "disconnected" || live === "auth_failure");
+          (live === "qr_pending" ||
+            live === "starting" ||
+            live === "disconnected" ||
+            live === "auth_failure" ||
+            live === "error");
         return `
       <tr>
         <td>
