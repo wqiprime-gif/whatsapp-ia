@@ -1,0 +1,12 @@
+node_modules
+hotbot/node_modules
+dist
+.env
+.env.*
+!.env.example
+data
+hotbot/.wwebjs_auth
+hotbot/.wwebjs_cache
+hotbot/instances
+.git
+*.log
