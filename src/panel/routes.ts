@@ -766,8 +766,12 @@ export async function registerPanelRoutes(
 
   app.get("/panel/conversations.js", async (_request, reply) => {
     const filePath = path.join(rootDir, "public", "panel", "conversations.js");
-    const body = await fs.readFile(filePath, "utf8");
-    return reply.type("application/javascript").send(body);
+    try {
+      const body = await fs.readFile(filePath, "utf8");
+      return reply.type("application/javascript").send(body);
+    } catch {
+      return reply.code(404).send("console.error('conversations.js nao encontrado');");
+    }
   });
 
   app.get("/conversations", async (request, reply) => {

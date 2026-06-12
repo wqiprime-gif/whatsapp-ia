@@ -77,6 +77,7 @@ const filePath = path.join(__dirname, 'messages.json');
 const promptsDir = path.join(__dirname, 'prompts');
 const promptFilePath = path.join(promptsDir, `${sessionId}-prompt.json`);
 const instancesDataDir = process.env.WA_INSTANCE_DIR || path.join(__dirname, 'instances', sessionId);
+const botConfigPath = path.join(instancesDataDir, 'bot-config.json');
 if (!fs.existsSync(instancesDataDir)) fs.mkdirSync(instancesDataDir, { recursive: true });
 const qrFilePath = path.join(instancesDataDir, 'qr.json');
 const statusFilePath = path.join(instancesDataDir, 'status.json');
@@ -196,6 +197,60 @@ function loadDefaultPrompt() {
   } catch (error) {
     console.error('Erro ao carregar prompt padrão:', error.message);
   }
+  return null;
+}
+
+function loadBotConfig() {
+  try {
+    if (fs.existsSync(botConfigPath)) {
+      return JSON.parse(fs.readFileSync(botConfigPath, 'utf8'));
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
+  }
+  return { previewMediaUrls: [], deliveryMediaUrls: [] };
+}
+
+async function resolveMediaLocalPath(url) {
+  const clean = String(url || '').trim();
+  if (!clean) return null;
+  if (fs.existsSync(clean)) return clean;
+
+  const baseName = path.basename(clean.split('?')[0]);
+  const uploadsDir = process.env.UPLOADS_DIR;
+
+  if (uploadsDir && clean.startsWith('/uploads/')) {
+    const local = path.join(uploadsDir, baseName);
+    if (fs.existsSync(local)) return local;
+  }
+
+  const panelUrl = process.env.PANEL_URL;
+  if (panelUrl && clean.startsWith('/')) {
+    try {
+      const res = await axios.get(`${panelUrl}${clean}`, { responseType: 'arraybuffer', timeout: 30000 });
+      const cacheDir = path.join(instancesDataDir, 'media-cache');
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const cached = path.join(cacheDir, baseName);
+      fs.writeFileSync(cached, res.data);
+      return cached;
+    } catch (error) {
+      console.error(`❌ Falha ao baixar mídia do painel (${clean}):`, error.message);
+    }
+  }
+
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    try {
+      const res = await axios.get(clean, { responseType: 'arraybuffer', timeout: 30000 });
+      const cacheDir = path.join(instancesDataDir, 'media-cache');
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const cached = path.join(cacheDir, baseName || `remote-${Date.now()}`);
+      fs.writeFileSync(cached, res.data);
+      return cached;
+    } catch (error) {
+      console.error(`❌ Falha ao baixar mídia (${clean}):`, error.message);
+    }
+  }
+
   return null;
 }
 
@@ -943,38 +998,52 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
   try {
     isProcessing[messageFrom] = true;
 
-    if (!fs.existsSync(audioFiles.amostra)) {
-      console.error(`❌ Arquivo não encontrado: ${audioFiles.amostra}`);
-      isProcessing[messageFrom] = false;
-      return;
-    }
+    const config = loadBotConfig();
+    const previewUrls = (config.previewMediaUrls || []).filter(Boolean);
 
-    const media = MessageMedia.fromFilePath(audioFiles.amostra);
-    if (!media) {
-      console.error('❌ Falha ao carregar imagem de amostra');
+    if (previewUrls.length === 0) {
+      console.error('❌ Nenhuma prévia configurada no painel. Faça upload em Instâncias → Editar → Prévia gratuita.');
       isProcessing[messageFrom] = false;
       return;
     }
 
     const chat = await client.getChatById(messageFrom);
+    let sentCount = 0;
 
-    try {
+    for (const url of previewUrls) {
+      const localPath = await resolveMediaLocalPath(url);
+      if (!localPath) {
+        console.error(`❌ Prévia não encontrada: ${url}`);
+        continue;
+      }
+
+      const media = MessageMedia.fromFilePath(localPath);
+      if (!media) {
+        console.error(`❌ Falha ao carregar prévia: ${url}`);
+        continue;
+      }
+
       await client.sendMessage(messageFrom, media, { caption: '', isViewOnce: true });
-      console.log(`✅ Amostra enviada para ${messageFrom}`);
-
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      await chat.sendStateTyping();
+      sentCount++;
+      console.log(`✅ Prévia enviada (${url}) para ${messageFrom}`);
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const response = `Gostou amor? 😘`;
-      await client.sendMessage(messageFrom, response);
-      console.log(`✅ Resposta de amostra enviada para ${messageFrom}`);
-
-      conversation.push({ role: "assistant", content: response });
-      conversation.push({ role: "system", content: 'Foi enviado a amostra gratuita. Não ofereça amostras gratuitas novamente.' });
-    } catch (sendError) {
-      console.error(`❌ Erro ao enviar amostra: ${sendError.message}`);
     }
 
+    if (sentCount === 0) {
+      console.error('❌ Nenhuma mídia de prévia pôde ser enviada.');
+      isProcessing[messageFrom] = false;
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await chat.sendStateTyping();
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const response = `Gostou amor? 😘`;
+    await client.sendMessage(messageFrom, response);
+    console.log(`✅ Resposta de amostra enviada para ${messageFrom}`);
+
+    conversation.push({ role: "assistant", content: response });
+    conversation.push({ role: "system", content: 'Foi enviado a amostra gratuita. Não ofereça amostras gratuitas novamente.' });
     isProcessing[messageFrom] = false;
   } catch (error) {
     console.error('Error sending Amostra Gratis:', error.message);

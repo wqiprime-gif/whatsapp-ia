@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { loadBots, type BotConfig } from "./bots.js";
+import { loadBots, uploadsDir, type BotConfig } from "./bots.js";
 import { env, rootDir } from "./config.js";
 import { decryptSecret } from "./lib/crypto.js";
 import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
@@ -81,6 +81,19 @@ async function syncBotFiles(bot: BotConfig, port: number) {
       2
     )
   );
+
+  await fs.writeFile(
+    path.join(instDir, "bot-config.json"),
+    JSON.stringify(
+      {
+        previewMediaUrls: bot.previewMediaUrls ?? [],
+        deliveryMediaUrls: bot.deliveryMediaUrls ?? [],
+        updatedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
 }
 
 async function spawnWebBot(bot: BotConfig, port: number) {
@@ -100,7 +113,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     PIX_KEY: bot.pixKey,
     PIX_RECIPIENT: bot.pixRecipientName || bot.name,
     WA_AUTH_DIR: path.join(env.DATA_DIR, "wwebjs_auth"),
-    WA_INSTANCE_DIR: instDir
+    WA_INSTANCE_DIR: instDir,
+    UPLOADS_DIR: uploadsDir
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
 
