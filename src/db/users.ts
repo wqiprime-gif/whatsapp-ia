@@ -90,6 +90,8 @@ export async function initUsersSchema() {
       UPDATE bots SET user_id = (SELECT id FROM panel_users ORDER BY created_at ASC LIMIT 1)
       WHERE user_id IS NULL
     `);
+
+    await migrateFileUsersToPostgres();
     return;
   }
 
@@ -102,6 +104,36 @@ export async function initUsersSchema() {
       name: env.ADMIN_NAME || "Administrador"
     });
     console.log(`[db] Usuario admin local criado: ${email}`);
+  }
+}
+
+/** Contas criadas em modo arquivo (users.json no volume) antes do Postgres. */
+async function migrateFileUsersToPostgres() {
+  const fileUsers = await loadFileUsers();
+  if (fileUsers.length === 0) return;
+
+  let migrated = 0;
+  for (const u of fileUsers) {
+    const existing = await findUserByEmail(u.email);
+    if (existing) continue;
+    try {
+      await getPool().query(
+        `INSERT INTO panel_users (id, email, password_hash, name, created_at)
+         VALUES ($1, $2, $3, $4, $5::timestamptz)
+         ON CONFLICT (email) DO NOTHING`,
+        [u.id, u.email, u.passwordHash, u.name, u.createdAt]
+      );
+      await getPool().query(
+        `INSERT INTO user_settings (user_id, openai_model) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
+        [u.id, env.OPENAI_MODEL]
+      );
+      migrated++;
+    } catch {
+      // ignora usuario invalido
+    }
+  }
+  if (migrated > 0) {
+    console.log(`[db] Migrados ${migrated} usuario(s) de users.json para Postgres`);
   }
 }
 

@@ -132,6 +132,7 @@ function remarketingBlocksScript() {
 (function(){
   var wrap = document.getElementById("seq-messages");
   var addBtn = document.getElementById("seq-add-btn");
+  var form = document.getElementById("rmk-form");
   var idx = wrap ? wrap.querySelectorAll(".seq-msg-block").length : 0;
   function renumber(){
     if (!wrap) return;
@@ -168,15 +169,57 @@ function remarketingBlocksScript() {
   var modeNow = document.getElementById("send-mode-now");
   var modeSched = document.getElementById("send-mode-schedule");
   var schedWrap = document.getElementById("schedule-at-wrap");
+  var schedInput = document.querySelector('[name="scheduledAt"]');
+  var schedHint = document.getElementById("schedule-tz-hint");
   var submitBtn = document.getElementById("rmk-submit-btn");
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function minScheduleLocal(){
+    var d = new Date(Date.now() + 60 * 1000);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+      + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
   function syncSchedule(){
     var sched = modeSched && modeSched.checked;
     if (schedWrap) schedWrap.style.display = sched ? "block" : "none";
+    if (schedHint) schedHint.style.display = sched ? "block" : "none";
     if (submitBtn) submitBtn.textContent = sched ? "Agendar disparo" : "Enviar agora";
+    if (sched && schedInput) {
+      if (!schedInput.min) schedInput.min = minScheduleLocal();
+      schedInput.required = true;
+    } else if (schedInput) {
+      schedInput.required = false;
+    }
   }
   modeNow?.addEventListener("change", syncSchedule);
   modeSched?.addEventListener("change", syncSchedule);
   syncSchedule();
+  if (form) {
+    form.addEventListener("submit", function(e){
+      var sub = e.submitter;
+      if (sub && sub.getAttribute("formmethod") === "get") return;
+      var sched = modeSched && modeSched.checked;
+      if (!sched) return;
+      if (!schedInput || !schedInput.value) {
+        e.preventDefault();
+        alert("Informe data e hora do agendamento.");
+        return;
+      }
+      var picked = new Date(schedInput.value);
+      if (Number.isNaN(picked.getTime()) || picked.getTime() <= Date.now() + 30 * 1000) {
+        e.preventDefault();
+        alert("Agende para pelo menos 1 minuto no futuro.");
+        return;
+      }
+      var hidden = form.querySelector('[name="scheduledAtIso"]');
+      if (!hidden) {
+        hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "scheduledAtIso";
+        form.appendChild(hidden);
+      }
+      hidden.value = picked.toISOString();
+    });
+  }
 })();
 `.trim();
 }
@@ -319,13 +362,13 @@ export function remarketingPage(
           <h4 style="margin:20px 0 10px;font-size:0.9rem">Quando disparar?</h4>
           <div class="schedule-mode-row">
             <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-now" value="now" checked /> Enviar agora</label>
-            <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-schedule" value="schedule" /> Agendar</label>
+            <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-schedule" value="schedule" /> Agendar data e hora</label>
           </div>
           <label class="field" id="schedule-at-wrap" style="display:none;margin-top:12px">
             Data e hora do disparo
-            <input type="datetime-local" name="scheduledAt" />
+            <input type="datetime-local" name="scheduledAt" step="60" />
           </label>
-          <p class="form-hint">No agendamento, a sequência será enviada automaticamente na data escolhida.</p>
+          <p class="form-hint" id="schedule-tz-hint" style="display:none">Usa o fuso horário do seu navegador. O disparo roda automaticamente via whatsapp-web.js.</p>
         </div>
         <button type="submit" id="rmk-submit-btn" class="btn btn-primary btn-block" ${bots.length === 0 ? "disabled" : ""}>
           Enviar agora

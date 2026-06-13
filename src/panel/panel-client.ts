@@ -11,7 +11,6 @@ export const panelClientScript = `
     ["/leads", "Leads"],
     ["/remarketing", "Remarketing"],
     ["/gifts", "Pedir presentes"],
-    ["/conversations", "Conversas"],
     ["/payments", "Pagamentos"],
     ["/products", "Produtos"],
     ["/media", "Mídias"],

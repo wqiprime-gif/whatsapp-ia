@@ -11,8 +11,6 @@ import {
   dashboardStats,
   getLatestSale,
   leadSourcesStats,
-  getConversationMessages,
-  listConversationThreads,
   listLeads,
   listProducts,
   listReceipts,
@@ -40,6 +38,7 @@ import { authenticateUser, createUser } from "../db/users.js";
 import { encryptSecret } from "../lib/crypto.js";
 import {
   clearSessionCookie,
+  getSessionUser,
   isAuthenticated,
   requireUser,
   setSessionCookie
@@ -54,7 +53,6 @@ import {
   salesChartSvgFromData
 } from "./pages.js";
 import { messagesChartSvgFromData } from "./charts.js";
-import { conversationsPage } from "./conversations-page.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
@@ -243,6 +241,20 @@ export async function registerPanelRoutes(
     const publicPaths = ["/login", "/register", "/uploads", "/health", "/brand", "/internal", "/webhooks"];
     if (publicPaths.some((p) => urlPath === p || urlPath.startsWith(`${p}/`))) return;
     if (!isAuthenticated(request)) return reply.redirect("/login");
+
+    if (useDatabase()) {
+      const sessionUser = getSessionUser(request);
+      if (sessionUser) {
+        const { getUserById } = await import("../db/users.js");
+        const dbUser = await getUserById(sessionUser.id);
+        if (!dbUser) {
+          clearSessionCookie(reply);
+          return reply.redirect(
+            "/login?msg=Sua+sessao+expirou.+Entre+novamente+com+seu+e-mail+e+senha."
+          );
+        }
+      }
+    }
   });
 
   app.get("/health", async (_request, reply) => {
@@ -370,7 +382,8 @@ export async function registerPanelRoutes(
 
   app.get("/login", async (request, reply) => {
     if (isAuthenticated(request)) return reply.redirect("/");
-    return reply.type("text/html").send(loginPage());
+    const query = z.object({ msg: z.string().optional() }).parse(request.query);
+    return reply.type("text/html").send(loginPage(query.msg ?? ""));
   });
 
   app.get("/register", async (request, reply) => {
@@ -684,7 +697,7 @@ export async function registerPanelRoutes(
       }
 
       if (sendMode === "schedule") {
-        const scheduledAtRaw = String(raw.scheduledAt || "").trim();
+        const scheduledAtRaw = String(raw.scheduledAtIso || raw.scheduledAt || "").trim();
         if (!scheduledAtRaw) {
           return reply.redirect(flashRedirect("/remarketing?botIds=" + ids, "Informe data e hora do agendamento.", "err"));
         }
@@ -742,42 +755,6 @@ export async function registerPanelRoutes(
       await cancelScheduledCampaign(id, user.id);
     }
     return reply.redirect(flashRedirect("/remarketing", "Agendamento cancelado."));
-  });
-
-  app.get("/api/panel/conversations/threads", async (request, reply) => {
-    const user = requireUser(request, reply);
-    if (!user) return;
-    const botIds = (await loadBots(user.id)).map((b) => b.id);
-    const threads = await listConversationThreads(botIds, 120);
-    return reply.send({ threads });
-  });
-
-  app.get("/api/panel/conversations/messages", async (request, reply) => {
-    const user = requireUser(request, reply);
-    if (!user) return;
-    const query = z
-      .object({ botId: z.string().uuid(), chatId: z.coerce.number() })
-      .parse(request.query);
-    const allowed = new Set((await loadBots(user.id)).map((b) => b.id));
-    if (!allowed.has(query.botId)) return reply.code(403).send({ error: "forbidden" });
-    const messages = await getConversationMessages(query.botId, query.chatId, 300);
-    return reply.send({ messages });
-  });
-
-  app.get("/panel/conversations.js", async (_request, reply) => {
-    const filePath = path.join(rootDir, "public", "panel", "conversations.js");
-    try {
-      const body = await fs.readFile(filePath, "utf8");
-      return reply.type("application/javascript").send(body);
-    } catch {
-      return reply.code(404).send("console.error('conversations.js nao encontrado');");
-    }
-  });
-
-  app.get("/conversations", async (request, reply) => {
-    const user = requireUser(request, reply);
-    if (!user) return;
-    return reply.type("text/html").send(conversationsPage(isPartial(request)));
   });
 
   app.get("/payments", async (request, reply) => {

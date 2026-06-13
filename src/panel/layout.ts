@@ -11,7 +11,6 @@ export type NavId =
   | "new"
   | "settings"
   | "leads"
-  | "conversations"
   | "payments"
   | "products"
   | "media"
@@ -77,7 +76,6 @@ export function appLayout(
           ${navItem("/leads", "Leads", icons.users, is("leads"))}
           ${navItem("/remarketing", "Remarketing", icons.megaphone, is("remarketing"))}
           ${navItem("/gifts", "Pedir presentes", icons.sparkles, is("gifts"))}
-          ${navItem("/conversations", "Conversas", icons.chat, is("conversations"))}
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}

@@ -1591,12 +1591,20 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
-// Envio externo (remarketing do painel)
+// Envio externo (remarketing do painel) — whatsapp-web.js client.sendMessage
 app.post('/api/send', async (req, res) => {
   const to = req.body?.to;
   const message = req.body?.message;
   if (!to || !message) {
     return res.status(400).json({ ok: false, error: 'to e message obrigatorios' });
+  }
+  const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  if (!connected) {
+    return res.status(503).json({
+      ok: false,
+      error: 'WhatsApp nao conectado. Escaneie o QR Code no painel.',
+      state: connectionState
+    });
   }
   try {
     await client.sendMessage(to, message);

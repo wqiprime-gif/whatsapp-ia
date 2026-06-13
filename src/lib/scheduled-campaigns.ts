@@ -166,6 +166,7 @@ export async function processDueScheduledCampaigns() {
   }
 
   for (const campaign of due) {
+    console.log(`[schedule] Disparando campanha ${campaign.id} agendada para ${campaign.scheduledAt}`);
     await runCampaign(campaign);
   }
 }

@@ -146,7 +146,7 @@ export function loginPage(message = "") {
       <p class="login-prose">
         Uma plataforma feita para quem vende no WhatsApp com escala: cada instância roda com
         <strong>prompt próprio</strong>, fluxo Byanca Costa, Pix automático, validação de comprovante,
-        remarketing por instância, pedido de presentes e conversas espelhadas no painel — tudo em um só lugar.
+        remarketing por instância, pedido de presentes e agendamento de campanhas — tudo em um só lugar.
       </p>
       <ul class="login-capabilities">
         <li>Várias instâncias por produto, com pacotes e IA configuráveis</li>
@@ -205,11 +205,11 @@ export function dashboardPage(
       <div>
         <p class="eyebrow">Visão geral operacional</p>
         <h2>Central de operação</h2>
-        <p>Métricas consolidadas das suas instâncias WhatsApp — leads, conversões, conversas e remarketing em um único painel.</p>
+        <p>Métricas consolidadas das suas instâncias WhatsApp — leads, conversões e remarketing em um único painel.</p>
       </div>
       <div class="dash-hero-actions">
         <a href="/instances/new" class="btn btn-primary">${icons.plus} Nova instância</a>
-        <a href="/conversations" class="btn btn-secondary">${icons.chat} Abrir conversas</a>
+        <a href="/remarketing" class="btn btn-secondary">${icons.megaphone} Remarketing</a>
       </div>
     </div>
 
@@ -297,9 +297,9 @@ export function dashboardPage(
         <div class="card-body">
           <div class="quick-grid">
             <a href="/instances/new" class="quick-item">${icons.sparkles} Prompt IA</a>
-            <a href="/conversations" class="quick-item">${icons.chat} Conversas</a>
-            <a href="/settings" class="quick-item">${icons.settings} Provedor IA</a>
             <a href="/remarketing" class="quick-item">${icons.megaphone} Remarketing</a>
+            <a href="/settings" class="quick-item">${icons.settings} Provedor IA</a>
+            <a href="/leads" class="quick-item">${icons.users} Leads</a>
           </div>
         </div>
       </div>

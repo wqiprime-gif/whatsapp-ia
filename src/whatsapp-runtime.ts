@@ -392,8 +392,14 @@ export async function sendWaMessage(input: { botId: string; jid: string; message
     body: JSON.stringify({ to: input.jid, message: input.message })
   });
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || `HTTP ${response.status}`);
+    let detail = "";
+    try {
+      const json = (await response.json()) as { error?: string };
+      detail = json.error ?? "";
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    throw new Error(detail || `Falha ao enviar (HTTP ${response.status})`);
   }
 }
 
