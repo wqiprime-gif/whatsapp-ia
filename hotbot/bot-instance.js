@@ -375,6 +375,47 @@ function getUserConversation(userNumber) {
   return userConversations[userNumber];
 }
 
+const PROMPT_ACTION_RE =
+  /\[\[(send_informacoes|send_amostra_gratis|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+
+function parsePromptActions(text) {
+  const actions = [];
+  let clean = String(text || '')
+    .replace(PROMPT_ACTION_RE, (_, tag) => {
+      actions.push(tag.toLowerCase());
+      return '';
+    })
+    .replace(/\[\[audio:([a-z0-9_]+)\]\]|\[\[audio_([a-z0-9_]+)\]\]/gi, '')
+    .trim();
+  return { clean, actions: [...new Set(actions)] };
+}
+
+function wantsPreviewIntent(text) {
+  return /pr[eé]via|amostra|teste gr[aá]tis|manda(r)?\s+(uma\s+)?foto|tem foto|me manda/i.test(
+    String(text || '')
+  );
+}
+
+async function executePromptActions(client, messageFrom, actions) {
+  const conversation = getUserConversation(messageFrom);
+  for (const action of actions) {
+    if (action === 'send_amostra_gratis' && !hasSentAmostra[messageFrom]) {
+      hasSentAmostra[messageFrom] = true;
+      await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
+    } else if (action === 'send_informacoes' && !hasSentInformacoes[messageFrom]) {
+      hasSentInformacoes[messageFrom] = true;
+      await functionCalls.send_informacoes(client, messageFrom, conversation);
+    } else if (action === 'naosou_fake' && !hasSentNaoSouFake[messageFrom]) {
+      hasSentNaoSouFake[messageFrom] = true;
+      await functionCalls.naosou_fake(client, messageFrom, conversation);
+    } else if (action === 'chamada_video') {
+      await functionCalls.chamada_video(client, messageFrom, conversation);
+    } else if (action === 'ignorar_lead') {
+      await functionCalls.ignorar_lead(client, messageFrom, conversation);
+    }
+  }
+}
+
 async function runCompletion(userNumber, message) {
   const conversation = getUserConversation(userNumber);
   if (conversation.length >= 15) {
@@ -1288,13 +1329,20 @@ client.on("message", async (message) => {
       try {
         const result = await runCompletion(from, combinedMessage);
 
+        if (result === '') {
+          // Tool call ja enviou tudo (amostra, tabela, etc.)
+          return;
+        }
+
         if (result) {
+          const { clean, actions } = parsePromptActions(result);
           console.log('✅ RESPOSTA GERADA:');
           console.log('─'.repeat(60));
-          console.log(`${result}`);
+          console.log(clean || '(somente acoes)');
+          if (actions.length) console.log('Tags:', actions.join(', '));
           console.log('─'.repeat(60) + '\n');
 
-          const messageParts = splitMessages(result);
+          const messageParts = splitMessages(clean);
           if (messageParts.length > 0) {
             isProcessing[from] = true;
             try {
@@ -1308,6 +1356,17 @@ client.on("message", async (message) => {
               console.error(`❌ Erro fatal ao enviar mensagens: ${sendError.message}\n`);
             }
             isProcessing[from] = false;
+          }
+
+          if (actions.length > 0) {
+            await executePromptActions(client, from, actions);
+          } else if (
+            wantsPreviewIntent(combinedMessage) &&
+            !hasSentAmostra[from] &&
+            (loadBotConfig().previewMediaUrls || []).length > 0
+          ) {
+            hasSentAmostra[from] = true;
+            await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
           }
         }
       } catch (completionError) {
