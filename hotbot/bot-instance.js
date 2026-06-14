@@ -141,6 +141,66 @@ function waChatId(jid) {
   return Number(digits) || 0;
 }
 
+const RECEIPT_ACK_MESSAGES = [
+  'Recebi! Deixa eu conferir aqui rapidinho...',
+  'Chegou sim, amor. Vou olhar o comprovante agora.',
+  'Perfeito, já tô verificando pra você.',
+  'Obrigada por mandar! Só um instante que eu confiro.'
+];
+
+const RECEIPT_APPROVED_MESSAGES = [
+  'Tudo certinho! Já liberei seu acesso pra você.',
+  'Pagamento confirmado! Pode entrar que já tá liberado.',
+  'Deu certo, amor! Segue seu acesso.'
+];
+
+function randomReceiptAck() {
+  return RECEIPT_ACK_MESSAGES[Math.floor(Math.random() * RECEIPT_ACK_MESSAGES.length)];
+}
+
+function randomReceiptApproved() {
+  return RECEIPT_APPROVED_MESSAGES[Math.floor(Math.random() * RECEIPT_APPROVED_MESSAGES.length)];
+}
+
+async function validarComprovanteNoPainel(base64Data, mimetype, filename) {
+  const panelUrl = process.env.PANEL_URL;
+  const secret = process.env.INTERNAL_SECRET;
+  const botId = process.env.BOT_ID || sessionId;
+  if (!panelUrl || !secret) {
+    throw new Error('Painel indisponivel para validar comprovante');
+  }
+  const res = await axios.post(
+    `${panelUrl}/internal/validate-receipt`,
+    { botId, base64: base64Data, mimetype, filename },
+    {
+      headers: { 'x-internal': secret, 'Content-Type': 'application/json' },
+      timeout: 120000
+    }
+  );
+  return res.data;
+}
+
+async function sendDeliveryMedia(client, messageFrom) {
+  const config = loadBotConfig();
+  const deliveryUrls = (config.deliveryMediaUrls || []).filter(Boolean);
+  if (deliveryUrls.length === 0) return 0;
+
+  let sentCount = 0;
+  for (const url of deliveryUrls) {
+    const localPath = await resolveMediaLocalPath(url);
+    if (!localPath) {
+      console.error(`❌ Entrega não encontrada: ${url}`);
+      continue;
+    }
+    const media = MessageMedia.fromFilePath(localPath);
+    if (!media) continue;
+    await client.sendMessage(messageFrom, media);
+    sentCount++;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return sentCount;
+}
+
 // Audio files with absolute paths
 const audioFiles = {
   saudacao: path.join(__dirname, 'saudacao.mp3'),
@@ -208,7 +268,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [] };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990 };
 }
 
 async function resolveMediaLocalPath(url) {
@@ -615,12 +675,14 @@ Qual pacote te interessa, amor? 💕
     isProcessing[messageFrom] = false;
   }
 }
-  const ACCESS_TOKEN = process.env.ACCESS_TOKEN
   async function enviarChavePix(messageFrom) {
-    const chavePix = "11981450987"; // Chave PIX de celular do usuário (Byanca Costa)
+    const config = loadBotConfig();
+    const chavePix = process.env.PIX_KEY || config.pixKey || pacotesConfig?.pixKey || '';
+    const productName = config.productName || 'VIP';
+    const price = ((config.productPriceCents || 4990) / 100).toFixed(2).replace('.', ',');
 
     try {
-      const pixMessage = `💳 *CHAVE PIX* 💳\n\n${chavePix}\n\nFaz o Pix e depois manda o comprovante pra mim, tá bom? ❤️`;
+      const pixMessage = `Chave Pix: ${chavePix}\nProduto: ${productName} — R$ ${price}\nQuando pagar, manda o comprovante em imagem ou PDF.`;
       await client.sendMessage(messageFrom, pixMessage);
       console.log(`✅ Chave PIX enviada para ${messageFrom}`);
     } catch (error) {
@@ -629,221 +691,63 @@ Qual pacote te interessa, amor? 💕
   }
 
   async function processarComprovante(messageFrom, message) {
-    const isImage    = message.hasMedia && message.type === 'image';
+    const isImage = message.hasMedia && message.type === 'image';
     const isDocument = message.hasMedia && message.type === 'document';
 
     if (!isImage && !isDocument) return false;
 
     try {
-      const media    = await message.downloadMedia();
+      const media = await message.downloadMedia();
       const mimetype = media.mimetype || message.mimetype || message._data?.mimetype || '';
       const filename = message._data?.filename || '';
 
       if (isDocument) {
+        const isPdf = mimetype.includes('pdf') || /\.pdf$/i.test(filename);
+        const isImgDoc = mimetype.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(filename);
+        if (!isPdf && !isImgDoc) {
+          await client.sendMessage(messageFrom, 'Para comprovante, manda imagem ou PDF, tá?');
+          return true;
+        }
         console.log(`📄 Documento recebido de ${messageFrom} — mimetype: "${mimetype}" | arquivo: "${filename}"`);
       } else {
         console.log(`🔍 Imagem recebida de ${messageFrom} — analisando comprovante...`);
       }
 
-      const resultado = await analisarComprovante(media.data, mimetype);
+      await client.sendMessage(messageFrom, randomReceiptAck());
 
-      // Delay humano antes de responder — simula alguém verificando o comprovante
-      const delayResposta = Math.floor(Math.random() * (30000 - 10000 + 1) + 10000); // 10–30s
-      console.log(`⏳ Aguardando ${Math.round(delayResposta / 1000)}s antes de responder ao comprovante...`);
-      await new Promise(r => setTimeout(r, delayResposta));
+      const readingMs = Math.floor(Math.random() * (25000 - 8000 + 1) + 8000);
+      console.log(`⏳ Conferindo comprovante por ${Math.round(readingMs / 1000)}s...`);
+      await new Promise((r) => setTimeout(r, readingMs));
 
-      if (resultado.valid) {
-        console.log(`✅ Nome válido: ${resultado.nome} | Valor: ${resultado.valor}`);
+      const resultado = await validarComprovanteNoPainel(media.data, mimetype, filename);
+      const fileType = mimetype.includes('pdf') ? 'pdf' : 'image';
 
-        // ── Valida valor pelo pacote que o lead escolheu ──────────────────
-        if (resultado.valorNum !== null) {
-          const pacote = await detectarPacote(messageFrom);
-          // Mínimos negociados por pacote (com tolerância de R$0,50)
-          const minimosPacote = { basico: 4.50, chamada: 9.50, completo: 14.50 };
-          const nomesMinimo   = { basico: 'R$ 5,00', chamada: 'R$ 10,00', completo: 'R$ 15,00' };
-          const minimo = minimosPacote[pacote] ?? 4.50;
+      void panelLog({
+        type: 'receipt',
+        jid: messageFrom,
+        paid: Boolean(resultado.paid),
+        confidence: Number(resultado.confidence || 0),
+        reason: resultado.reason || '',
+        fileType
+      });
 
-          if (resultado.valorNum < minimo) {
-            console.log(`❌ Valor ${resultado.valorNum} abaixo do mínimo (${minimo}) para pacote ${pacote}`);
-            await client.sendMessage(messageFrom, `amor, esse valor não bate com o que a gente combinou 😕 o mínimo é ${nomesMinimo[pacote]}, confere e manda o comprovante certo`);
-            return false;
-          }
-          console.log(`✅ Valor ${resultado.valorNum} ok para pacote ${pacote} (mínimo ${minimo})`);
-        }
-
-        return await confirmarComprovante(messageFrom);
+      if (resultado.paid) {
+        console.log(`✅ Comprovante validado para ${messageFrom}`);
+        return await confirmarComprovante(messageFrom, resultado.outcomeMessage || randomReceiptApproved());
       }
 
-      if (resultado.reason === 'wrong_name') {
-        console.log(`❌ Nome errado no comprovante: "${resultado.nome}"`);
-        await client.sendMessage(messageFrom, `amor, esse comprovante não tá no meu nome não 😅 verifica se mandou pro pix certo`);
-        return false;
-      }
-
-      if (resultado.reason === 'pdf_unreadable' || resultado.reason === 'api_error') {
-        console.log(`⚠️  Não consegui ler o arquivo — pedindo print`);
-        await client.sendMessage(messageFrom, `bb, não consegui abrir esse arquivo 😅 pode mandar uma foto/print do comprovante?`);
-        return false;
-      }
-
-      // not_receipt: não é comprovante, processa como mensagem normal
-      console.log(`ℹ️  Não é comprovante — processando normalmente`);
-      return false;
-
+      const reply =
+        resultado.outcomeMessage ||
+        'Não consegui confirmar esse pagamento automaticamente. Me manda outro comprovante ou chama aqui que eu te ajudo.';
+      await client.sendMessage(messageFrom, reply);
+      return true;
     } catch (error) {
       console.error(`❌ Erro ao processar comprovante: ${error.message}`);
-      return false;
-    }
-  }
-
-  // Analisa imagem ou PDF do comprovante — valida nome e retorna valor
-  async function analisarComprovante(base64Data, mimetype) {
-    try {
-      const openai = new (require('openai')).default({ apiKey: process.env.OPENAI_API_KEY });
-      const isPdf  = mimetype && mimetype.includes('pdf');
-
-      const prompt = `Analise este comprovante de pagamento PIX ou transferência bancária.\n\nResponda EXATAMENTE neste formato (uma linha por item):\nComprovante: SIM ou NÃO\nNome destinatário: [nome exato do destinatário/recebedor no comprovante, ou NENHUM]\nValor: [valor pago, ex: R$ 15,00, ou NENHUM]`;
-
-      let respostaGpt;
-
-      if (isPdf) {
-        // ── PDF: tenta extrair texto; se vazio, converte para imagem ─────────
-        console.log(`⏳ Extraindo texto do PDF...`);
-        let pdfText = null;
-        try {
-          const pdfParse = require('pdf-parse');
-          const buf  = Buffer.from(base64Data, 'base64');
-          const data = await pdfParse(buf);
-          pdfText = data.text || '';
-          console.log(`📄 Texto extraído do PDF (${pdfText.trim().length} chars)`);
-        } catch (pdfErr) {
-          console.error(`❌ pdf-parse falhou: ${pdfErr.message}`);
-          pdfText = '';
-        }
-
-        if (pdfText.trim().length >= 10) {
-          // PDF com texto (Nubank, Inter, etc.)
-          console.log(`⏳ Analisando texto do PDF com GPT...`);
-          const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{
-              role: 'user',
-              content: `${prompt}\n\nTexto do comprovante:\n${pdfText.slice(0, 3000)}`
-            }],
-            max_tokens: 150
-          });
-          respostaGpt = response.choices[0].message.content.trim();
-
-        } else {
-          // PDF baseado em imagem (Itaú, Bradesco, etc.) — converte 1ª página para PNG
-          console.log(`⚠️  PDF sem texto — convertendo para imagem com pdftoppm...`);
-          try {
-            const { execSync } = require('child_process');
-            const os   = require('os');
-            const path = require('path');
-            const fs   = require('fs');
-
-            const tmpId  = Date.now();
-            const tmpPdf = path.join(os.tmpdir(), `comp_${tmpId}.pdf`);
-            const tmpPfx = path.join(os.tmpdir(), `comp_${tmpId}`);
-
-            fs.writeFileSync(tmpPdf, Buffer.from(base64Data, 'base64'));
-
-            // Converte só a 1ª página, 150 DPI, formato PNG
-            execSync(`pdftoppm -r 150 -png -f 1 -l 1 "${tmpPdf}" "${tmpPfx}"`, { timeout: 20000 });
-
-            // pdftoppm gera comp_XXXXX-1.png ou comp_XXXXX-01.png
-            const pngFiles = fs.readdirSync(os.tmpdir())
-              .filter(f => f.startsWith(`comp_${tmpId}`) && f.endsWith('.png'));
-
-            if (pngFiles.length === 0) throw new Error('Nenhuma imagem gerada pelo pdftoppm');
-
-            const pngPath   = path.join(os.tmpdir(), pngFiles[0]);
-            const pngBase64 = fs.readFileSync(pngPath).toString('base64');
-
-            // Limpa arquivos temporários
-            try { fs.unlinkSync(tmpPdf); } catch (_) {}
-            try { fs.unlinkSync(pngPath); } catch (_) {}
-
-            // Analisa a imagem com GPT Vision
-            console.log(`⏳ Analisando imagem do PDF com GPT Vision...`);
-            const response = await openai.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages: [{
-                role: 'user',
-                content: [
-                  { type: 'text', text: prompt },
-                  { type: 'image_url', image_url: { url: `data:image/png;base64,${pngBase64}` } }
-                ]
-              }],
-              max_tokens: 150
-            });
-            respostaGpt = response.choices[0].message.content.trim();
-
-          } catch (convErr) {
-            console.error(`❌ Falha ao converter PDF para imagem: ${convErr.message}`);
-            return { valid: false, reason: 'pdf_unreadable' };
-          }
-        }
-
-      } else {
-        // ── Imagem: GPT Vision ───────────────────────────────────────────────
-        console.log(`⏳ Analisando imagem com GPT Vision (${mimetype})...`);
-        const dataUrl  = `data:${mimetype || 'image/jpeg'};base64,${base64Data}`;
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: dataUrl } }
-            ]
-          }],
-          max_tokens: 150
-        });
-        respostaGpt = response.choices[0].message.content.trim();
-      }
-
-      console.log(`📝 Resposta GPT:\n${respostaGpt}`);
-
-      const isComprovante = /Comprovante:\s*SIM/i.test(respostaGpt);
-      if (!isComprovante) return { valid: false, reason: 'not_receipt' };
-
-      const nomeMatch  = respostaGpt.match(/Nome destinatário:\s*(.+)/i);
-      const valorMatch = respostaGpt.match(/Valor:\s*(.+)/i);
-      const nome  = (nomeMatch?.[1]  || 'NENHUM').trim();
-      const valor = (valorMatch?.[1] || 'NENHUM').trim();
-
-      console.log(`   Nome: "${nome}" | Valor: "${valor}"`);
-
-      // ── Valida nome do destinatário ──────────────────────────────────────
-      const nomeDestConfig = pacotesConfig?.nome_destinatario || 'Byanca Custodio da Costa';
-      const tokensConfig   = nomeDestConfig.toLowerCase()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .split(/\s+/)
-        .filter(t => t.length >= 3);
-
-      const nomeNorm    = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const temPrimeiro = nomeNorm.includes(tokensConfig[0]);
-      const temOutro    = tokensConfig.slice(1).some(t => nomeNorm.includes(t));
-      const nomeValido  = nome !== 'NENHUM' && temPrimeiro && temOutro;
-
-      if (!nomeValido) {
-        console.log(`❌ Nome "${nome}" não corresponde a ${nomeDestConfig}`);
-        return { valid: false, reason: 'wrong_name', nome, valor };
-      }
-
-      // ── Parseia valor numérico (ex: "R$ 15,00" → 15.0) ─────────────────
-      const valorNum = parseFloat(
-        valor.replace(/[^\d,]/g, '').replace(',', '.')
+      await client.sendMessage(
+        messageFrom,
+        'Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo.'
       );
-
-      return { valid: true, nome, valor, valorNum: isNaN(valorNum) ? null : valorNum };
-
-    } catch (error) {
-      console.error(`❌ Erro ao analisar comprovante: ${error.message}`);
-      const isPdf = mimetype && mimetype.includes('pdf');
-      return { valid: false, reason: isPdf ? 'pdf_unreadable' : 'api_error' };
+      return true;
     }
   }
 
@@ -967,7 +871,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
   }
 
   // Função para confirmar comprovante, entregar conteúdo e silenciar bot
-  async function confirmarComprovante(messageFrom) {
+  async function confirmarComprovante(messageFrom, approvedMessage) {
     paidUsers[messageFrom] = true;
     comprovantesRecebidos[messageFrom] = true;
 
@@ -975,63 +879,71 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
     console.log(`   Número: ${messageFrom}`);
     console.log(`   Horário: ${new Date().toLocaleString()}`);
 
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const config = loadBotConfig();
 
     try {
-      // 1. Confirma recebimento
-      await client.sendMessage(messageFrom, `✅ Comprovante recebido! Obrigada amor! 💕`);
+      await client.sendMessage(messageFrom, approvedMessage || randomReceiptApproved());
       await sleep(2000);
 
-      // 2. Detecta pacote e envia link do conteúdo
-      const pacote     = await detectarPacote(messageFrom);
-      const linkBasico   = process.env.LINK_BASICO   || '';
-      const linkChamada  = process.env.LINK_CHAMADA  || '';
-      const linkCompleto = process.env.LINK_COMPLETO || '';
+      void panelLog({
+        type: 'sale',
+        jid: messageFrom,
+        productName: config.productName || 'VIP',
+        amountCents: config.productPriceCents || 4990,
+        paymentMethod: config.paymentMethod || 'pix'
+      });
 
-      console.log(`   Pacote detectado: ${pacote.toUpperCase()}`);
+      void panelLog({
+        type: 'message',
+        jid: messageFrom,
+        role: 'system',
+        content: '[venda] Pagamento confirmado — bot silenciado'
+      });
 
-      if (pacote === 'completo') {
-        const completoSingle = process.env.COMPLETO_SINGLE === 'true' || pacotesConfig?.completo_single === true;
-        if (completoSingle && linkCompleto) {
-          // Instâncias onde completo = um único link (ex: chamada 10min)
-          const desc = pacotesConfig?.completo_descricao || 'chamada de vídeo';
-          await client.sendMessage(messageFrom, `Aqui está o link pra ${desc} amor, é só acessar 😘\n${linkCompleto}`);
-        } else {
-          // Padrão: envia os DOIS links separados — fotos e chamada
-          if (linkBasico) {
-            await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
-            await sleep(1500);
+      const delivered = await sendDeliveryMedia(client, messageFrom);
+
+      if (delivered === 0) {
+        const pacote = await detectarPacote(messageFrom);
+        const linkBasico = process.env.LINK_BASICO || '';
+        const linkChamada = process.env.LINK_CHAMADA || '';
+        const linkCompleto = process.env.LINK_COMPLETO || '';
+
+        console.log(`   Pacote detectado: ${pacote.toUpperCase()} (fallback links)`);
+
+        if (pacote === 'completo') {
+          const completoSingle = process.env.COMPLETO_SINGLE === 'true' || pacotesConfig?.completo_single === true;
+          if (completoSingle && linkCompleto) {
+            const desc = pacotesConfig?.completo_descricao || 'chamada de vídeo';
+            await client.sendMessage(messageFrom, `Aqui está o link pra ${desc} amor, é só acessar 😘\n${linkCompleto}`);
+          } else {
+            if (linkBasico) {
+              await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
+              await sleep(1500);
+            }
+            if (linkChamada) {
+              await client.sendMessage(messageFrom, `E aqui está o link pra chamada de vídeo, é só acessar 💕\n${linkChamada}`);
+            }
           }
+        } else if (pacote === 'chamada') {
           if (linkChamada) {
-            await client.sendMessage(messageFrom, `E aqui está o link pra chamada de vídeo, é só acessar 💕\n${linkChamada}`);
+            await client.sendMessage(messageFrom, `Aqui está o link pra chamada amor, é só acessar 😘\n${linkChamada}`);
           }
-        }
-      } else if (pacote === 'chamada') {
-        // Chamada: só o link da chamada
-        if (linkChamada) {
-          await client.sendMessage(messageFrom, `Aqui está o link pra chamada amor, é só acessar 😘\n${linkChamada}`);
+        } else if (linkBasico) {
+          await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
         }
       } else {
-        // Básico: só o link das fotos e vídeos
-        if (linkBasico) {
-          await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
-        } else {
-          await client.sendMessage(messageFrom, `Vou te mandar o conteúdo agora, um segundo amor 💕`);
-        }
+        await client.sendMessage(messageFrom, 'Pagamento confirmado amor, obrigada! 💕');
       }
 
-      // 3. Aplica etiqueta "Novo Cliente"
       await aplicarEtiqueta(messageFrom, 'Novo Cliente');
-
       console.log(`   Conteúdo entregue — bot silenciado para ${messageFrom}\n`);
     } catch (error) {
       console.error(`❌ Erro na entrega: ${error.message}`);
     }
 
-    // 4. Notifica no Telegram
     await notificarTelegram(messageFrom);
-
-    return true; // bot para de responder
+    return true;
   }
 
 
@@ -1223,8 +1135,8 @@ client.on("message", async (message) => {
   if (message.from.includes('@g.us') || message.from.includes('@broadcast') || chat.archived) {
     return;
   }
-  // Verificar se o lead enviou comprovante de pagamento
-  if (comprovantesRecebidos[message.from]) {
+  // Verificar se o lead já pagou
+  if (comprovantesRecebidos[message.from] || paidUsers[message.from]) {
     console.log(`⏸️  Bot pausado para ${message.from} - Aguardando ação manual`);
     return; // Para de enviar mensagens
   }

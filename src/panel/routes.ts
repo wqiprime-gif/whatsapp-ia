@@ -311,6 +311,79 @@ export async function registerPanelRoutes(
     return reply.send({ ok: true });
   });
 
+  app.post("/internal/validate-receipt", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().min(1),
+          base64: z.string().min(1),
+          mimetype: z.string().default("image/jpeg"),
+          filename: z.string().optional()
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) {
+        return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
+      }
+
+      const { validateReceiptFromImage, validateReceiptFromText } = await import(
+        "../lib/receipt-validator.js"
+      );
+      const { formatReceiptOutcome } = await import("../lib/receipt-messages.js");
+
+      const ctx = {
+        pixKey: bot.pixKey,
+        recipientName: bot.pixRecipientName || bot.name,
+        expectedAmountCents: bot.productPriceCents,
+        userId: bot.userId
+      };
+
+      const isPdf =
+        body.mimetype.includes("pdf") || /\.pdf$/i.test(body.filename || "");
+
+      let result;
+      if (isPdf) {
+        const { PDFParse } = await import("pdf-parse");
+        const buffer = Buffer.from(body.base64, "base64");
+        const parser = new PDFParse({ data: buffer });
+        const parsed = await parser.getText();
+        await parser.destroy();
+        const text = parsed.text.trim();
+        if (text.length >= 20) {
+          result = await validateReceiptFromText({ text, ...ctx });
+        } else {
+          const dataUrl = `data:${body.mimetype};base64,${body.base64}`;
+          result = await validateReceiptFromImage({ imageUrl: dataUrl, ...ctx });
+        }
+      } else {
+        const dataUrl = `data:${body.mimetype || "image/jpeg"};base64,${body.base64}`;
+        result = await validateReceiptFromImage({ imageUrl: dataUrl, ...ctx });
+      }
+
+      return reply.send({
+        ok: true,
+        paid: result.paid,
+        confidence: result.confidence,
+        reason: result.reason,
+        userMessage: result.userMessage,
+        outcomeMessage: formatReceiptOutcome(result, result.userMessage)
+      });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        paid: false,
+        confidence: 0,
+        reason: error instanceof Error ? error.message : "Erro ao validar comprovante",
+        outcomeMessage: "Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo."
+      });
+    }
+  });
+
   app.post("/internal/events", async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });

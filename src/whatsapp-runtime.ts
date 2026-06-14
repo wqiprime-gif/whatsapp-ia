@@ -88,6 +88,11 @@ async function syncBotFiles(bot: BotConfig, port: number) {
       {
         previewMediaUrls: bot.previewMediaUrls ?? [],
         deliveryMediaUrls: bot.deliveryMediaUrls ?? [],
+        pixKey: bot.pixKey,
+        pixRecipientName: bot.pixRecipientName || bot.name,
+        productName: bot.productName,
+        productPriceCents: bot.productPriceCents,
+        paymentMethod: bot.paymentMethod,
         updatedAt: new Date().toISOString()
       },
       null,
