@@ -92,6 +92,7 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         pixRecipientName: bot.pixRecipientName || bot.name,
         productName: bot.productName,
         productPriceCents: bot.productPriceCents,
+        productDeliveryLink: bot.telegramGroupLink || "",
         paymentMethod: bot.paymentMethod,
         updatedAt: new Date().toISOString()
       },

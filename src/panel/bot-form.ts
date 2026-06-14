@@ -85,6 +85,50 @@ export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-pre
     </div>`;
 }
 
+/** Entrega automática após comprovante aprovado (link e/ou mídias). */
+export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
+  const link = bot?.telegramGroupLink ?? "";
+  const urls = bot?.deliveryMediaUrls ?? [];
+  const list =
+    urls.length === 0
+      ? `<p class="form-hint">Nenhum arquivo de entrega. Opcional se usar só o link.</p>`
+      : `<ul class="preview-url-list">
+      ${urls
+        .map((url, i) => {
+          const name = url.split("/").pop() || url;
+          return `<li class="preview-url-item">
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="preview-url-link">${escapeHtml(name)}</a>
+            <span class="badge badge-online">Entrega</span>
+            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removeDeliveryIndexes" value="${i}" /> Remover</label>
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+
+  return `
+    <div class="form-section form-section-preview" id="entrega">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.box}</span>
+        <div>
+          <h4>Entrega do produto</h4>
+          <p>Enviado <strong>automaticamente</strong> depois que o comprovante Pix for aprovado.</p>
+        </div>
+      </div>
+      <label class="field span-2">Link de entrega do produto
+        <input name="telegramGroupLink" value="${escapeHtml(link)}" placeholder="https://t.me/seugrupo ou link Drive/Canal VIP" />
+        <span class="form-hint">Ex: link do Telegram, Google Drive, pasta ou página de acesso.</span>
+      </label>
+      ${list}
+      <label class="field">
+        <span>Mídias de entrega (opcional)</span>
+        <div class="dropzone">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Arquivos extras enviados junto com o link</p>
+          <input form="${formId}" name="deliveryFiles" type="file" accept="image/*,video/*,application/pdf" multiple />
+        </div>
+      </label>
+    </div>`;
+}
+
 function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
   const provider = bot?.waApiProvider ?? "whatsapp_web";
   const isMeta = provider === "meta_cloud";
@@ -281,6 +325,8 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
+
+        ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         <label class="field span-2" id="prompt">Prompt / persona da IA
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">

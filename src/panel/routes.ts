@@ -173,6 +173,22 @@ function mergePreviewUrls(
   return [...kept, ...uploads];
 }
 
+function mergeDeliveryUrls(
+  existing: string[],
+  fields: Record<string, string>,
+  uploads: string[]
+) {
+  const removeRaw = fields.removeDeliveryIndexes || "";
+  const removeSet = new Set(
+    removeRaw
+      .split(",")
+      .map((v) => Number(v.trim()))
+      .filter((n) => Number.isFinite(n))
+  );
+  const kept = existing.filter((_, index) => !removeSet.has(index));
+  return [...kept, ...uploads];
+}
+
 const botFormFieldsSchema = z.object({
   name: z.string().min(1),
   token: z.string().optional(),
@@ -942,7 +958,7 @@ export async function registerPanelRoutes(
             pixRecipientName: body.pixRecipientName?.trim() || body.name,
             messageDelayMs: messageDelayMsFromForm(body),
             previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
-            deliveryMediaUrls: existing.deliveryMediaUrls,
+            deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
             audioLibrary: mergeAudioLibrary(existing.audioLibrary ?? [], fields, newNamedAudioUrl),
             avatarUrl: avatarUrl || existing.avatarUrl,
             active: body.active === "true",
@@ -952,7 +968,7 @@ export async function registerPanelRoutes(
               : existing.laranjinhaApiKeyEncrypted,
             productName: body.productName,
             productPriceCents: Math.round(body.productPrice * 100),
-            telegramGroupLink: "",
+            telegramGroupLink: body.telegramGroupLink?.trim() || existing.telegramGroupLink || "",
             backupToken: body.backupToken?.trim() || existing.backupToken
           },
           body
@@ -1084,7 +1100,7 @@ export async function registerPanelRoutes(
             pixRecipientName: body.pixRecipientName?.trim() || body.name,
             messageDelayMs: messageDelayMsFromForm(body),
             previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
-            deliveryMediaUrls: [],
+            deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
             audioLibrary: mergeAudioLibrary([], fields, newNamedAudioUrl),
             avatarUrl,
             active: body.active === "true",
@@ -1094,7 +1110,7 @@ export async function registerPanelRoutes(
               : undefined,
             productName: body.productName,
             productPriceCents: Math.round(body.productPrice * 100),
-            telegramGroupLink: "",
+            telegramGroupLink: body.telegramGroupLink?.trim() || "",
             backupToken: body.backupToken?.trim() || undefined
           },
           body

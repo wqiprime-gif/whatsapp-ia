@@ -268,7 +268,46 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990 };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '' };
+}
+
+const previewSentPath = path.join(instancesDataDir, 'preview-sent.json');
+
+function loadPreviewSentStore() {
+  try {
+    if (fs.existsSync(previewSentPath)) {
+      const data = JSON.parse(fs.readFileSync(previewSentPath, 'utf8'));
+      return data && typeof data === 'object' ? data : {};
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao carregar preview-sent.json:', error.message);
+  }
+  return {};
+}
+
+function hasPreviewBeenSent(jid) {
+  return Boolean(hasSentAmostra[jid]);
+}
+
+function markPreviewSent(jid) {
+  hasSentAmostra[jid] = true;
+  try {
+    const store = loadPreviewSentStore();
+    store[jid] = new Date().toISOString();
+    fs.writeFileSync(previewSentPath, JSON.stringify(store, null, 2));
+  } catch (error) {
+    console.warn('⚠️ Erro ao salvar preview-sent.json:', error.message);
+  }
+}
+
+function hydratePreviewSentFromDisk() {
+  const store = loadPreviewSentStore();
+  for (const jid of Object.keys(store)) {
+    hasSentAmostra[jid] = true;
+  }
+  if (Object.keys(store).length > 0) {
+    console.log(`📎 Prévias já enviadas (persistidas): ${Object.keys(store).length} contato(s)`);
+  }
 }
 
 async function resolveMediaLocalPath(url) {
@@ -413,6 +452,7 @@ const userConversations = {};
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
 const hasSentNaoSouFake = {};
+hydratePreviewSentFromDisk();
 const arrayImport = require('./arrayImport');
 const messageBuffers = {};
 const bufferTimers = {};
@@ -429,7 +469,7 @@ function getUserConversation(userNumber) {
       { role: "system", content: systemPrompt }
     ];
     hasSentInformacoes[userNumber] = false;
-    hasSentAmostra[userNumber] = false;
+    hasSentAmostra[userNumber] = Boolean(loadPreviewSentStore()[userNumber]);
     hasSentNaoSouFake[userNumber] = false;
   }
   return userConversations[userNumber];
@@ -459,9 +499,9 @@ function wantsPreviewIntent(text) {
 async function executePromptActions(client, messageFrom, actions) {
   const conversation = getUserConversation(messageFrom);
   for (const action of actions) {
-    if (action === 'send_amostra_gratis' && !hasSentAmostra[messageFrom]) {
-      hasSentAmostra[messageFrom] = true;
-      await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
+    if (action === 'send_amostra_gratis' && !hasPreviewBeenSent(messageFrom)) {
+      const ok = await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
+      if (ok) markPreviewSent(messageFrom);
     } else if (action === 'send_informacoes' && !hasSentInformacoes[messageFrom]) {
       hasSentInformacoes[messageFrom] = true;
       await functionCalls.send_informacoes(client, messageFrom, conversation);
@@ -549,7 +589,7 @@ async function runCompletion(userNumber, message) {
     console.log(`Resultado da completude para ${userNumber}:`, choice.finish_reason, fnName || '(texto)');
 
     // Amostra já enviada — bloqueia nova amostra
-    if (hasSentAmostra[userNumber] && fnName === 'send_amostra_gratis') {
+    if (hasPreviewBeenSent(userNumber) && fnName === 'send_amostra_gratis') {
       const response = `já te mostrei amor, agora só comprando 😉`;
       conversation.push({ role: "assistant", content: response });
       return response;
@@ -576,9 +616,9 @@ async function runCompletion(userNumber, message) {
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
       }
-      if (fnName === 'send_amostra_gratis' && !hasSentAmostra[userNumber]) {
-        hasSentAmostra[userNumber] = true;
-        await functionCalls[fnName](client, userNumber, conversation);
+      if (fnName === 'send_amostra_gratis' && !hasPreviewBeenSent(userNumber)) {
+        const ok = await functionCalls[fnName](client, userNumber, conversation);
+        if (ok) markPreviewSent(userNumber);
         return '';
       }
       if (fnName === 'naosou_fake' && !hasSentNaoSouFake[userNumber]) {
@@ -620,7 +660,7 @@ const functionCalls = {
     }
     await sendInformacoes(client, messageFrom, conversation);
   },
-  send_amostra_gratis: async (client, messageFrom, conversation) => { await sendAmostraGratis(client, messageFrom, conversation); },
+  send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
   chamada_video: async (client, messageFrom, conversation) => { await chamadaVideo(client, messageFrom, conversation); },
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
   ignorar_lead: async (client, messageFrom, conversation) => {
@@ -902,8 +942,11 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       });
 
       const delivered = await sendDeliveryMedia(client, messageFrom);
+      const productLink = String(config.productDeliveryLink || '').trim();
 
-      if (delivered === 0) {
+      if (productLink) {
+        await client.sendMessage(messageFrom, `Aqui está seu acesso amor, aproveite 😘\n${productLink}`);
+      } else if (delivered === 0) {
         const pacote = await detectarPacote(messageFrom);
         const linkBasico = process.env.LINK_BASICO || '';
         const linkChamada = process.env.LINK_CHAMADA || '';
@@ -932,8 +975,6 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
         } else if (linkBasico) {
           await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
         }
-      } else {
-        await client.sendMessage(messageFrom, 'Pagamento confirmado amor, obrigada! 💕');
       }
 
       await aplicarEtiqueta(messageFrom, 'Novo Cliente');
@@ -957,7 +998,7 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
     if (previewUrls.length === 0) {
       console.error('❌ Nenhuma prévia configurada no painel. Faça upload em Instâncias → Editar → Prévia gratuita.');
       isProcessing[messageFrom] = false;
-      return;
+      return false;
     }
 
     const chat = await client.getChatById(messageFrom);
@@ -976,16 +1017,27 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
         continue;
       }
 
-      await client.sendMessage(messageFrom, media, { caption: '', isViewOnce: true });
-      sentCount++;
-      console.log(`✅ Prévia enviada (${url}) para ${messageFrom}`);
+      try {
+        await client.sendMessage(messageFrom, media, { caption: '', isViewOnce: true });
+        sentCount++;
+        console.log(`✅ Prévia enviada (view once) (${url}) para ${messageFrom}`);
+      } catch (viewOnceError) {
+        console.warn(`⚠️ viewOnce falhou (${url}): ${viewOnceError.message} — tentando envio normal`);
+        try {
+          await client.sendMessage(messageFrom, media);
+          sentCount++;
+          console.log(`✅ Prévia enviada (normal) (${url}) para ${messageFrom}`);
+        } catch (normalError) {
+          console.error(`❌ Falha ao enviar prévia (${url}): ${normalError.message}`);
+        }
+      }
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     if (sentCount === 0) {
       console.error('❌ Nenhuma mídia de prévia pôde ser enviada.');
       isProcessing[messageFrom] = false;
-      return;
+      return false;
     }
 
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -998,9 +1050,11 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
     conversation.push({ role: "assistant", content: response });
     conversation.push({ role: "system", content: 'Foi enviado a amostra gratuita. Não ofereça amostras gratuitas novamente.' });
     isProcessing[messageFrom] = false;
+    return true;
   } catch (error) {
     console.error('Error sending Amostra Gratis:', error.message);
     isProcessing[messageFrom] = false;
+    return false;
   }
 }
 
@@ -1274,11 +1328,11 @@ client.on("message", async (message) => {
             await executePromptActions(client, from, actions);
           } else if (
             wantsPreviewIntent(combinedMessage) &&
-            !hasSentAmostra[from] &&
+            !hasPreviewBeenSent(from) &&
             (loadBotConfig().previewMediaUrls || []).length > 0
           ) {
-            hasSentAmostra[from] = true;
-            await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
+            const ok = await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
+            if (ok) markPreviewSent(from);
           }
         }
       } catch (completionError) {
@@ -1533,7 +1587,7 @@ app.post('/api/prompt', (req, res) => {
         { role: "system", content: customPrompt }
       ];
       hasSentInformacoes[key] = false;
-      hasSentAmostra[key] = false;
+      hasSentAmostra[key] = Boolean(loadPreviewSentStore()[key]);
       hasSentNaoSouFake[key] = false;
     });
 
