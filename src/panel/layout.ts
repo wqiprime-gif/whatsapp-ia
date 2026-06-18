@@ -2,7 +2,7 @@ import { APP_VERSION } from "../version.js";
 import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
-import { brandMarkHtml } from "./brand.js";
+import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
 import { panelSceneScript } from "./panel-scene.js";
 
 export type NavId =
@@ -56,7 +56,8 @@ export function appLayout(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(title)} · BotManager</title>
+  ${FAVICON_LINK}
+  <title>${escapeHtml(title)} · WhatsApp IA</title>
   <style>${globalStyles}</style>
 </head>
 <body>

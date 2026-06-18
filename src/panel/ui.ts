@@ -4,15 +4,13 @@ import type { ActivityItem, BotSalesRank } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
-import { brandMarkHtml } from "./brand.js";
-import { salesChartSvgFromData, messagesChartSvgFromData, leadSourcesBarSvg } from "./charts.js";
+import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
+import { salesChartSvgFromData, messagesChartSvgFromData } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
 import { loginParticlesScript } from "./panel-auth-particles.js";
 import { AI_PROVIDERS, type AIProviderId } from "../lib/ai-providers.js";
-import type { LeadSourceStat } from "../db/events.js";
-import { sourceEmoji, sourceLabel } from "../lib/lead-source.js";
 
 export type DashboardData = {
   stats: {
@@ -25,24 +23,7 @@ export type DashboardData = {
   messagesChart: { day: string; count: number }[];
   activities: ActivityItem[];
   topBots: BotSalesRank[];
-  leadSources: LeadSourceStat[];
 };
-
-export function leadSourcesGridHtml(stats: LeadSourceStat[]) {
-  if (stats.length === 0) {
-    return `<p class="form-hint" style="padding:8px 0">Nenhum lead com origem ainda. Use links <code>?start=tiktok</code> na bio.</p>`;
-  }
-  return `<div class="source-stat-grid">
-    ${stats
-      .map(
-        (s) => `<div class="source-stat">
-        <strong>${s.count}</strong>
-        <span>${sourceEmoji(s.source)} ${escapeHtml(sourceLabel(s.source))}</span>
-      </div>`
-      )
-      .join("")}
-  </div>`;
-}
 
 export function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -129,7 +110,8 @@ export function loginPage(message = "") {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login · BotManager</title>
+  ${FAVICON_LINK}
+  <title>Login · WhatsApp IA</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
@@ -279,14 +261,7 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="dash-analytics-row">
-      <div class="card card-premium">
-        <div class="card-head"><h3>Origem dos leads</h3></div>
-        <div class="card-body" data-live="lead-sources-bars">${leadSourcesBarSvg(
-          data.leadSources.map((s) => ({ source: sourceLabel(s.source), count: s.count }))
-        )}</div>
-        <div class="card-foot"><a href="/leads" class="card-link">Ver leads →</a></div>
-      </div>
+    <div class="dash-analytics-row dash-analytics-row--2">
       <div class="card card-premium">
         <div class="card-head"><h3>Top instâncias</h3></div>
         <div class="card-body" data-live="top-bots">${topProducts(data.topBots)}</div>
@@ -373,7 +348,8 @@ export function registerPage(message = "") {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Criar conta · BotManager</title>
+  ${FAVICON_LINK}
+  <title>Criar conta · WhatsApp IA</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">

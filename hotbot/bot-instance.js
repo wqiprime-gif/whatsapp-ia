@@ -821,7 +821,7 @@ const functionCalls = {
         'oii 😍 que bom te ver por aqui'
       ];
       const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-      await client.sendMessage(messageFrom, greeting);
+      await sendTextHuman(client, messageFrom, greeting);
       return; // Não envia tabela na primeira interação — deixa a conversa fluir
     }
     await sendInformacoes(client, messageFrom, conversation);
@@ -865,7 +865,7 @@ Qual pacote te interessa, amor? 💕
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await client.sendMessage(messageFrom, tabelaPrecos);
+      await sendTextHuman(client, messageFrom, tabelaPrecos);
       console.log(`✅ Tabela de preços enviada para ${messageFrom}`);
 
       const descSistema = pacotesConfig?.descricao_sistema || 'Tabela enviada com 3 pacotes: (1) 50 fotos/vídeos R$9,90 (2) Chamada vídeo 5min R$15,00 (3) Chamada 5min + 50 fotos/vídeos R$20,00';
@@ -898,8 +898,8 @@ Qual pacote te interessa, amor? 💕
         lines.splice(1, 0, `Nome: ${pixRecipientName}`);
       }
       for (const line of lines) {
-        await client.sendMessage(messageFrom, line);
-        await new Promise((r) => setTimeout(r, 1200));
+        await sendTextHuman(client, messageFrom, line);
+        await new Promise((r) => setTimeout(r, 900));
       }
       console.log(`✅ Chave PIX enviada para ${messageFrom}: ${pixKey}`);
       if (conversation) {
@@ -940,7 +940,7 @@ Qual pacote te interessa, amor? 💕
         messageFrom,
         'O lead acabou de enviar um comprovante de pagamento (imagem ou PDF). Diga que recebeu e vai conferir agora, no seu tom.'
       );
-      if (ack) await client.sendMessage(messageFrom, ack);
+      if (ack) await sendTextHuman(client, messageFrom, ack);
 
       const readingMs = Math.floor(Math.random() * (25000 - 8000 + 1) + 8000);
       console.log(`⏳ Conferindo comprovante por ${Math.round(readingMs / 1000)}s...`);
@@ -971,7 +971,7 @@ Qual pacote te interessa, amor? 💕
         messageFrom,
         `O comprovante NÃO foi aprovado. Motivo técnico: ${resultado.reason || 'não confere'}. Peça outro comprovante no seu tom informal, sem soar robótica.`
       );
-      if (reply) await client.sendMessage(messageFrom, reply);
+      if (reply) await sendTextHuman(client, messageFrom, reply);
       return true;
     } catch (error) {
       console.error(`❌ Erro ao processar comprovante: ${error.message}`);
@@ -979,7 +979,7 @@ Qual pacote te interessa, amor? 💕
         messageFrom,
         'Deu erro ao conferir o comprovante. Peça para o lead mandar de novo, no seu tom.'
       );
-      if (errReply) await client.sendMessage(messageFrom, errReply);
+      if (errReply) await sendTextHuman(client, messageFrom, errReply);
       return true;
     }
   }
@@ -1122,7 +1122,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
           messageFrom,
           'Pagamento confirmado! Agradeça com carinho e diga que está liberando o acesso.'
         ));
-      if (approvedText) await client.sendMessage(messageFrom, approvedText);
+      if (approvedText) await sendTextHuman(client, messageFrom, approvedText);
       await sleep(2000);
 
       void panelLog({
@@ -1217,17 +1217,17 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
       }
 
       try {
-        await client.sendMessage(messageFrom, media, { caption: '', isViewOnce: true });
-        sentCount++;
-        console.log(`✅ Prévia enviada (view once) (${url}) para ${messageFrom}`);
+        const sent = await sendMediaWithTyping(client, messageFrom, media, { caption: '', isViewOnce: true });
+        if (sent) {
+          sentCount++;
+          console.log(`✅ Prévia enviada (view once) (${url}) para ${messageFrom}`);
+        }
       } catch (viewOnceError) {
         console.warn(`⚠️ viewOnce falhou (${url}): ${viewOnceError.message} — tentando envio normal`);
-        try {
-          await client.sendMessage(messageFrom, media);
+        const sent = await sendMediaWithTyping(client, messageFrom, media);
+        if (sent) {
           sentCount++;
           console.log(`✅ Prévia enviada (normal) (${url}) para ${messageFrom}`);
-        } catch (normalError) {
-          console.error(`❌ Falha ao enviar prévia (${url}): ${normalError.message}`);
         }
       }
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1247,7 +1247,7 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
       'Você acabou de enviar a prévia/amostra gratuita. Pergunte em 1 frase curta se ele gostou.'
     );
     if (response) {
-      await client.sendMessage(messageFrom, response);
+      await sendTextHuman(client, messageFrom, response);
       console.log(`✅ Resposta pós-prévia para ${messageFrom}`);
     }
     conversation.push({ role: "system", content: 'Foi enviado a amostra gratuita. Não ofereça amostras gratuitas novamente.' });
@@ -1276,7 +1276,7 @@ Vamos fazer? 💕`;
 
       try {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await client.sendMessage(messageFrom, videoMessage);
+        await sendTextHuman(client, messageFrom, videoMessage);
         console.log(`✅ Informação de chamada de vídeo enviada para ${messageFrom}`);
 
         conversation.push({ role: "assistant", content: 'Faço chamada de vídeo privada! 5 minutos por R$ 15,00. Quer fazer?' });
@@ -1577,10 +1577,81 @@ function splitMessages(text) {
 }
 
 const getDelay = (part) => {
-  const delayMin = 5000;
-  const stringLength = (part.length / 60) * delayMin;
+  const delayMin = 3500;
+  const stringLength = (part.length / 50) * delayMin;
   if (stringLength < delayMin) return delayMin;
-  return stringLength;
+  return Math.min(stringLength, 12000);
+};
+
+function humanTypingMs(text) {
+  const len = String(text || '').length;
+  return Math.min(12000, Math.max(1800, len * 48 + 600));
+}
+
+/** Envia texto com indicador "digitando..." proporcional ao tamanho da mensagem. */
+async function sendTextHuman(client, messageFrom, text) {
+  const msg = String(text || '').trim();
+  if (!msg) return false;
+  try {
+    const chat = await client.getChatById(messageFrom);
+    const wait = humanTypingMs(msg);
+    if (chat) {
+      try {
+        await chat.sendStateTyping();
+      } catch (_) {}
+      await new Promise((r) => setTimeout(r, wait));
+      await client.sendMessage(messageFrom, msg);
+      try {
+        await chat.clearState();
+      } catch (_) {}
+    } else {
+      await client.sendMessage(messageFrom, msg);
+    }
+    return true;
+  } catch (error) {
+    console.error(`sendTextHuman: ${error.message}`);
+    try {
+      await client.sendMessage(messageFrom, msg);
+    } catch (_) {}
+    return false;
+  }
+}
+
+async function sendMediaWithTyping(client, messageFrom, media, options = {}) {
+  try {
+    const chat = await client.getChatById(messageFrom);
+    if (chat) {
+      try {
+        await chat.sendStateTyping();
+      } catch (_) {}
+      await new Promise((r) => setTimeout(r, 2200 + Math.random() * 1800));
+    }
+    await client.sendMessage(messageFrom, media, options);
+    if (chat) {
+      try {
+        await chat.clearState();
+      } catch (_) {}
+    }
+    return true;
+  } catch (error) {
+    console.error(`sendMediaWithTyping: ${error.message}`);
+    return false;
+  }
+}
+
+async function sendMessageParts(client, messageFrom, textParts) {
+  try {
+    for (let i = 0; i < textParts.length; i++) {
+      const part = textParts[i];
+      if (!part || part.trim().length === 0) continue;
+      await sendTextHuman(client, messageFrom, part);
+      if (i < textParts.length - 1) {
+        await new Promise((r) => setTimeout(r, 700 + Math.random() * 1100));
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Erro geral em sendMessageParts: ${error.message}`);
+  }
 }
 
 async function transcribeAudio(fileBuffer, ext = 'ogg') {
@@ -1607,53 +1678,6 @@ async function transcribeAudio(fileBuffer, ext = 'ogg') {
   } catch (error) {
     console.error('Erro ao transcrever áudio:', error.response?.data || error.message);
     return null;
-  }
-}
-
-async function sendMessageParts(client, messageFrom, textParts) {
-  try {
-    for (let i = 0; i < textParts.length; i++) {
-      try {
-        const chat = await client.getChatById(messageFrom);
-        if (!chat) {
-          console.error(`❌ Chat não encontrado para ${messageFrom}`);
-          continue;
-        }
-
-        const part = textParts[i];
-        if (!part || part.trim().length === 0) {
-          console.log(`⏭️ Pulando mensagem vazia`);
-          continue;
-        }
-
-        const delay = getDelay(part);
-        await chat.sendStateTyping();
-        await new Promise(resolve => setTimeout(resolve, delay - 1000));
-
-        try {
-          await client.sendMessage(messageFrom, part);
-          console.log(`✅ Parte ${i + 1} enviada para ${messageFrom}`);
-        } catch (sendError) {
-          console.error(`❌ Erro ao enviar parte ${i + 1}: ${sendError.message}`);
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          try {
-            await client.sendMessage(messageFrom, part);
-            console.log(`✅ Parte ${i + 1} reenviada com sucesso para ${messageFrom}`);
-          } catch (retryError) {
-            console.error(`❌ Falha na retentativa para ${messageFrom}: ${retryError.message}`);
-          }
-        }
-
-        await chat.sendStateTyping();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (partError) {
-        console.error(`❌ Erro ao processar parte ${i}: ${partError.message}`);
-        // Continue to next message part instead of crashing
-      }
-    }
-  } catch (error) {
-    console.error(`❌ Erro geral em sendMessageParts: ${error.message}`);
   }
 }
 

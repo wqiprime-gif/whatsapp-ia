@@ -10,7 +10,6 @@ import { useDatabase } from "../db/index.js";
 import {
   dashboardStats,
   getLatestSale,
-  leadSourcesStats,
   listLeads,
   listProducts,
   listReceipts,
@@ -538,8 +537,7 @@ export async function registerPanelRoutes(
         chart: await salesByDay(7, user.id),
         messagesChart: await messagesByDay(7, user.id),
         activities: await listRecentActivity(8, user.id),
-        topBots: await salesRankingByBot(5, user.id),
-        leadSources: await leadSourcesStats(user.id)
+        topBots: await salesRankingByBot(5, user.id)
       },
       query.msg,
       query.t === "err",

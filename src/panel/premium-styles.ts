@@ -633,6 +633,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   gap: 16px;
   margin-bottom: 16px;
 }
+.dash-analytics-row--2 { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 1100px) { .dash-analytics-row { grid-template-columns: 1fr; } }
 
 .src-bars { display: grid; gap: 12px; }
