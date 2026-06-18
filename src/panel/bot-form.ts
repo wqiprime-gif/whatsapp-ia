@@ -8,7 +8,7 @@ import { decryptSecret } from "../lib/crypto.js";
 import { icons } from "./icons.js";
 import { botInitials, escapeHtml } from "./layout.js";
 import { promptTagsSidebar } from "./prompt-tags-block.js";
-import { callhotConfigBlock, promptGeneratorBlock } from "./prompt-generator-block.js";
+import { promptGeneratorBlock } from "./prompt-generator-block.js";
 
 function delayPartsFromMs(ms: number) {
   const totalSec = Math.max(1, Math.round(ms / 1000));
@@ -359,8 +359,6 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
-
-        ${callhotConfigBlock(isEdit, bot)}
 
         ${promptGeneratorBlock()}
 

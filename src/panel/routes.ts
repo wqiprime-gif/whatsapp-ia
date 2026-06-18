@@ -52,7 +52,7 @@ import {
   remarketingPage,
   salesChartSvgFromData
 } from "./pages.js";
-import { messagesChartSvgFromData } from "./charts.js";
+import { messagesChartSvgFromData, sparklineSvg, chartDayValues } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
@@ -217,31 +217,8 @@ const botFormFieldsSchema = z.object({
   metaVerifyToken: z.string().optional(),
   followUpEnabled: z.enum(["true", "false"]).default("true"),
   followUpAfterMinutes: z.coerce.number().min(1).max(180).default(10),
-  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2),
-  callhotEnabled: z.enum(["true", "false"]).default("false"),
-  callhotBaseUrl: z.string().optional(),
-  callhotApiSecret: z.string().optional(),
-  videoCallVideoUrl: z.string().optional(),
-  videoCallPrice: z.coerce.number().min(0).default(15)
+  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2)
 });
-
-function applyCallhotFields(
-  bot: BotConfig,
-  body: z.infer<typeof botFormFieldsSchema>,
-  existing?: BotConfig
-): BotConfig {
-  const secret = body.callhotApiSecret?.trim();
-  return {
-    ...bot,
-    callhotEnabled: body.callhotEnabled === "true",
-    callhotBaseUrl: body.callhotBaseUrl?.trim() || "",
-    videoCallVideoUrl: body.videoCallVideoUrl?.trim() || "",
-    videoCallPriceCents: Math.round((body.videoCallPrice || 15) * 100),
-    callhotApiSecretEncrypted: secret
-      ? encryptSecret(secret)
-      : existing?.callhotApiSecretEncrypted
-  };
-}
 
 function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDelaySeconds: number }) {
   const totalSeconds = input.messageDelayMinutes * 60 + input.messageDelaySeconds;
@@ -607,12 +584,18 @@ export async function registerPanelRoutes(
         salesTotalCents: stats.salesTotalCents,
         salesCount: stats.salesCount,
         messagesToday: stats.messagesToday,
-        activeBots: bots.filter((b) => b.active).length
+        activeBots: bots.filter((b) => b.active).length,
+        convRate:
+          stats.leads > 0
+            ? ((stats.salesCount / stats.leads) * 100).toFixed(1).replace(".", ",")
+            : "0,0"
       },
       activityHtml: activityFeedHtml(activities),
       topBotsHtml: topBotsRankingHtml(topBots),
       chartSvg: salesChartSvgFromData(chart, { tall: true }),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
+      sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),
+      sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#34d399"),
       latestSale: latestSale
         ? { id: latestSale.id, subtitle: latestSale.subtitle }
         : null,
@@ -1000,7 +983,7 @@ export async function registerPanelRoutes(
         },
         body
       );
-      const updated = applyCallhotFields(merged, body, existing);
+      const updated = merged;
       await upsertBot(updated);
       if (botNeedsMotorRestart(existing, updated)) {
         hooks.restartBots();
@@ -1136,8 +1119,7 @@ export async function registerPanelRoutes(
       const botId = randomUUID();
 
       await upsertBot(
-        applyCallhotFields(
-          applyWaFieldsFromForm(
+        applyWaFieldsFromForm(
             {
               id: botId,
               userId: user.id,
@@ -1170,9 +1152,7 @@ export async function registerPanelRoutes(
               followUpMaxPerLead: body.followUpMaxPerLead
             },
             body
-          ),
-          body
-        )
+          )
       );
 
       hooks.restartBots();

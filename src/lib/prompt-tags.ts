@@ -31,11 +31,6 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
     when: "Lead pergunta como funciona a chamada. Explica que é chamada privada no celular após pagamento."
   },
   {
-    tag: "[[send_link_chamada]]",
-    label: "Link da chamada",
-    when: "Depois do pagamento aprovado (pacote chamada/completo). Cria link CallHot e envia ao lead."
-  },
-  {
     tag: "[[naosou_fake]]",
     label: "Prova que é real",
     when: "Lead desconfia de golpe ou fake. Responda com naturalidade no seu tom."

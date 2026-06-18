@@ -59,12 +59,6 @@ export type BotConfig = {
   followUpEnabled?: boolean;
   followUpAfterMinutes?: number;
   followUpMaxPerLead?: number;
-  /** CallHot — chamada de vídeo simulada */
-  callhotEnabled?: boolean;
-  callhotBaseUrl?: string;
-  callhotApiSecretEncrypted?: string;
-  videoCallVideoUrl?: string;
-  videoCallPriceCents?: number;
 };
 
 function parseAudioLibrary(value: unknown): NamedAudio[] {
@@ -137,11 +131,6 @@ function rowToBot(row: {
   follow_up_enabled?: boolean | null;
   follow_up_after_minutes?: number | null;
   follow_up_max_per_lead?: number | null;
-  callhot_enabled?: boolean | null;
-  callhot_base_url?: string | null;
-  callhot_api_secret_encrypted?: string | null;
-  video_call_video_url?: string | null;
-  video_call_price_cents?: number | null;
 }): BotConfig {
   return {
     id: row.id,
@@ -180,12 +169,7 @@ function rowToBot(row: {
     giftItems: parseGiftItems(row.gift_items),
     followUpEnabled: row.follow_up_enabled !== false,
     followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
-    followUpMaxPerLead: row.follow_up_max_per_lead ?? 2,
-    callhotEnabled: Boolean(row.callhot_enabled),
-    callhotBaseUrl: row.callhot_base_url ?? "",
-    callhotApiSecretEncrypted: row.callhot_api_secret_encrypted ?? undefined,
-    videoCallVideoUrl: row.video_call_video_url ?? "",
-    videoCallPriceCents: row.video_call_price_cents ?? 1500
+    followUpMaxPerLead: row.follow_up_max_per_lead ?? 2
   };
 }
 
@@ -194,8 +178,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, prompt, pix_key, pix_recipi
   payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
   gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
-  follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
-  callhot_enabled, callhot_base_url, callhot_api_secret_encrypted, video_call_video_url, video_call_price_cents
+  follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead
   FROM bots`;
 
 /** Carrega bots. Sem userId = todos (runtime Telegram). Com userId = painel do cliente. */
@@ -253,9 +236,8 @@ export async function upsertBot(bot: BotConfig) {
         payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
         gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
-        follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
-        callhot_enabled, callhot_base_url, callhot_api_secret_encrypted, video_call_video_url, video_call_price_cents)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+        follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -286,12 +268,7 @@ export async function upsertBot(bot: BotConfig) {
          meta_verify_token = EXCLUDED.meta_verify_token,
          follow_up_enabled = EXCLUDED.follow_up_enabled,
          follow_up_after_minutes = EXCLUDED.follow_up_after_minutes,
-         follow_up_max_per_lead = EXCLUDED.follow_up_max_per_lead,
-         callhot_enabled = EXCLUDED.callhot_enabled,
-         callhot_base_url = EXCLUDED.callhot_base_url,
-         callhot_api_secret_encrypted = EXCLUDED.callhot_api_secret_encrypted,
-         video_call_video_url = EXCLUDED.video_call_video_url,
-         video_call_price_cents = EXCLUDED.video_call_price_cents`,
+         follow_up_max_per_lead = EXCLUDED.follow_up_max_per_lead`,
       [
         bot.id,
         bot.userId,
@@ -323,12 +300,7 @@ export async function upsertBot(bot: BotConfig) {
         bot.metaVerifyToken ?? "",
         bot.followUpEnabled !== false,
         bot.followUpAfterMinutes ?? 10,
-        bot.followUpMaxPerLead ?? 2,
-        Boolean(bot.callhotEnabled),
-        bot.callhotBaseUrl ?? "",
-        bot.callhotApiSecretEncrypted ?? null,
-        bot.videoCallVideoUrl ?? "",
-        bot.videoCallPriceCents ?? 1500
+        bot.followUpMaxPerLead ?? 2
       ]
     );
     return;

@@ -36,7 +36,6 @@ const envSchema = z.object({
   DATA_DIR: z.string().default(""),
   LARANJINHA_API_BASE: z.string().default("https://laranjinha.digital/api"),
   META_GRAPH_VERSION: z.string().default("v21.0"),
-  CALLHOT_BOT_SECRET: z.string().default(""),
   PUBLIC_BASE_URL: z.string().default("")
 });
 

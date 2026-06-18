@@ -5,7 +5,7 @@ import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-f
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
-import { salesChartSvgFromData, messagesChartSvgFromData } from "./charts.js";
+import { salesChartSvgFromData, messagesChartSvgFromData, sparklineSvg, chartDayValues, kpiTrendLabel } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
@@ -178,15 +178,72 @@ export function dashboardPage(
   const active = bots.filter((b) => b.active).length;
   const previews = bots.reduce((s, b) => s + b.previewMediaUrls.length, 0);
   const salesReais = (data.stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
+  const convRate =
+    data.stats.leads > 0
+      ? ((data.stats.salesCount / data.stats.leads) * 100).toFixed(1).replace(".", ",")
+      : "0,0";
+
+  const salesVals = chartDayValues(data.chart, (p) => p.totalCents / 100);
+  const msgVals = chartDayValues(data.messagesChart, (p) => p.count);
+  const salesTrend = kpiTrendLabel(salesVals);
+  const msgTrend = kpiTrendLabel(msgVals);
+  const leadsTrend = kpiTrendLabel(msgVals.map((v) => Math.round(v * 0.4)));
+  const convTrend = kpiTrendLabel(
+    salesVals.map((v, i) => (msgVals[i] > 0 ? (v > 0 ? 1 : 0) : 0))
+  );
 
   const body = `
     <div class="dash-shell">
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-    <div class="dash-hero-pro">
+
+    <div class="kpi-strip">
+      <div class="kpi-card-pro">
+        <div class="kpi-card-top">
+          <span class="kpi-label">${icons.card} Receita</span>
+          <span class="kpi-trend ${salesTrend.positive ? "positive" : "negative"}">${salesTrend.text}</span>
+        </div>
+        <div class="kpi-value accent" data-live-stat="salesValue">R$ ${salesReais}</div>
+        <div data-live="spark-sales">${sparklineSvg(salesVals)}</div>
+      </div>
+      <div class="kpi-card-pro">
+        <div class="kpi-card-top">
+          <span class="kpi-label">${icons.chat} Mensagens hoje</span>
+          <span class="kpi-trend ${msgTrend.positive ? "positive" : "negative"}">${msgTrend.text}</span>
+        </div>
+        <div class="kpi-value" data-live-stat="messagesTodayVal">${data.stats.messagesToday}</div>
+        <div data-live="spark-messages">${sparklineSvg(msgVals, "#34d399")}</div>
+      </div>
+      <div class="kpi-card-pro">
+        <div class="kpi-card-top">
+          <span class="kpi-label">${icons.users} Leads</span>
+          <span class="kpi-trend ${leadsTrend.positive ? "positive" : "negative"}">${leadsTrend.text}</span>
+        </div>
+        <div class="kpi-value" data-live-stat="leads">${data.stats.leads}</div>
+        <div data-live="spark-leads">${sparklineSvg(msgVals.map((v) => Math.max(0, Math.round(v * 0.35))), "#60a5fa")}</div>
+      </div>
+      <div class="kpi-card-pro">
+        <div class="kpi-card-top">
+          <span class="kpi-label">${icons.sparkles} Conversões</span>
+          <span class="kpi-trend positive" data-live-stat="salesCount">${data.stats.salesCount} venda(s)</span>
+        </div>
+        <div class="kpi-value accent" data-live-stat="salesCountVal">${data.stats.salesCount}</div>
+        <div data-live="spark-sales">${sparklineSvg(salesVals.map((v) => (v > 0 ? 1 : 0)))}</div>
+      </div>
+      <div class="kpi-card-pro">
+        <div class="kpi-card-top">
+          <span class="kpi-label">${icons.layers} Taxa conversão</span>
+          <span class="kpi-trend ${convTrend.positive ? "positive" : "negative"}">${convTrend.text}</span>
+        </div>
+        <div class="kpi-value" data-live-stat="convRate">${convRate}%</div>
+        <div>${sparklineSvg(salesVals, "#a78bfa")}</div>
+      </div>
+    </div>
+
+    <div class="dash-hero-pro dash-hero-compact">
       <div>
-        <p class="eyebrow">Visão geral operacional</p>
-        <h2>Central de operação</h2>
-        <p>Métricas consolidadas das suas instâncias WhatsApp — leads, conversões e remarketing em um único painel.</p>
+        <p class="eyebrow">Operação</p>
+        <h2>Central ZapManager</h2>
+        <p>${active} instância(s) ativa(s) · ${previews} prévia(s) no funil</p>
       </div>
       <div class="dash-hero-actions">
         <a href="/instances/new" class="btn btn-primary">${icons.plus} Nova instância</a>
@@ -215,34 +272,7 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="metrics-bento">
-      <div class="metric-kpi">
-        <div class="stat-icon">${icons.layers}</div>
-        <div class="stat-label">Instâncias ativas</div>
-        <div class="stat-value accent">${active}</div>
-        <div class="stat-delta">${bots.length} cadastrada(s)</div>
-      </div>
-      <div class="metric-kpi">
-        <div class="stat-icon">${icons.users}</div>
-        <div class="stat-label">Leads</div>
-        <div class="stat-value" data-live-stat="leads">${data.stats.leads}</div>
-        <div class="stat-delta" data-live-stat="messagesToday">${data.stats.messagesToday} mensagens hoje</div>
-      </div>
-      <div class="metric-kpi">
-        <div class="stat-icon">${icons.card}</div>
-        <div class="stat-label">Receita confirmada</div>
-        <div class="stat-value accent" data-live-stat="salesValue">R$ ${salesReais}</div>
-        <div class="stat-delta" data-live-stat="salesCount">${data.stats.salesCount} venda(s)</div>
-      </div>
-      <div class="metric-kpi">
-        <div class="stat-icon">${icons.chat}</div>
-        <div class="stat-label">Prévias de mídia</div>
-        <div class="stat-value">${previews}</div>
-        <div class="stat-delta">ativos no funil</div>
-      </div>
-    </div>
-
-    <div class="dash-bento">
+    <div class="dash-bento dash-bento--live">
       <div class="card card-premium card--table">
         <div class="card-head">
           <h3>Suas instâncias</h3>
@@ -255,9 +285,12 @@ export function dashboardPage(
           <a href="/instances" class="card-link">Ver todas →</a>
         </div>
       </div>
-      <div class="card card-premium">
-        <div class="card-head"><h3>Atividades recentes</h3></div>
-        <div class="card-body" data-live="activity-feed">${activityFeed(data.activities)}</div>
+      <div class="card card-premium card-live-feed">
+        <div class="card-head">
+          <h3><span class="live-pulse" aria-hidden="true"></span> Atividade em tempo real</h3>
+          <span class="live-badge">Ao vivo</span>
+        </div>
+        <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
     </div>
 
@@ -316,7 +349,7 @@ export function newInstancePage(
         <div>
           <p class="page-eyebrow">Instâncias</p>
           <h2 class="page-form-title">Nova instância</h2>
-          <p class="page-form-desc">Configure persona, Pix, entrega automática, CallHot e prompt da IA.</p>
+          <p class="page-form-desc">Configure persona, Pix, entrega automática e prompt da IA.</p>
         </div>
         <a href="/instances" class="btn btn-ghost btn-sm">← Voltar</a>
       </div>

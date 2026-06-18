@@ -255,20 +255,30 @@ export const panelClientScript = `
       document.querySelectorAll("[data-live-stat]").forEach((el) => {
         const key = el.getAttribute("data-live-stat");
         if (key === "leads") el.textContent = String(stats.leads);
-        if (key === "messagesToday") el.textContent = stats.messagesToday + " hoje";
+        if (key === "messagesTodayVal") el.textContent = String(stats.messagesToday);
         if (key === "salesValue") el.textContent = money(stats.salesTotalCents);
         if (key === "salesCount") el.textContent = stats.salesCount + " venda(s)";
+        if (key === "salesCountVal") el.textContent = String(stats.salesCount);
+        if (key === "convRate") el.textContent = (stats.convRate || "0,0") + "%";
         if (key === "activeBots") el.textContent = String(stats.activeBots);
       });
     }
     const feed = document.querySelector("[data-live=activity-feed]");
-    if (feed && data.activityHtml) feed.innerHTML = data.activityHtml;
+    if (feed && data.activityHtml) {
+      feed.innerHTML = data.activityHtml;
+      feed.classList.add("activity-feed-flash");
+      setTimeout(() => feed.classList.remove("activity-feed-flash"), 600);
+    }
     const top = document.querySelector("[data-live=top-bots]");
     if (top && data.topBotsHtml) top.innerHTML = data.topBotsHtml;
     const chart = document.querySelector("[data-live=sales-chart]");
     if (chart && data.chartSvg) chart.innerHTML = data.chartSvg;
     const msgChart = document.querySelector("[data-live=messages-chart]");
     if (msgChart && data.messagesChartSvg) msgChart.innerHTML = data.messagesChartSvg;
+    const sparkSales = document.querySelector("[data-live=spark-sales]");
+    if (sparkSales && data.sparkSalesHtml) sparkSales.innerHTML = data.sparkSalesHtml;
+    const sparkMessages = document.querySelector("[data-live=spark-messages]");
+    if (sparkMessages && data.sparkMessagesHtml) sparkMessages.innerHTML = data.sparkMessagesHtml;
     if (data.bellSales) updateBellMenu(data.bellSales);
 
     const latest = data.latestSale;
@@ -307,6 +317,32 @@ export const panelClientScript = `
   setInterval(() => {
     if (document.hidden || location.pathname !== "/") return;
     refreshLive(true);
-  }, 15000);
+  }, 8000);
+
+  function bindGlobalSearch() {
+    const input = document.getElementById("panel-global-search");
+    if (!input) return;
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const q = input.value.trim().toLowerCase();
+      if (!q) return;
+      e.preventDefault();
+      const navHit = NAV_PATHS.find(([, label]) => label.toLowerCase().includes(q));
+      if (navHit) {
+        loadPage(navHit[0]);
+        return;
+      }
+      if (/^\\d|@|lead/.test(q)) loadPage("/leads?q=" + encodeURIComponent(input.value.trim()));
+      else loadPage("/instances?q=" + encodeURIComponent(input.value.trim()));
+    });
+  }
+  bindGlobalSearch();
 })();
 </script>`;

@@ -103,6 +103,19 @@ export function appLayout(
           <h1>${escapeHtml(title)}</h1>
           ${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}
         </div>
+        <div class="topbar-center">
+          <div class="topbar-search-wrap">
+            <span class="topbar-search-icon" aria-hidden="true">${icons.search}</span>
+            <input
+              type="search"
+              id="panel-global-search"
+              class="topbar-search"
+              placeholder="Buscar leads, instâncias, campanhas..."
+              autocomplete="off"
+            />
+            <kbd class="topbar-kbd">Ctrl K</kbd>
+          </div>
+        </div>
         <div class="topbar-right">
           <div class="bell-wrap">
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>

@@ -1,3 +1,54 @@
+export function chartDayValues<T extends { day: string }>(
+  points: T[],
+  pick: (p: T) => number
+): number[] {
+  const days: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days.map((day) => {
+    const hit = points.find((p) => p.day === day);
+    return hit ? pick(hit) : 0;
+  });
+}
+
+export function kpiTrendLabel(values: number[]) {
+  if (values.length < 2) return { text: "—", positive: true };
+  const last = values[values.length - 1] ?? 0;
+  const prev = values[values.length - 2] ?? 0;
+  if (prev === 0 && last === 0) return { text: "0%", positive: true };
+  const pct = prev === 0 ? 100 : Math.round(((last - prev) / prev) * 100);
+  return { text: `${pct >= 0 ? "+" : ""}${pct}%`, positive: pct >= 0 };
+}
+
+export function sparklineSvg(values: number[], color = "#25D366") {
+  if (values.length === 0) values = [0, 0];
+  const gid = `sp${Math.random().toString(36).slice(2, 9)}`;
+  const w = 112;
+  const h = 36;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const coords = values.map((v, i) => {
+    const x = (i / Math.max(values.length - 1, 1)) * w;
+    const y = h - 4 - ((v - min) / range) * (h - 8);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const area = `M0,${h} L${coords.join(" L")} L${w},${h} Z`;
+  return `<svg class="kpi-sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#${gid})"/>
+    <polyline points="${coords.join(" ")}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
 export function salesChartSvgFromData(points: { day: string; totalCents: number }[], opts?: { title?: string; tall?: boolean }) {
   const days: string[] = [];
   for (let i = 6; i >= 0; i--) {

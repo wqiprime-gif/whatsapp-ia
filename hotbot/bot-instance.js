@@ -218,52 +218,6 @@ async function sendDeliveryMedia(client, messageFrom) {
   return sentCount;
 }
 
-async function createCallHotLink(messageFrom, amountCents) {
-  const config = loadBotConfig();
-  if (!config.callhotEnabled || !config.callhotBaseUrl || !config.videoCallVideoUrl) return null;
-  const secret = config.callhotApiSecret || process.env.CALLHOT_BOT_SECRET;
-  if (!secret) {
-    console.warn('⚠️ CallHot: secret não configurado');
-    return null;
-  }
-  const base = String(config.callhotBaseUrl).replace(/\/$/, '');
-  try {
-    const res = await axios.post(
-      `${base}/api/bot/create-call`,
-      {
-        videoUrl: config.videoCallVideoUrl,
-        callerName: modelName,
-        title: String(messageFrom).replace('@c.us', ''),
-        expectedAmount: amountCents ? amountCents / 100 : (config.videoCallPriceCents || 1500) / 100
-      },
-      { headers: { 'content-type': 'application/json', 'x-callhot-secret': secret }, timeout: 20000 }
-    );
-    const data = res.data || {};
-    if (data.fullRingUrl) return data.fullRingUrl;
-    if (data.ringUrl) return data.ringUrl.startsWith('http') ? data.ringUrl : `${base}${data.ringUrl}`;
-    return null;
-  } catch (error) {
-    console.error('❌ CallHot create-call:', error.response?.data || error.message);
-    return null;
-  }
-}
-
-async function sendCallHotLink(client, messageFrom, conversation, amountCents) {
-  const link = await createCallHotLink(messageFrom, amountCents);
-  if (!link) return false;
-  const intro = await generatePersonaReply(
-    messageFrom,
-    'Convide o lead para a chamada privada com carinho e mande o link. Uma frase curta + link.'
-  );
-  const msg = intro ? `${intro}\n\n📹 ${link}` : `Amor, sua chamada tá aqui 😘\n\n📹 ${link}`;
-  await sendTextHuman(client, messageFrom, msg);
-  if (conversation) {
-    conversation.push({ role: 'assistant', content: msg });
-    conversation.push({ role: 'system', content: `Link CallHot enviado: ${link}` });
-  }
-  return true;
-}
-
 // Audio files with absolute paths
 const audioFiles = {
   saudacao: path.join(__dirname, 'saudacao.mp3'),
@@ -330,7 +284,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, callhotEnabled: false, callhotBaseUrl: '', callhotApiSecret: '', videoCallVideoUrl: '', videoCallPriceCents: 1500 };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2 };
 }
 
 /** Pausa entre mensagens / antes de responder — vem do painel (messageDelayMs). */
@@ -715,7 +669,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|send_link_chamada|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 function parsePromptActions(text) {
   const actions = [];
@@ -806,8 +760,6 @@ async function executePromptActions(client, messageFrom, actions) {
       await functionCalls.naosou_fake(client, messageFrom, conversation);
     } else if (action === 'chamada_video') {
       await functionCalls.chamada_video(client, messageFrom, conversation);
-    } else if (action === 'send_link_chamada') {
-      await sendCallHotLink(client, messageFrom, conversation, null);
     } else if (action === 'send_chave_pix') {
       await functionCalls.send_chave_pix(client, messageFrom, conversation);
     } else if (action === 'ignorar_lead') {
@@ -1319,16 +1271,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       }
 
       const pacote = await detectarPacote(messageFrom);
-      const needsVideoCall = pacote === 'chamada' || pacote === 'completo';
-      if (needsVideoCall && config.callhotEnabled) {
-        const callOk = await sendCallHotLink(
-          client,
-          messageFrom,
-          getUserConversation(messageFrom),
-          config.videoCallPriceCents || 1500
-        );
-        if (callOk) console.log('   📹 Link CallHot enviado ao lead');
-      } else if (!productLink && delivered === 0) {
+      if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
         const linkChamada = process.env.LINK_CHAMADA || '';
         const linkCompleto = process.env.LINK_COMPLETO || '';

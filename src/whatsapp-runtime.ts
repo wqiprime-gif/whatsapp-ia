@@ -119,13 +119,6 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         followUpEnabled: bot.followUpEnabled !== false,
         followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,
         followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
-        callhotEnabled: Boolean(bot.callhotEnabled),
-        callhotBaseUrl: bot.callhotBaseUrl ?? "",
-        callhotApiSecret: bot.callhotApiSecretEncrypted
-          ? decryptSecret(bot.callhotApiSecretEncrypted)
-          : env.CALLHOT_BOT_SECRET || "",
-        videoCallVideoUrl: bot.videoCallVideoUrl ?? "",
-        videoCallPriceCents: bot.videoCallPriceCents ?? 1500,
         updatedAt: new Date().toISOString()
       },
       null,
