@@ -4,9 +4,10 @@ import { sourceEmoji, sourceLabel } from "../lib/lead-source.js";
 import { alertHtml, appLayout, escapeHtml, type NavId } from "./layout.js";
 import { icons } from "./icons.js";
 
-function wrap(title: string, nav: NavId, body: string, partial?: boolean) {
+function wrap(title: string, nav: NavId, body: string, partial?: boolean, subtitle = "") {
   if (partial) return `${body}`;
-  return appLayout(title, nav, body);
+  const shell = `<div class="page-shell">${body}</div>`;
+  return appLayout(title, nav, shell, false, "Usuario", subtitle);
 }
 
 function formatMoney(cents: number) {
@@ -39,8 +40,8 @@ export function leadsPage(rows: Record<string, unknown>[], partial?: boolean) {
         .join("")}
       </tbody></table>`;
 
-  const body = `<div class="card"><div class="card-head"><h3>${icons.users} Leads (${rows.length})</h3></div><div class="card-body" style="padding:0">${list}</div></div>`;
-  return wrap("Leads", "leads", body.replaceAll("<div", "<div").replaceAll("</div>", "</div>"), partial);
+  const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.users} Leads (${rows.length})</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
+  return wrap("Leads", "leads", body, partial, "Todos os contatos do funil");
 }
 
 export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean) {
@@ -62,8 +63,8 @@ export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean)
         .join("")}
       </tbody></table>`;
 
-  const body = `<div class="card"><div class="card-head"><h3>${icons.card} Comprovantes / Pagamentos</h3></div><div class="card-body" style="padding:0">${list}</div></div>`;
-  return wrap("Pagamentos", "payments", body.replaceAll("<div", "<div").replaceAll("</div>", "</div>"), partial);
+  const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.card} Comprovantes / Pagamentos</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
+  return wrap("Pagamentos", "payments", body, partial, "Comprovantes e aprovações");
 }
 
 export function productsPage(
@@ -74,15 +75,18 @@ export function productsPage(
 ) {
   const body = `
     ${message ? alertHtml(message) : ""}
-    <div class="card card-accent-gold" style="margin-bottom:16px">
+    <div class="card card-premium card-accent-gold" style="margin-bottom:16px">
       <div class="card-body" style="font-size:0.88rem;color:var(--text-2);line-height:1.6">
-        <strong>Sincronizado com o prompt.</strong> Ao salvar a instância, os pacotes com preço (R$) no prompt aparecem aqui automaticamente.
-        Ative <strong>Oferta 50%</strong> para o bot oferecer metade do valor quando o lead disser que não consegue pagar.
+        <strong>Sincronizado com o prompt.</strong> Pacotes com <code>R$</code> no prompt da instância aparecem aqui automaticamente.
+        Exemplo no prompt: <code>Pacote Básico: 50 fotos - R$ 9,90</code>
+        <form method="post" action="/products/sync" style="margin-top:12px">
+          <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh} Sincronizar do prompt agora</button>
+        </form>
       </div>
     </div>
-    <div class="grid-2">
+    <div class="grid-2 page-grid">
       <div class="card card-premium">
-        <div class="card-head"><h3>Novo produto</h3></div>
+        <div class="card-head"><h3>${icons.plus} Adicionar manualmente</h3></div>
         <div class="card-body">
           <form method="post" action="/products">
             <label class="field">Instância<select name="botId" required>
@@ -102,12 +106,12 @@ export function productsPage(
         </div>
       </div>
       <div class="card card-premium">
-        <div class="card-head"><h3>Produtos (${products.length})</h3></div>
+        <div class="card-head"><h3>${icons.box} Produtos do prompt (${products.length})</h3></div>
         <div class="card-body" style="padding:0">
           ${
             products.length === 0
-              ? `<div class="empty">Cadastre produtos por instância.</div>`
-              : `<table class="table"><thead><tr><th>Produto</th><th>Bot</th><th>Preço</th><th>50%</th></tr></thead><tbody>
+              ? `<div class="empty">Nenhum produto ainda.<br/><small>Salve a instância com pacotes no prompt ou clique em Sincronizar.</small></div>`
+              : `<table class="table table-pro"><thead><tr><th>Produto</th><th>Instância</th><th>Preço</th><th>Oferta 50%</th></tr></thead><tbody>
               ${products
                 .map(
                   (p) => `<tr>
@@ -124,7 +128,7 @@ export function productsPage(
       </div>
     </div>`;
 
-  return wrap("Produtos", "products", body, partial);
+  return wrap("Produtos", "products", body, partial, "Catálogo sincronizado com o prompt");
 }
 
 function remarketingBlocksScript() {
@@ -410,8 +414,8 @@ export function mediaPage(bots: BotConfig[], partial?: boolean) {
         .join("")}
       </tbody></table>`;
 
-  const body = `<div class="card"><div class="card-head"><h3>${icons.image} Midias (upload)</h3></div><div class="card-body" style="padding:0">${list}</div></div>`;
-  return wrap("Mídias", "media", body.replaceAll("<div", "<div").replaceAll("</div>", "</div>"), partial);
+  const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.image} Midias (upload)</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
+  return wrap("Mídias", "media", body, partial, "Arquivos enviados pelo painel");
 }
 
 export { salesChartSvgFromData, messagesChartSvgFromData, leadSourcesBarSvg } from "./charts.js";

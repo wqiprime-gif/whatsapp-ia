@@ -19,7 +19,8 @@ import {
   messagesByDay,
   salesRankingByBot,
   saveProduct,
-  syncProductsFromPrompt
+  syncProductsFromPrompt,
+  syncAllProductsFromBots
 } from "../db/events.js";
 import {
   deleteBot,
@@ -867,6 +868,10 @@ export async function registerPanelRoutes(
     if (!user) return;
     const query = z.object({ msg: z.string().optional() }).parse(request.query);
     const bots = await loadBots(user.id);
+    if (bots.length > 0) {
+      await syncAllProductsFromBots(bots.map((b) => ({ id: b.id, prompt: b.prompt })));
+      hooks.syncBots();
+    }
     const html = productsPage(
       bots,
       await rowsForUser(await listProducts(), user.id),
@@ -874,6 +879,23 @@ export async function registerPanelRoutes(
       isPartial(request)
     );
     return reply.type("text/html").send(html);
+  });
+
+  app.post("/products/sync", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const bots = await loadBots(user.id);
+      const n = await syncAllProductsFromBots(bots.map((b) => ({ id: b.id, prompt: b.prompt })));
+      hooks.syncBots();
+      const msg =
+        n > 0
+          ? `${n} produto(s) sincronizado(s) do prompt!`
+          : "Nenhum pacote com R$ encontrado no prompt. Confira a seção Pacotes.";
+      return reply.redirect(flashRedirect("/products", msg, n > 0 ? undefined : "err"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/products", `Erro: ${errorMessage(error)}`, "err"));
+    }
   });
 
   app.post("/products", async (request, reply) => {

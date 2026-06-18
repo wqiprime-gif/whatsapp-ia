@@ -963,6 +963,14 @@ export async function dashboardStats(userId?: string) {
   };
 }
 
+export async function syncAllProductsFromBots(bots: { id: string; prompt: string }[]) {
+  let total = 0;
+  for (const bot of bots) {
+    total += await syncProductsFromPrompt(bot.id, bot.prompt);
+  }
+  return total;
+}
+
 export async function syncProductsFromPrompt(botId: string, prompt: string) {
   const { parseProductsFromPrompt } = await import("../lib/parse-prompt-products.js");
   const items = parseProductsFromPrompt(prompt);

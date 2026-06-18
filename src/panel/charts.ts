@@ -174,7 +174,7 @@ export function messagesChartSvgFromData(points: { day: string; count: number }[
     .join("");
 
   return `<div class="chart-pro">
-    <svg class="chart-svg chart-svg--pro" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="none">
+    <svg class="chart-svg chart-svg--pro chart-svg--bars" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="xMidYMid meet">
       ${bars}
       ${labels}
     </svg>

@@ -239,18 +239,6 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="dash-hero-pro dash-hero-compact">
-      <div>
-        <p class="eyebrow">Operação</p>
-        <h2>Central ZapManager</h2>
-        <p>${active} instância(s) ativa(s) · ${previews} prévia(s) no funil</p>
-      </div>
-      <div class="dash-hero-actions">
-        <a href="/instances/new" class="btn btn-primary">${icons.plus} Nova instância</a>
-        <a href="/remarketing" class="btn btn-secondary">${icons.megaphone} Remarketing</a>
-      </div>
-    </div>
-
     <div class="dash-charts-hero dash-charts-hero--3">
       <div class="card card-premium chart-card-pro chart-card-pro--wide">
         <div class="card-head">
@@ -275,29 +263,20 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="dash-charts-secondary">
-      <div class="card card-premium chart-card-pro">
+    <div class="dash-bottom-pro">
+      <div class="card card-premium card--table dash-table-card">
         <div class="card-head">
-          <h3>${icons.chat} Mensagens — 7 dias</h3>
-          <span class="chart-badge" data-live-stat="messagesToday">${data.stats.messagesToday} hoje</span>
-        </div>
-        <div class="card-body chart-wrap" data-live="messages-chart">
-          ${messagesChartSvgFromData(data.messagesChart)}
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-bento dash-bento--live">
-      <div class="card card-premium card--table">
-        <div class="card-head">
-          <h3>Suas instâncias</h3>
-          <form method="post" action="/restart" style="display:inline">
-            <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh} Reiniciar</button>
-          </form>
+          <h3>${icons.layers} Suas instâncias</h3>
+          <div class="card-head-actions">
+            <a href="/instances/new" class="btn btn-primary btn-sm">${icons.plus} Nova</a>
+            <form method="post" action="/restart" style="display:inline">
+              <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh}</button>
+            </form>
+          </div>
         </div>
         <div class="card-body card-body--flush">${instancesTableHtml(bots, statuses)}</div>
         <div class="card-foot">
-          <a href="/instances" class="card-link">Ver todas →</a>
+          <a href="/instances" class="card-link">Gerenciar instâncias →</a>
         </div>
       </div>
       <div class="card card-premium card-live-feed">
@@ -307,6 +286,14 @@ export function dashboardPage(
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
+    </div>
+
+    <div class="dash-status-bar" aria-label="Status da operação">
+      <div class="dash-status-item dash-status-item--ok"><span class="dash-status-dot"></span> Sistemas operacionais</div>
+      <div class="dash-status-item">Mensagens hoje: <strong data-live-stat="messagesToday">${data.stats.messagesToday}</strong></div>
+      <div class="dash-status-item">Leads: <strong data-live-stat="leads">${data.stats.leads}</strong></div>
+      <div class="dash-status-item">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong></div>
+      <div class="dash-status-item">Receita: <strong data-live-stat="salesValue">R$ ${salesReais}</strong></div>
     </div>
     </div>`;
 

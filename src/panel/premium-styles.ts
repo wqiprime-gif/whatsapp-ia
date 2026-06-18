@@ -845,4 +845,44 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .funnel-stage strong { color: #fff; font-size: 1.1rem; }
 .funnel-stage em { color: var(--green-bright); font-style: normal; font-weight: 700; }
 .settings-single { max-width: 560px; }
+
+.page-shell { max-width: 100%; }
+.page-grid { gap: 20px; }
+.table-pro th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.table-pro td { font-size: 0.88rem; }
+
+.dash-bottom-pro {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 20px;
+  margin-bottom: 16px;
+  align-items: stretch;
+}
+@media (max-width: 1100px) { .dash-bottom-pro { grid-template-columns: 1fr; } }
+.dash-table-card { min-height: 320px; }
+.card-head-actions { display: flex; gap: 8px; align-items: center; }
+.dash-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  padding: 14px 20px;
+  border-radius: 14px;
+  background: rgba(6, 10, 18, 0.9);
+  border: 1px solid rgba(37, 211, 102, 0.15);
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.dash-status-item strong { color: #fff; font-weight: 700; }
+.dash-status-item--ok { color: var(--green-bright); font-weight: 600; }
+.dash-status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green-bright);
+  box-shadow: 0 0 10px rgba(37, 211, 102, 0.8);
+  margin-right: 6px;
+  animation: live-pulse-dot 2s ease-in-out infinite;
+}
+.chart-svg--bars { width: 100%; height: auto; max-height: 200px; display: block; }
 `;
