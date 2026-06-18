@@ -1,5 +1,6 @@
 import OpenAI from "openai";
-import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId } from "./ai-providers.js";
+import { AI_PROVIDERS, normalizeAIProvider, openRouterDefaultHeaders, type AIProviderId } from "./ai-providers.js";
+import { env } from "../config.js";
 import { getAIProvider, getOpenAIApiKey, getOpenAIModel } from "./settings.js";
 
 type ChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
@@ -62,7 +63,8 @@ export async function createChatCompletion(userId: string, params: Omit<ChatPara
   const cfg = AI_PROVIDERS[provider];
   const client = new OpenAI({
     apiKey,
-    baseURL: cfg.baseURL
+    baseURL: cfg.baseURL,
+    defaultHeaders: provider === "openrouter" ? openRouterDefaultHeaders(env.PUBLIC_BASE_URL) : undefined
   });
   return client.chat.completions.create(fullParams);
 }
@@ -82,5 +84,9 @@ export async function getOpenAIClient(userId: string, provider?: AIProviderId) {
   }
 
   const cfg = AI_PROVIDERS[p];
-  return new OpenAI({ apiKey, baseURL: cfg.baseURL });
+  return new OpenAI({
+    apiKey,
+    baseURL: cfg.baseURL,
+    defaultHeaders: p === "openrouter" ? openRouterDefaultHeaders(env.PUBLIC_BASE_URL) : undefined
+  });
 }

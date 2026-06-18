@@ -112,6 +112,9 @@ export async function getOpenAIApiKey(userId: string): Promise<string> {
   if (settings.openaiApiKeyEncrypted) {
     return decryptSecret(settings.openaiApiKeyEncrypted);
   }
+  if (settings.aiProvider === "openrouter" && env.OPENROUTER_API_KEY) {
+    return env.OPENROUTER_API_KEY;
+  }
   if (env.OPENAI_API_KEY) {
     return env.OPENAI_API_KEY;
   }

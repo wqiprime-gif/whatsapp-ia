@@ -10,7 +10,7 @@ import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
 import { loginParticlesScript } from "./panel-auth-particles.js";
-import { AI_PROVIDERS, type AIProviderId } from "../lib/ai-providers.js";
+import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, type AIProviderId } from "../lib/ai-providers.js";
 
 export type DashboardData = {
   stats: {
@@ -442,6 +442,22 @@ export function settingsPage(
     )
     .join("");
   const hint = AI_PROVIDERS[input.provider]?.keyHint ?? "sk-...";
+  const freeModelOptions =
+    input.provider === "openrouter"
+      ? OPENROUTER_FREE_MODELS.map(
+          (m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`
+        ).join("")
+      : "";
+  const modelField =
+    input.provider === "openrouter"
+      ? `<label class="field">Modelo (grátis no OpenRouter)
+              <input name="openaiModel" list="openrouter-models" value="${escapeHtml(input.model)}" placeholder="openrouter/free" />
+              <datalist id="openrouter-models">${freeModelOptions}</datalist>
+              <span class="form-hint">Crie conta em <a href="https://openrouter.ai/" target="_blank" rel="noopener">openrouter.ai</a> e use API Key <code>sk-or-v1-...</code>. Modelos com <code>:free</code> não cobram créditos.</span>
+            </label>`
+      : `<label class="field">Modelo
+              <input name="openaiModel" value="${escapeHtml(input.model)}" placeholder="${escapeHtml(AI_PROVIDERS[input.provider].defaultModel)}" />
+            </label>`;
 
   const body = `
     ${input.message ? alertHtml(input.message, input.messageIsError ? "error" : "success") : ""}
@@ -463,12 +479,10 @@ export function settingsPage(
               <input name="openaiApiKey" type="password" placeholder="${escapeHtml(hint)}" autocomplete="new-password" />
               <small style="color:var(--muted)">Deixe vazio para manter a chave atual.</small>
             </label>
-            <label class="field">Modelo
-              <input name="openaiModel" value="${escapeHtml(input.model)}" placeholder="${escapeHtml(AI_PROVIDERS[input.provider].defaultModel)}" />
-            </label>
+            ${modelField}
             <button type="submit" class="btn btn-primary btn-block">Salvar configurações</button>
           </form>
-          <p class="form-hint" style="margin-top:14px">Suporta OpenAI, DeepSeek, Google Gemini e Anthropic Claude.</p>
+          <p class="form-hint" style="margin-top:14px">OpenRouter, OpenAI, DeepSeek, Gemini e Claude. Para IA grátis use <strong>OpenRouter</strong> + modelos <code>:free</code>.</p>
         </div>
       </div>
       <div class="card">

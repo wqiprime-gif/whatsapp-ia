@@ -15,6 +15,7 @@ if (!isRailway) {
 
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().default(""),
+  OPENROUTER_API_KEY: z.string().default(""),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   PANEL_PASSWORD: z.string().min(6).default("troque-essa-senha"),
   ADMIN_EMAIL: z.string().email().optional(),
@@ -35,6 +36,7 @@ const envSchema = z.object({
   DATA_DIR: z.string().default(""),
   LARANJINHA_API_BASE: z.string().default("https://laranjinha.digital/api"),
   META_GRAPH_VERSION: z.string().default("v21.0"),
+  CALLHOT_BOT_SECRET: z.string().default(""),
   PUBLIC_BASE_URL: z.string().default("")
 });
 

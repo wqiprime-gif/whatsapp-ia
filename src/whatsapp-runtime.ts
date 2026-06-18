@@ -7,7 +7,8 @@ import { env, rootDir } from "./config.js";
 import { decryptSecret } from "./lib/crypto.js";
 import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
 import { puppeteerProxyArgs } from "./lib/wa-proxy.js";
-import { getOpenAIApiKey } from "./lib/settings.js";
+import { AI_PROVIDERS } from "./lib/ai-providers.js";
+import { getAIProvider, getOpenAIModel, getOpenAIApiKey } from "./lib/settings.js";
 
 const hotbotDir = path.join(rootDir, "hotbot");
 const instancesDir = path.join(env.DATA_DIR, "wa-instances");
@@ -118,6 +119,13 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         followUpEnabled: bot.followUpEnabled !== false,
         followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,
         followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
+        callhotEnabled: Boolean(bot.callhotEnabled),
+        callhotBaseUrl: bot.callhotBaseUrl ?? "",
+        callhotApiSecret: bot.callhotApiSecretEncrypted
+          ? decryptSecret(bot.callhotApiSecretEncrypted)
+          : env.CALLHOT_BOT_SECRET || "",
+        videoCallVideoUrl: bot.videoCallVideoUrl ?? "",
+        videoCallPriceCents: bot.videoCallPriceCents ?? 1500,
         updatedAt: new Date().toISOString()
       },
       null,
@@ -129,14 +137,21 @@ async function syncBotFiles(bot: BotConfig, port: number) {
 async function spawnWebBot(bot: BotConfig, port: number) {
   await syncBotFiles(bot, port);
 
-  const apiKey = await getOpenAIApiKey(bot.userId).catch(() => env.OPENAI_API_KEY);
+  const apiKey = await getOpenAIApiKey(bot.userId).catch(() => env.OPENAI_API_KEY || env.OPENROUTER_API_KEY);
+  const provider = await getAIProvider(bot.userId).catch(() => "openai" as const);
+  const model = await getOpenAIModel(bot.userId).catch(() => env.OPENAI_MODEL);
+  const providerCfg = AI_PROVIDERS[provider];
   const proxyUrl = proxyUrlForBot(bot);
   const instDir = instanceDataDir(bot.id);
   await fs.mkdir(instDir, { recursive: true });
 
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    OPENAI_API_KEY: apiKey || process.env.OPENAI_API_KEY || "",
+    OPENAI_API_KEY: apiKey || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY || "",
+    AI_MODEL: model,
+    AI_PROVIDER: provider,
+    AI_BASE_URL: providerCfg.baseURL || "",
+    OPENROUTER_HTTP_REFERER: env.PUBLIC_BASE_URL || "https://zapmanager.app",
     PANEL_URL: `http://127.0.0.1:${env.PORT}`,
     INTERNAL_SECRET: env.INTERNAL_SECRET,
     BOT_ID: bot.id,

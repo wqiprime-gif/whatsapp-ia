@@ -686,7 +686,17 @@ button, input, textarea, select { font-family: inherit; }
   font-size: 0.75rem;
   color: var(--muted);
 }
-.instance-form-card { max-width: none; }
+.prompt-gen-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.prompt-gen-grid .span-2 { grid-column: span 2; }
+@media (max-width: 700px) {
+  .prompt-gen-grid { grid-template-columns: 1fr; }
+  .prompt-gen-grid .span-2 { grid-column: span 1; }
+}
 .instance-form-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);

@@ -218,6 +218,52 @@ async function sendDeliveryMedia(client, messageFrom) {
   return sentCount;
 }
 
+async function createCallHotLink(messageFrom, amountCents) {
+  const config = loadBotConfig();
+  if (!config.callhotEnabled || !config.callhotBaseUrl || !config.videoCallVideoUrl) return null;
+  const secret = config.callhotApiSecret || process.env.CALLHOT_BOT_SECRET;
+  if (!secret) {
+    console.warn('⚠️ CallHot: secret não configurado');
+    return null;
+  }
+  const base = String(config.callhotBaseUrl).replace(/\/$/, '');
+  try {
+    const res = await axios.post(
+      `${base}/api/bot/create-call`,
+      {
+        videoUrl: config.videoCallVideoUrl,
+        callerName: modelName,
+        title: String(messageFrom).replace('@c.us', ''),
+        expectedAmount: amountCents ? amountCents / 100 : (config.videoCallPriceCents || 1500) / 100
+      },
+      { headers: { 'content-type': 'application/json', 'x-callhot-secret': secret }, timeout: 20000 }
+    );
+    const data = res.data || {};
+    if (data.fullRingUrl) return data.fullRingUrl;
+    if (data.ringUrl) return data.ringUrl.startsWith('http') ? data.ringUrl : `${base}${data.ringUrl}`;
+    return null;
+  } catch (error) {
+    console.error('❌ CallHot create-call:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+async function sendCallHotLink(client, messageFrom, conversation, amountCents) {
+  const link = await createCallHotLink(messageFrom, amountCents);
+  if (!link) return false;
+  const intro = await generatePersonaReply(
+    messageFrom,
+    'Convide o lead para a chamada privada com carinho e mande o link. Uma frase curta + link.'
+  );
+  const msg = intro ? `${intro}\n\n📹 ${link}` : `Amor, sua chamada tá aqui 😘\n\n📹 ${link}`;
+  await sendTextHuman(client, messageFrom, msg);
+  if (conversation) {
+    conversation.push({ role: 'assistant', content: msg });
+    conversation.push({ role: 'system', content: `Link CallHot enviado: ${link}` });
+  }
+  return true;
+}
+
 // Audio files with absolute paths
 const audioFiles = {
   saudacao: path.join(__dirname, 'saudacao.mp3'),
@@ -284,7 +330,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2 };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, callhotEnabled: false, callhotBaseUrl: '', callhotApiSecret: '', videoCallVideoUrl: '', videoCallPriceCents: 1500 };
 }
 
 /** Pausa entre mensagens / antes de responder — vem do painel (messageDelayMs). */
@@ -599,16 +645,25 @@ client.initialize().catch((error) => {
 });
 
 const openAiApiKey = process.env.OPENAI_API_KEY;
-const openai = new OpenAI({
-  apiKey: openAiApiKey,
-});
+const aiModel = () => process.env.AI_MODEL || 'gpt-4o-mini';
+const openaiOpts = { apiKey: openAiApiKey };
+if (process.env.AI_BASE_URL) {
+  openaiOpts.baseURL = process.env.AI_BASE_URL;
+  if (process.env.AI_PROVIDER === 'openrouter') {
+    openaiOpts.defaultHeaders = {
+      'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app',
+      'X-Title': 'ZapManager'
+    };
+  }
+}
+const openai = new OpenAI(openaiOpts);
 
 /** Gera fala no tom do prompt da instância — sem mensagens fixas do código. */
 async function generatePersonaReply(userNumber, instruction) {
   const conversation = getUserConversation(userNumber);
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: aiModel(),
       temperature: 0.55,
       max_tokens: 120,
       messages: [
@@ -660,7 +715,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|send_link_chamada|pedir_presente)\]\]/gi;
 
 function parsePromptActions(text) {
   const actions = [];
@@ -751,6 +806,8 @@ async function executePromptActions(client, messageFrom, actions) {
       await functionCalls.naosou_fake(client, messageFrom, conversation);
     } else if (action === 'chamada_video') {
       await functionCalls.chamada_video(client, messageFrom, conversation);
+    } else if (action === 'send_link_chamada') {
+      await sendCallHotLink(client, messageFrom, conversation, null);
     } else if (action === 'send_chave_pix') {
       await functionCalls.send_chave_pix(client, messageFrom, conversation);
     } else if (action === 'ignorar_lead') {
@@ -831,7 +888,7 @@ async function runCompletion(userNumber, message) {
     console.log(`Tools disponíveis para ${userNumber}:`, availableTools.map(t => t.function.name));
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: aiModel(),
       temperature: 0.3,
       messages: conversation,
       max_tokens: MAX_TOKENS,
@@ -1119,7 +1176,7 @@ Qual pacote te interessa, amor? 💕
     // --- PRIORIDADE 3: GPT com contexto completo das últimas 5 mensagens ---
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: aiModel(),
         messages: [
           {
             role: 'system',
@@ -1259,8 +1316,19 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
             'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
           )) || 'Aqui está seu acesso amor, aproveite 😘';
         await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
-      } else if (delivered === 0) {
-        const pacote = await detectarPacote(messageFrom);
+      }
+
+      const pacote = await detectarPacote(messageFrom);
+      const needsVideoCall = pacote === 'chamada' || pacote === 'completo';
+      if (needsVideoCall && config.callhotEnabled) {
+        const callOk = await sendCallHotLink(
+          client,
+          messageFrom,
+          getUserConversation(messageFrom),
+          config.videoCallPriceCents || 1500
+        );
+        if (callOk) console.log('   📹 Link CallHot enviado ao lead');
+      } else if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
         const linkChamada = process.env.LINK_CHAMADA || '';
         const linkCompleto = process.env.LINK_COMPLETO || '';
@@ -1415,36 +1483,16 @@ Vamos fazer? 💕`;
   async function naosouFake(client, messageFrom, conversation) {
     try {
       isProcessing[messageFrom] = true;
-
-      if (!fs.existsSync(audioFiles.naosoufake)) {
-        console.error(`❌ Arquivo não encontrado: ${audioFiles.naosoufake}`);
-        isProcessing[messageFrom] = false;
-        return;
+      const text = await generatePersonaReply(
+        messageFrom,
+        'O lead achou que você é fake ou golpe. Reafirme com naturalidade que é você de verdade, sem soar defensiva.'
+      );
+      if (text) {
+        await sendTextHuman(client, messageFrom, text);
+        conversation.push({ role: 'assistant', content: text });
+        conversation.push({ role: 'system', content: 'Reafirmou que não é fake.' });
       }
-
-      const naosoufake = MessageMedia.fromFilePath(audioFiles.naosoufake);
-      if (!naosoufake) {
-        console.error('❌ Falha ao carregar áudio de "não sou fake"');
-        isProcessing[messageFrom] = false;
-        return;
-      }
-
-      const chat = await client.getChatById(messageFrom);
-
-      try {
-        await chat.sendStateRecording();
-        await new Promise(resolve => setTimeout(resolve, 13000));
-        await client.sendMessage(messageFrom, naosoufake, {sendAudioAsVoice: true});
-        console.log(`✅ Audio naosoufake enviado para ${messageFrom}`);
-
-        conversation.push({ role: "assistant", content: 'Então amor eu não sou fake. Eu sei que tem muita gente se passando pelos outros pra dar golpe, mas eu não sou fake. E eu vou te provar isso haha.' });
-        conversation.push({ role: "system", content: 'Foi enviada a mensagem provando que você não é fake para o usuário. Não use essa função novamente!' });
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (sendError) {
-        console.error(`❌ Erro ao enviar "não sou fake": ${sendError.message}`);
-      }
-
+      hasSentNaoSouFake[messageFrom] = true;
       isProcessing[messageFrom] = false;
     } catch (error) {
       console.error('Error sending naosou_fake:', error.message);

@@ -28,12 +28,17 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
   {
     tag: "[[chamada_video]]",
     label: "Chamada de vídeo",
-    when: "Lead pergunta como funciona a chamada. Explica que é aqui no WhatsApp, 5 min, após pagamento."
+    when: "Lead pergunta como funciona a chamada. Explica que é chamada privada no celular após pagamento."
+  },
+  {
+    tag: "[[send_link_chamada]]",
+    label: "Link da chamada",
+    when: "Depois do pagamento aprovado (pacote chamada/completo). Cria link CallHot e envia ao lead."
   },
   {
     tag: "[[naosou_fake]]",
     label: "Prova que é real",
-    when: "Lead desconfia de golpe ou fake. Pode usar áudio [[audio:nao_sou_fake]] se cadastrado."
+    when: "Lead desconfia de golpe ou fake. Responda com naturalidade no seu tom."
   },
   {
     tag: "[[ignorar_lead]]",
@@ -44,11 +49,6 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
     tag: "[[pedir_presente]]",
     label: "Pedir presente / mimo",
     when: "Lead demonstra carinho. Configure presentes em Pedir presentes no menu."
-  },
-  {
-    tag: "[[audio:slug]]",
-    label: "Áudio nomeado",
-    when: "Substitua slug pelo nome do áudio na biblioteca. Ex: [[audio:nao_sou_fake]]"
   }
 ];
 

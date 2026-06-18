@@ -173,6 +173,11 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_enabled BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_after_minutes INTEGER NOT NULL DEFAULT 10;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_max_per_lead INTEGER NOT NULL DEFAULT 2;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS callhot_enabled BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS callhot_base_url TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS callhot_api_secret_encrypted TEXT;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_video_url TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_price_cents INTEGER NOT NULL DEFAULT 1500;
   `);
 }
 

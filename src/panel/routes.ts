@@ -42,7 +42,8 @@ import {
   requireUser,
   setSessionCookie
 } from "../lib/session.js";
-import { getApiKeyStatus, getAIProvider, getOpenAIModel, updateOpenAISettings } from "../lib/settings.js";
+import { generateBotPrompt } from "../lib/prompt-generator.js";
+import { getAIProvider, getApiKeyStatus, getOpenAIModel, updateOpenAISettings } from "../lib/settings.js";
 import {
   leadsPage,
   mediaPage,
@@ -216,8 +217,31 @@ const botFormFieldsSchema = z.object({
   metaVerifyToken: z.string().optional(),
   followUpEnabled: z.enum(["true", "false"]).default("true"),
   followUpAfterMinutes: z.coerce.number().min(1).max(180).default(10),
-  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2)
+  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2),
+  callhotEnabled: z.enum(["true", "false"]).default("false"),
+  callhotBaseUrl: z.string().optional(),
+  callhotApiSecret: z.string().optional(),
+  videoCallVideoUrl: z.string().optional(),
+  videoCallPrice: z.coerce.number().min(0).default(15)
 });
+
+function applyCallhotFields(
+  bot: BotConfig,
+  body: z.infer<typeof botFormFieldsSchema>,
+  existing?: BotConfig
+): BotConfig {
+  const secret = body.callhotApiSecret?.trim();
+  return {
+    ...bot,
+    callhotEnabled: body.callhotEnabled === "true",
+    callhotBaseUrl: body.callhotBaseUrl?.trim() || "",
+    videoCallVideoUrl: body.videoCallVideoUrl?.trim() || "",
+    videoCallPriceCents: Math.round((body.videoCallPrice || 15) * 100),
+    callhotApiSecretEncrypted: secret
+      ? encryptSecret(secret)
+      : existing?.callhotApiSecretEncrypted
+  };
+}
 
 function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDelaySeconds: number }) {
   const totalSeconds = input.messageDelayMinutes * 60 + input.messageDelaySeconds;
@@ -948,7 +972,7 @@ export async function registerPanelRoutes(
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
-      const updated = applyWaFieldsFromForm(
+      const merged = applyWaFieldsFromForm(
         {
           ...existing,
           name: body.name,
@@ -976,6 +1000,7 @@ export async function registerPanelRoutes(
         },
         body
       );
+      const updated = applyCallhotFields(merged, body, existing);
       await upsertBot(updated);
       if (botNeedsMotorRestart(existing, updated)) {
         hooks.restartBots();
@@ -1068,6 +1093,27 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/api/prompt-generator", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          personaName: z.string().min(1),
+          tone: z.string().default("carinhosa"),
+          niche: z.string().default("conteúdo digital"),
+          packages: z.string().min(1),
+          extraRules: z.string().optional()
+        })
+        .parse(request.body ?? {});
+      const prompt = await generateBotPrompt(user.id, body);
+      return reply.send({ ok: true, prompt });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
   app.get("/uploads/:file", async (request, reply) => {
     const params = z.object({ file: z.string().min(1) }).parse(request.params);
     const fileName = path.basename(params.file);
@@ -1090,38 +1136,41 @@ export async function registerPanelRoutes(
       const botId = randomUUID();
 
       await upsertBot(
-        applyWaFieldsFromForm(
-          {
-            id: botId,
-            userId: user.id,
-            name: body.name,
-            token: `wa-${botId}`,
-            waPort: waPortForBot(botId),
-            waApiProvider: "whatsapp_web",
-            proxyEnabled: false,
-            metaPhoneNumberId: "",
-            metaVerifyToken: defaultMetaVerifyToken(),
-            prompt: body.prompt,
-            pixKey: body.pixKey || "nao-configurado",
-            pixRecipientName: body.pixRecipientName?.trim() || body.name,
-            messageDelayMs: messageDelayMsFromForm(body),
-            previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
-            deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
-            audioLibrary: mergeAudioLibrary([], fields, newNamedAudioUrl),
-            avatarUrl,
-            active: body.active === "true",
-            paymentMethod: body.paymentMethod,
-            laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
-              ? encryptSecret(body.laranjinhaApiKey.trim())
-              : undefined,
-            productName: body.productName,
-            productPriceCents: Math.round(body.productPrice * 100),
-            telegramGroupLink: body.telegramGroupLink?.trim() || "",
-            backupToken: body.backupToken?.trim() || undefined,
-            followUpEnabled: body.followUpEnabled === "true",
-            followUpAfterMinutes: body.followUpAfterMinutes,
-            followUpMaxPerLead: body.followUpMaxPerLead
-          },
+        applyCallhotFields(
+          applyWaFieldsFromForm(
+            {
+              id: botId,
+              userId: user.id,
+              name: body.name,
+              token: `wa-${botId}`,
+              waPort: waPortForBot(botId),
+              waApiProvider: "whatsapp_web",
+              proxyEnabled: false,
+              metaPhoneNumberId: "",
+              metaVerifyToken: defaultMetaVerifyToken(),
+              prompt: body.prompt,
+              pixKey: body.pixKey || "nao-configurado",
+              pixRecipientName: body.pixRecipientName?.trim() || body.name,
+              messageDelayMs: messageDelayMsFromForm(body),
+              previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
+              deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
+              audioLibrary: mergeAudioLibrary([], fields, newNamedAudioUrl),
+              avatarUrl,
+              active: body.active === "true",
+              paymentMethod: body.paymentMethod,
+              laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
+                ? encryptSecret(body.laranjinhaApiKey.trim())
+                : undefined,
+              productName: body.productName,
+              productPriceCents: Math.round(body.productPrice * 100),
+              telegramGroupLink: body.telegramGroupLink?.trim() || "",
+              backupToken: body.backupToken?.trim() || undefined,
+              followUpEnabled: body.followUpEnabled === "true",
+              followUpAfterMinutes: body.followUpAfterMinutes,
+              followUpMaxPerLead: body.followUpMaxPerLead
+            },
+            body
+          ),
           body
         )
       );
