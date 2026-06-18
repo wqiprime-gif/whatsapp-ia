@@ -378,9 +378,11 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           <input name="laranjinhaApiKey" type="password" placeholder="${isEdit ? "Deixe vazio para manter a atual" : "sua chave API"}" autocomplete="off" />
         </label>
       </div>
-      <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px">
-        ${isEdit ? "Salvar alterações" : "Salvar e ativar instância"}
-      </button>
+      <div class="form-actions-bar">
+        <button type="submit" class="btn btn-primary btn-lg">
+          ${isEdit ? "Salvar alterações" : "Salvar e ativar instância"}
+        </button>
+      </div>
         </div>
         ${promptTagsSidebar()}
       </div>

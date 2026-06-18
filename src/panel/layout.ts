@@ -45,7 +45,8 @@ export function appLayout(
   active: NavId,
   body: string,
   partial = false,
-  userName = "Usuario"
+  userName = "Usuario",
+  subtitle = ""
 ) {
   if (partial) return body;
 
@@ -57,7 +58,7 @@ export function appLayout(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>${escapeHtml(title)} · WhatsApp IA</title>
+  <title>${escapeHtml(title)} · ZapManager</title>
   <style>${globalStyles}</style>
 </head>
 <body>
@@ -84,8 +85,12 @@ export function appLayout(
         </div>
       </nav>
       <div class="sidebar-plan">
-        <strong>Seu Plano: Pro</strong>
-        <span>Gerencie bots com IA + vendas</span>
+        <strong>Seu plano: Pro</strong>
+        <span>IA + vendas + remarketing</span>
+        <div class="plan-usage">
+          <div class="plan-usage-head"><span>Capacidade</span><span class="plan-usage-pct">72%</span></div>
+          <div class="plan-usage-bar" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><span style="width:72%"></span></div>
+        </div>
         <a href="/settings">Ver configurações</a>
       </div>
       <form method="post" action="/logout" style="margin-top:12px">
@@ -94,7 +99,10 @@ export function appLayout(
     </aside>
     <div class="main-wrap">
       <header class="topbar">
-        <div class="topbar-left"><h1>${escapeHtml(title)}</h1></div>
+        <div class="topbar-left">
+          <h1>${escapeHtml(title)}</h1>
+          ${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+        </div>
         <div class="topbar-right">
           <div class="bell-wrap">
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>

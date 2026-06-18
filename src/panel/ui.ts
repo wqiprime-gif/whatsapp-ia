@@ -280,7 +280,7 @@ export function dashboardPage(
     </div>
     </div>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "Visão geral do seu negócio");
 }
 
 export function instancesPage(
@@ -311,15 +311,19 @@ export function newInstancePage(
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-    <div class="card instance-form-card">
-      <div class="card-head">
-        <h3>Nova Instância</h3>
-        <a href="/instances" class="card-link">← Voltar às instâncias</a>
+    <div class="page-form-shell">
+      <div class="page-form-head">
+        <div>
+          <p class="page-eyebrow">Instâncias</p>
+          <h2 class="page-form-title">Nova instância</h2>
+          <p class="page-form-desc">Configure persona, Pix, entrega automática, CallHot e prompt da IA.</p>
+        </div>
+        <a href="/instances" class="btn btn-ghost btn-sm">← Voltar</a>
       </div>
-      <div class="card-body">${botInstanceForm("new")}</div>
+      ${botInstanceForm("new")}
     </div>`;
 
-  return appLayout("Nova Instância", "new", body, partial, userName);
+  return appLayout("Nova Instância", "new", body, partial, userName, "Crie e configure um bot de vendas");
 }
 
 export function editInstancePage(
@@ -331,15 +335,19 @@ export function editInstancePage(
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-    <div class="card instance-form-card">
-      <div class="card-head">
-        <h3>Editar — ${escapeHtml(bot.name)}</h3>
-        <a href="/instances" class="card-link">← Voltar às instâncias</a>
+    <div class="page-form-shell">
+      <div class="page-form-head">
+        <div>
+          <p class="page-eyebrow">Instâncias</p>
+          <h2 class="page-form-title">Editar — ${escapeHtml(bot.name)}</h2>
+          <p class="page-form-desc">Alterações em prompt, delay e entrega não desconectam o WhatsApp.</p>
+        </div>
+        <a href="/instances" class="btn btn-ghost btn-sm">← Voltar</a>
       </div>
-      <div class="card-body">${botInstanceForm("edit", bot)}</div>
+      ${botInstanceForm("edit", bot)}
     </div>`;
 
-  return appLayout(`Editar ${bot.name}`, "instances", body, partial, userName);
+  return appLayout(`Editar ${bot.name}`, "instances", body, partial, userName, "Ajuste persona, vendas e integrações");
 }
 
 export function registerPage(message = "") {

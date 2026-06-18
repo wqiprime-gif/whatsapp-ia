@@ -33,7 +33,7 @@ export function promptGeneratorBlock() {
           <textarea id="pg-rules" rows="2" placeholder="Ex: não dar desconto abaixo de R$ 5 no básico"></textarea>
         </label>
       </div>
-      <button type="button" class="btn btn-secondary" id="pg-generate-btn">✨ Gerar prompt com IA</button>
+      <button type="button" class="btn btn-primary" id="pg-generate-btn">✨ Gerar prompt com IA</button>
       <p class="form-hint" id="pg-status" style="margin-top:8px"></p>
       <script>
         (function(){
@@ -92,26 +92,39 @@ export function callhotConfigBlock(isEdit: boolean, bot?: { callhotEnabled?: boo
           <p>Após pagamento do pacote chamada/completo, o bot cria um link de chamada simulada e envia ao lead.</p>
         </div>
       </div>
-      <label class="field">
-        Ativar CallHot
-        <select name="callhotEnabled">
-          <option value="false" ${!on ? "selected" : ""}>Não</option>
-          <option value="true" ${on ? "selected" : ""}>Sim</option>
-        </select>
-      </label>
-      <label class="field">
-        Preço chamada (R$)
-        <input name="videoCallPrice" type="number" min="0" step="0.01" value="${price}" />
-      </label>
-      <label class="field span-2">URL do CallHot
-        <input name="callhotBaseUrl" value="${escapeHtml(base)}" placeholder="https://seu-callhot.up.railway.app" />
-      </label>
-      <label class="field span-2">URL do vídeo da chamada
-        <input name="videoCallVideoUrl" value="${escapeHtml(video)}" placeholder="https://seu-callhot.../uploads/video-vendas.mp4" />
-        <span class="form-hint">Vídeo gravado que o lead vê ao atender. Faça upload no painel CallHot e cole o link completo.</span>
-      </label>
-      <label class="field span-2">Secret da API CallHot
-        <input name="callhotApiSecret" type="password" autocomplete="off" placeholder="${isEdit ? "Deixe vazio para manter" : "Mesmo valor de CALLHOT_BOT_SECRET no Railway"}" />
-      </label>
+      <details class="callhot-setup-guide" open>
+        <summary>Como funciona — são 2 deploys no Railway</summary>
+        <ol class="callhot-setup-steps">
+          <li><strong>CallHot</strong> (pasta <code>Callhot/</code> no repositório) → novo serviço no Railway, raiz <code>Callhot</code>.</li>
+          <li>No Railway do CallHot, defina <code>CALLHOT_BOT_SECRET</code> (senha longa) e <code>PUBLIC_BASE_URL</code> = URL pública do CallHot.</li>
+          <li>Abra o painel CallHot, faça login, envie o <strong>vídeo gravado</strong> que o lead verá ao atender e copie a URL do arquivo.</li>
+          <li>Aqui no ZapManager: cole a URL do CallHot, a URL do vídeo, o mesmo secret e ative <strong>Sim</strong>.</li>
+          <li>No prompt use a tag <code>[[send_link_chamada]]</code> quando o lead pagar o pacote de chamada.</li>
+        </ol>
+        <p class="form-hint">O ZapManager <em>não</em> roda o CallHot sozinho — ele só chama a API do CallHot após o pagamento.</p>
+      </details>
+      <div class="callhot-fields-grid">
+        <label class="field">
+          Ativar CallHot
+          <select name="callhotEnabled">
+            <option value="false" ${!on ? "selected" : ""}>Não</option>
+            <option value="true" ${on ? "selected" : ""}>Sim</option>
+          </select>
+        </label>
+        <label class="field">
+          Preço chamada (R$)
+          <input name="videoCallPrice" type="number" min="0" step="0.01" value="${price}" />
+        </label>
+        <label class="field span-2">URL do CallHot
+          <input name="callhotBaseUrl" value="${escapeHtml(base)}" placeholder="https://seu-callhot.up.railway.app" />
+        </label>
+        <label class="field span-2">URL do vídeo da chamada
+          <input name="videoCallVideoUrl" value="${escapeHtml(video)}" placeholder="https://seu-callhot.../uploads/video-vendas.mp4" />
+          <span class="form-hint">Vídeo gravado que o lead vê ao atender. Faça upload no painel CallHot e cole o link completo.</span>
+        </label>
+        <label class="field span-2">Secret da API CallHot
+          <input name="callhotApiSecret" type="password" autocomplete="off" placeholder="${isEdit ? "Deixe vazio para manter" : "Mesmo valor de CALLHOT_BOT_SECRET no Railway"}" />
+        </label>
+      </div>
     </div>`;
 }

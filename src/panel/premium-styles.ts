@@ -654,4 +654,62 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   animation: bar-rise 0.6s ease both;
 }
 .src-bar-val { font-size: 0.78rem; font-weight: 700; color: #fff; text-align: right; }
+
+/* —— PAGE SHELL (formulários full-width) —— */
+.page-form-shell {
+  width: 100%;
+  max-width: none;
+  animation: rise-in 0.5s var(--ease) both;
+}
+.page-form-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.page-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--green-bright);
+  margin-bottom: 6px;
+}
+.page-form-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+.page-form-desc {
+  font-size: 0.88rem;
+  color: var(--text-2);
+  max-width: 720px;
+  line-height: 1.55;
+}
+.page-form-shell .field input,
+.page-form-shell .field textarea,
+.page-form-shell .field select {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+.page-form-shell .field input:focus,
+.page-form-shell .field textarea:focus,
+.page-form-shell .field select:focus {
+  border-color: rgba(37, 211, 102, 0.6);
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.15), 0 0 24px rgba(37, 211, 102, 0.1);
+}
+.card-premium {
+  border-color: rgba(37, 211, 102, 0.15) !important;
+  background: rgba(6, 12, 10, 0.9) !important;
+}
+.card-premium .card-head {
+  background: rgba(0, 0, 0, 0.2);
+}
 `;
