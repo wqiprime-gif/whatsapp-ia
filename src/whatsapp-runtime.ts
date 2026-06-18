@@ -3,6 +3,8 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { loadBots, uploadsDir, type BotConfig } from "./bots.js";
+import { listProducts } from "./db/events.js";
+import { getUserById } from "./db/users.js";
 import { env, rootDir } from "./config.js";
 import { decryptSecret } from "./lib/crypto.js";
 import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
@@ -82,6 +84,8 @@ async function syncBotFiles(bot: BotConfig, port: number) {
   await fs.mkdir(instDir, { recursive: true });
   await fs.mkdir(promptsDir, { recursive: true });
 
+  const catalog = await listProducts(bot.id).catch(() => []);
+
   await fs.writeFile(
     path.join(promptsDir, `${bot.id}-prompt.json`),
     JSON.stringify({ prompt: bot.prompt, pixKey: bot.pixKey, pixRecipientName: bot.pixRecipientName }, null, 2)
@@ -119,6 +123,12 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         followUpEnabled: bot.followUpEnabled !== false,
         followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,
         followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
+        products: catalog.map((p) => ({
+          name: p.name,
+          priceCents: p.priceCents,
+          allowHalfPrice: p.allowHalfPrice,
+          halfPricePercent: p.halfPricePercent
+        })),
         updatedAt: new Date().toISOString()
       },
       null,
@@ -130,7 +140,8 @@ async function syncBotFiles(bot: BotConfig, port: number) {
 async function spawnWebBot(bot: BotConfig, port: number) {
   await syncBotFiles(bot, port);
 
-  const apiKey = await getOpenAIApiKey(bot.userId).catch(() => env.OPENAI_API_KEY || env.OPENROUTER_API_KEY);
+  const owner = await getUserById(bot.userId).catch(() => null);
+  const apiKey = await getOpenAIApiKey(bot.userId, owner?.email).catch(() => "");
   const provider = await getAIProvider(bot.userId).catch(() => "openai" as const);
   const model = await getOpenAIModel(bot.userId).catch(() => env.OPENAI_MODEL);
   const providerCfg = AI_PROVIDERS[provider];
@@ -140,7 +151,7 @@ async function spawnWebBot(bot: BotConfig, port: number) {
 
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    OPENAI_API_KEY: apiKey || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY || "",
+    OPENAI_API_KEY: apiKey || "",
     AI_MODEL: model,
     AI_PROVIDER: provider,
     AI_BASE_URL: providerCfg.baseURL || "",

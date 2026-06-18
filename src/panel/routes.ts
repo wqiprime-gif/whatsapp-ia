@@ -18,7 +18,8 @@ import {
   salesByDay,
   messagesByDay,
   salesRankingByBot,
-  saveProduct
+  saveProduct,
+  syncProductsFromPrompt
 } from "../db/events.js";
 import {
   deleteBot,
@@ -895,6 +896,7 @@ export async function registerPanelRoutes(
         allowHalfPrice: body.allowHalfPrice === "true",
         halfPricePercent: body.halfPricePercent ?? 50
       });
+      hooks.syncBots();
       return reply.redirect(flashRedirect("/products", "Produto salvo!"));
     } catch (error) {
       return reply.redirect(flashRedirect("/products", `Erro: ${errorMessage(error)}`, "err"));
@@ -985,6 +987,7 @@ export async function registerPanelRoutes(
       );
       const updated = merged;
       await upsertBot(updated);
+      await syncProductsFromPrompt(updated.id, updated.prompt);
       if (botNeedsMotorRestart(existing, updated)) {
         hooks.restartBots();
         return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando conexão..."));
@@ -1005,7 +1008,7 @@ export async function registerPanelRoutes(
       .parse(request.query);
     const bots = await loadBots(user.id);
     const previewBotId = query.botId || bots[0]?.id || "";
-    const status = await getApiKeyStatus(user.id);
+    const status = await getApiKeyStatus(user.id, user.email);
     const model = await getOpenAIModel(user.id);
     const provider = await getAIProvider(user.id);
     return reply.type("text/html").send(
@@ -1155,6 +1158,7 @@ export async function registerPanelRoutes(
           )
       );
 
+      await syncProductsFromPrompt(botId, body.prompt);
       hooks.restartBots();
       return reply.redirect(
         flashRedirect(`/instances/${botId}/qr`, "Instância salva! Escaneie o QR Code para conectar.")

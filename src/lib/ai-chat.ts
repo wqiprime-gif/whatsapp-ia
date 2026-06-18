@@ -50,10 +50,16 @@ async function anthropicCompletion(apiKey: string, params: ChatParams) {
   } as OpenAI.Chat.Completions.ChatCompletion;
 }
 
+async function userEmailFor(userId: string) {
+  const { getUserById } = await import("../db/users.js");
+  const u = await getUserById(userId).catch(() => null);
+  return u?.email;
+}
+
 export async function createChatCompletion(userId: string, params: Omit<ChatParams, "model"> & { model?: string }) {
   const provider = normalizeAIProvider(await getAIProvider(userId));
   const model = params.model || (await getOpenAIModel(userId)) || AI_PROVIDERS[provider].defaultModel;
-  const apiKey = await getOpenAIApiKey(userId);
+  const apiKey = await getOpenAIApiKey(userId, await userEmailFor(userId));
   const fullParams = { ...params, model } as ChatParams;
 
   if (provider === "anthropic") {
@@ -71,7 +77,7 @@ export async function createChatCompletion(userId: string, params: Omit<ChatPara
 
 export async function getOpenAIClient(userId: string, provider?: AIProviderId) {
   const p = provider ?? normalizeAIProvider(await getAIProvider(userId));
-  const apiKey = await getOpenAIApiKey(userId);
+  const apiKey = await getOpenAIApiKey(userId, await userEmailFor(userId));
 
   if (p === "anthropic") {
     return {

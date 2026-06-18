@@ -76,7 +76,7 @@ export function productsPage(
     ${message ? alertHtml(message) : ""}
     <div class="card card-accent-gold" style="margin-bottom:16px">
       <div class="card-body" style="font-size:0.88rem;color:var(--text-2);line-height:1.6">
-        <strong>O que é Produtos?</strong> Catálogo por instância (ex: R$ 10, R$ 20, R$ 30).
+        <strong>Sincronizado com o prompt.</strong> Ao salvar a instância, os pacotes com preço (R$) no prompt aparecem aqui automaticamente.
         Ative <strong>Oferta 50%</strong> para o bot oferecer metade do valor quando o lead disser que não consegue pagar.
       </div>
     </div>

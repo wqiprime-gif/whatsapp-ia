@@ -49,6 +49,44 @@ export function sparklineSvg(values: number[], color = "#25D366") {
   </svg>`;
 }
 
+export function channelDonutSvg(stats: { label: string; value: number; color: string }[]) {
+  const total = stats.reduce((s, x) => s + x.value, 0) || 1;
+  let offset = 0;
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const slices = stats
+    .map((s) => {
+      const pct = s.value / total;
+      const dash = pct * c;
+      const el = `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${s.color}" stroke-width="22"
+        stroke-dasharray="${dash} ${c - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 70 70)"/>`;
+      offset += dash;
+      return el;
+    })
+    .join("");
+  const legend = stats
+    .map(
+      (s) =>
+        `<div class="donut-legend-row"><span class="donut-dot" style="background:${s.color}"></span>${s.label} <strong>${Math.round((s.value / total) * 100)}%</strong></div>`
+    )
+    .join("");
+  return `<div class="donut-wrap"><svg viewBox="0 0 140 140" class="donut-svg">${slices}</svg><div class="donut-legend">${legend}</div></div>`;
+}
+
+export function salesFunnelHtml(input: { leads: number; sales: number; messages: number }) {
+  const stages = [
+    { label: "Leads", value: input.leads, pct: 100 },
+    { label: "Conversas", value: input.messages, pct: input.leads ? Math.min(100, Math.round((input.messages / Math.max(input.leads, 1)) * 100)) : 0 },
+    { label: "Vendas", value: input.sales, pct: input.leads ? Math.round((input.sales / input.leads) * 100) : 0 }
+  ];
+  return `<div class="funnel-stack">${stages
+    .map(
+      (s, i) =>
+        `<div class="funnel-stage" style="width:${100 - i * 14}%"><span>${s.label}</span><strong>${s.value}</strong><em>${s.pct}%</em></div>`
+    )
+    .join("")}</div>`;
+}
+
 export function salesChartSvgFromData(points: { day: string; totalCents: number }[], opts?: { title?: string; tall?: boolean }) {
   const days: string[] = [];
   for (let i = 6; i >= 0; i--) {

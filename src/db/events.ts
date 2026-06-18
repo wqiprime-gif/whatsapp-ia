@@ -963,6 +963,40 @@ export async function dashboardStats(userId?: string) {
   };
 }
 
+export async function syncProductsFromPrompt(botId: string, prompt: string) {
+  const { parseProductsFromPrompt } = await import("../lib/parse-prompt-products.js");
+  const items = parseProductsFromPrompt(prompt);
+  if (items.length === 0) return 0;
+
+  if (useDatabase()) {
+    await getPool().query(`DELETE FROM products WHERE bot_id = $1`, [botId]);
+    for (const item of items) {
+      await getPool().query(
+        `INSERT INTO products (bot_id, name, price_cents, allow_half_price, half_price_percent) VALUES ($1,$2,$3,true,50)`,
+        [botId, item.name, item.priceCents]
+      );
+    }
+    return items.length;
+  }
+
+  const store = await loadFileStore();
+  store.products = store.products.filter((p) => p.botId !== botId);
+  for (const item of items) {
+    store.products.push({
+      id: randomUUID(),
+      botId,
+      name: item.name,
+      priceCents: item.priceCents,
+      active: true,
+      allowHalfPrice: true,
+      halfPricePercent: 50,
+      createdAt: new Date().toISOString()
+    });
+  }
+  await saveFileStore(store);
+  return items.length;
+}
+
 export async function listProducts(botId?: string): Promise<Product[]> {
   if (useDatabase()) {
     const { rows } = botId

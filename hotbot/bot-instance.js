@@ -284,7 +284,42 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2 };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, products: [] };
+}
+
+const halfPriceOffered = {};
+
+const CANT_PAY_RE =
+  /nao consigo|n[aã]o consigo|nao tenho|n[aã]o tenho|sem dinheiro|t[aá] caro|muito caro|caro demais|nao da|n[aã]o d[aá]|imposs[ií]vel|nao posso|n[aã]o posso|so tenho|s[oó] tenho|nao pago|n[aã]o pago/i;
+
+function parseOfferReais(text) {
+  const m = String(text || '').match(/r?\$?\s*(\d{1,3})(?:[,.](\d{2}))?/i);
+  if (!m) return null;
+  const whole = Number(m[1]);
+  const cents = m[2] ? Number(m[2]) : 0;
+  if (Number.isNaN(whole)) return null;
+  return whole + cents / 100;
+}
+
+function tryHalfPriceOffer(jid, text) {
+  if (halfPriceOffered[jid]) return null;
+  if (!CANT_PAY_RE.test(String(text || ''))) return null;
+  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice !== false);
+  if (products.length === 0) return null;
+
+  const offer = parseOfferReais(text);
+  let product = products.find((p) => p.allowHalfPrice) || products[0];
+  if (offer !== null) {
+    const match = products.find((p) => Math.abs((p.priceCents || 0) / 100 - offer) < 2);
+    if (match) product = match;
+  }
+
+  const pct = product.halfPricePercent ?? 50;
+  const halfCents = Math.round((product.priceCents || 0) * (pct / 100));
+  const half = (halfCents / 100).toFixed(2).replace('.', ',');
+  const full = ((product.priceCents || 0) / 100).toFixed(2).replace('.', ',');
+  halfPriceOffered[jid] = true;
+  return `entendo amor 💕 o ${product.name} ta R$ ${full}, mas dessa vez consigo fazer por metade — R$ ${half}. e so pra voce, manda o pix? 😘`;
 }
 
 /** Pausa entre mensagens / antes de responder — vem do painel (messageDelayMs). */
@@ -1604,6 +1639,12 @@ client.on("message", async (message) => {
       console.log(`⏳ Gerando resposta...`);
       console.log('─'.repeat(60) + '\n');
       try {
+        const halfReply = tryHalfPriceOffer(from, combinedMessage);
+        if (halfReply) {
+          await sendTextHuman(client, from, halfReply);
+          void panelLog({ type: 'message', jid: from, role: 'assistant', content: halfReply });
+          return;
+        }
         const result = await runCompletion(from, combinedMessage);
 
         if (result === '') {

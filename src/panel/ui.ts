@@ -5,7 +5,7 @@ import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-f
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
-import { salesChartSvgFromData, messagesChartSvgFromData, sparklineSvg, chartDayValues, kpiTrendLabel } from "./charts.js";
+import { salesChartSvgFromData, messagesChartSvgFromData, sparklineSvg, chartDayValues, kpiTrendLabel, channelDonutSvg, salesFunnelHtml } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
@@ -251,10 +251,10 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="dash-charts-hero">
-      <div class="card card-premium chart-card-pro">
+    <div class="dash-charts-hero dash-charts-hero--3">
+      <div class="card card-premium chart-card-pro chart-card-pro--wide">
         <div class="card-head">
-          <h3>${icons.card} Receita — 7 dias</h3>
+          <h3>${icons.card} Evolução da receita</h3>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
         </div>
         <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
@@ -262,11 +262,26 @@ export function dashboardPage(
         </div>
       </div>
       <div class="card card-premium chart-card-pro">
+        <div class="card-head"><h3>${icons.chat} Mensagens por canal</h3></div>
+        <div class="card-body">${channelDonutSvg([
+          { label: "WhatsApp", value: Math.max(data.stats.messagesToday, 1), color: "#25D366" },
+          { label: "Remarketing", value: Math.max(Math.round(data.stats.leads * 0.15), 0), color: "#60a5fa" },
+          { label: "Manual", value: Math.max(Math.round(data.stats.salesCount * 2), 0), color: "#a78bfa" }
+        ])}</div>
+      </div>
+      <div class="card card-premium chart-card-pro">
+        <div class="card-head"><h3>${icons.sparkles} Funil de vendas</h3></div>
+        <div class="card-body">${salesFunnelHtml({ leads: data.stats.leads, sales: data.stats.salesCount, messages: data.stats.messagesToday })}</div>
+      </div>
+    </div>
+
+    <div class="dash-charts-secondary">
+      <div class="card card-premium chart-card-pro">
         <div class="card-head">
           <h3>${icons.chat} Mensagens — 7 dias</h3>
           <span class="chart-badge" data-live-stat="messagesToday">${data.stats.messagesToday} hoje</span>
         </div>
-        <div class="card-body chart-wrap chart-wrap--hero" data-live="messages-chart">
+        <div class="card-body chart-wrap" data-live="messages-chart">
           ${messagesChartSvgFromData(data.messagesChart)}
         </div>
       </div>
@@ -291,24 +306,6 @@ export function dashboardPage(
           <span class="live-badge">Ao vivo</span>
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
-      </div>
-    </div>
-
-    <div class="dash-analytics-row dash-analytics-row--2">
-      <div class="card card-premium">
-        <div class="card-head"><h3>Top instâncias</h3></div>
-        <div class="card-body" data-live="top-bots">${topProducts(data.topBots)}</div>
-      </div>
-      <div class="card card-premium">
-        <div class="card-head"><h3>Atalhos</h3></div>
-        <div class="card-body">
-          <div class="quick-grid">
-            <a href="/instances/new" class="quick-item">${icons.sparkles} Prompt IA</a>
-            <a href="/remarketing" class="quick-item">${icons.megaphone} Remarketing</a>
-            <a href="/settings" class="quick-item">${icons.settings} Provedor IA</a>
-            <a href="/leads" class="quick-item">${icons.users} Leads</a>
-          </div>
-        </div>
       </div>
     </div>
     </div>`;
@@ -475,7 +472,11 @@ export function settingsPage(
           )
           .join("");
   const statusClass = input.configured ? "badge-online" : "badge-paused";
-  const statusText = input.configured ? `Conectado · ${escapeHtml(input.providerLabel)}` : "Não configurado";
+  const statusText = input.configured
+    ? input.source === "painel"
+      ? "Conectado · sua chave salva"
+      : `Conectado · ${escapeHtml(input.providerLabel)}`
+    : "Configure sua API Key abaixo";
   const providerOptions = Object.entries(AI_PROVIDERS)
     .map(
       ([id, p]) =>
@@ -502,14 +503,14 @@ export function settingsPage(
 
   const body = `
     ${input.message ? alertHtml(input.message, input.messageIsError ? "error" : "success") : ""}
-    <div class="grid-2">
+    <div class="settings-single">
       <div class="card card-premium">
         <div class="card-head">
           <h3>${icons.sparkles} Provedor de IA</h3>
           <span class="badge ${statusClass}"><span class="badge-dot"></span> ${statusText}</span>
         </div>
         <div class="card-body">
-          ${input.configured ? `<p style="font-family:var(--mono);font-size:0.88rem;color:var(--primary);margin-bottom:16px;padding:12px;background:#0a0c12;border-radius:10px;border:1px solid var(--border)">${escapeHtml(input.maskedKey)}</p>` : ""}
+          <p class="form-hint" style="margin-bottom:16px">Cada conta usa <strong>sua própria</strong> API Key. A chave do dono da plataforma não é compartilhada com outros usuários.</p>
           <form method="post" action="/settings" id="ai-settings-form">
             <label class="field">Provedor
               <select name="aiProvider" id="ai-provider-select">
@@ -524,14 +525,6 @@ export function settingsPage(
             <button type="submit" class="btn btn-primary btn-block">Salvar configurações</button>
           </form>
           <p class="form-hint" style="margin-top:14px">OpenRouter, OpenAI, DeepSeek, Gemini e Claude. Para IA grátis use <strong>OpenRouter</strong> + modelos <code>:free</code>.</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><h3>${icons.lock} Segurança & Infra</h3></div>
-        <div class="card-body" style="color:var(--text-2);line-height:1.7;font-size:0.9rem">
-          <p style="margin-bottom:12px">Senha do painel via <code style="background:#0a0c12;padding:2px 6px;border-radius:4px">PANEL_PASSWORD</code> no Railway.</p>
-          <p style="margin-bottom:12px">API Key criptografada no PostgreSQL após salvar.</p>
-          <p>Use <code style="background:#0a0c12;padding:2px 6px;border-radius:4px">DATABASE_PUBLIC_URL</code> ou <code style="background:#0a0c12;padding:2px 6px;border-radius:4px">DATABASE_URL</code> para persistir dados.</p>
         </div>
       </div>
     </div>

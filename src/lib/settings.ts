@@ -2,8 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
-import { decryptSecret, encryptSecret, maskApiKey } from "./crypto.js";
+import { decryptSecret, encryptSecret } from "./crypto.js";
 import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId } from "./ai-providers.js";
+
+function isPlatformOwner(email?: string) {
+  const admin = env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (!admin || !email) return false;
+  return email.trim().toLowerCase() === admin;
+}
 
 const settingsFile = path.join(env.DATA_DIR, "settings.json");
 
@@ -29,17 +35,7 @@ async function loadSettingsFromFile(userId: string): Promise<AppSettings> {
       aiProvider: normalizeAIProvider(parsed.aiProvider)
     };
   } catch {
-    try {
-      const raw = await fs.readFile(settingsFile, "utf8");
-      const parsed = JSON.parse(raw) as Partial<AppSettings>;
-      return {
-        ...defaultSettings,
-        ...parsed,
-        aiProvider: normalizeAIProvider(parsed.aiProvider)
-      };
-    } catch {
-      return { ...defaultSettings };
-    }
+    return { ...defaultSettings };
   }
 }
 
@@ -54,17 +50,6 @@ async function loadSettingsFromDb(userId: string): Promise<AppSettings> {
   );
 
   if (!rows[0]) {
-    const legacy = await getPool().query<{
-      openai_api_key_encrypted: string | null;
-      openai_model: string;
-    }>("SELECT openai_api_key_encrypted, openai_model FROM app_settings WHERE id = 1");
-    if (legacy.rows[0]) {
-      return {
-        openaiModel: legacy.rows[0].openai_model || env.OPENAI_MODEL,
-        openaiApiKeyEncrypted: legacy.rows[0].openai_api_key_encrypted ?? undefined,
-        aiProvider: "openai"
-      };
-    }
     return { ...defaultSettings };
   }
 
@@ -107,18 +92,20 @@ export async function saveSettings(userId: string, settings: AppSettings) {
   return saveSettingsToFile(userId, settings);
 }
 
-export async function getOpenAIApiKey(userId: string): Promise<string> {
+export async function getOpenAIApiKey(userId: string, userEmail?: string): Promise<string> {
   const settings = await loadSettings(userId);
   if (settings.openaiApiKeyEncrypted) {
     return decryptSecret(settings.openaiApiKeyEncrypted);
   }
-  if (settings.aiProvider === "openrouter" && env.OPENROUTER_API_KEY) {
-    return env.OPENROUTER_API_KEY;
+  if (isPlatformOwner(userEmail)) {
+    if (settings.aiProvider === "openrouter" && env.OPENROUTER_API_KEY) {
+      return env.OPENROUTER_API_KEY;
+    }
+    if (env.OPENAI_API_KEY) {
+      return env.OPENAI_API_KEY;
+    }
   }
-  if (env.OPENAI_API_KEY) {
-    return env.OPENAI_API_KEY;
-  }
-  throw new Error("Configure a API Key de IA em Configuracoes no painel.");
+  throw new Error("Configure sua API Key em Configuracoes no painel.");
 }
 
 export async function getOpenAIModel(userId: string): Promise<string> {
@@ -136,36 +123,25 @@ export async function getOpenAI(userId: string) {
   return getOpenAIClient(userId);
 }
 
-export async function getApiKeyStatus(userId: string) {
+export async function getApiKeyStatus(userId: string, userEmail?: string) {
   const settings = await loadSettings(userId);
   const provider = AI_PROVIDERS[settings.aiProvider];
   if (settings.openaiApiKeyEncrypted) {
-    try {
-      const key = decryptSecret(settings.openaiApiKeyEncrypted);
-      return {
-        configured: true,
-        masked: maskApiKey(key),
-        source: "painel" as const,
-        provider: settings.aiProvider,
-        providerLabel: provider.label
-      };
-    } catch {
-      return {
-        configured: false,
-        masked: "",
-        source: "painel" as const,
-        provider: settings.aiProvider,
-        providerLabel: provider.label
-      };
-    }
-  }
-  if (env.OPENAI_API_KEY) {
     return {
       configured: true,
-      masked: maskApiKey(env.OPENAI_API_KEY),
+      masked: "",
+      source: "painel" as const,
+      provider: settings.aiProvider,
+      providerLabel: provider.label
+    };
+  }
+  if (isPlatformOwner(userEmail) && (env.OPENAI_API_KEY || env.OPENROUTER_API_KEY)) {
+    return {
+      configured: true,
+      masked: "",
       source: "env" as const,
-      provider: "openai" as const,
-      providerLabel: "OpenAI (env)"
+      provider: settings.aiProvider,
+      providerLabel: `${provider.label} (dono)`
     };
   }
   return {

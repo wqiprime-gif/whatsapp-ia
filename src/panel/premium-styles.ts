@@ -818,4 +818,31 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   from { background: rgba(37, 211, 102, 0.08); }
   to { background: transparent; }
 }
+
+.dash-charts-hero--3 {
+  grid-template-columns: 1.6fr 1fr 1fr !important;
+}
+@media (max-width: 1200px) {
+  .dash-charts-hero--3 { grid-template-columns: 1fr !important; }
+}
+.chart-card-pro--wide { min-height: 280px; }
+.dash-charts-secondary { margin-bottom: 20px; }
+.donut-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.donut-svg { width: 140px; height: 140px; flex-shrink: 0; }
+.donut-legend { display: grid; gap: 8px; flex: 1; min-width: 120px; }
+.donut-legend-row { font-size: 0.82rem; color: var(--text-2); display: flex; align-items: center; gap: 8px; }
+.donut-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.funnel-stack { display: grid; gap: 10px; padding: 8px 0; }
+.funnel-stage {
+  margin: 0 auto;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(37, 211, 102, 0.2), rgba(37, 211, 102, 0.05));
+  border: 1px solid rgba(37, 211, 102, 0.2);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 0.85rem;
+}
+.funnel-stage strong { color: #fff; font-size: 1.1rem; }
+.funnel-stage em { color: var(--green-bright); font-style: normal; font-weight: 700; }
+.settings-single { max-width: 560px; }
 `;
