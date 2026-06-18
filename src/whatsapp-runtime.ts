@@ -120,7 +120,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     PIX_RECIPIENT: bot.pixRecipientName || bot.name,
     WA_AUTH_DIR: path.join(env.DATA_DIR, "wwebjs_auth"),
     WA_INSTANCE_DIR: instDir,
-    UPLOADS_DIR: uploadsDir
+    UPLOADS_DIR: uploadsDir,
+    PUPPETEER_CACHE_DIR: process.env.PUPPETEER_CACHE_DIR || path.join(rootDir, ".cache", "puppeteer")
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
 

@@ -447,8 +447,6 @@ const puppeteerArgs = [
   '--disable-gpu',
   '--disable-web-security',
   '--no-first-run',
-  '--no-zygote',
-  '--single-process',
   '--autoplay-policy=no-user-gesture-required',
   ...puppeteerProxyArgs(proxyUrl),
 ];
@@ -519,7 +517,6 @@ function getUserConversation(userNumber) {
     const systemPrompt = buildSystemPrompt() || JSON.stringify(arrayImport);
     userConversations[userNumber] = [
       { role: "system", content: systemPrompt }
-    ];
     ];
     hasSentInformacoes[userNumber] = false;
     hasSentAmostra[userNumber] = Boolean(loadPreviewSentStore()[userNumber]);

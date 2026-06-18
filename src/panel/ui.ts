@@ -145,13 +145,12 @@ export function loginPage(message = "") {
       <h1 class="login-title-3d"><span class="text-3d-line">BotManager</span><span class="text-3d-line accent">Vendas automatizadas com IA</span></h1>
       <p class="login-prose">
         Uma plataforma feita para quem vende no WhatsApp com escala: cada instância roda com
-        <strong>prompt próprio</strong>, fluxo Byanca Costa, Pix automático, validação de comprovante,
+        <strong>prompt próprio</strong>, Pix automático, validação de comprovante,
         remarketing por instância, pedido de presentes e agendamento de campanhas — tudo em um só lugar.
       </p>
       <ul class="login-capabilities">
         <li>Várias instâncias por produto, com pacotes e IA configuráveis</li>
         <li>Remarketing com sequência de mensagens e delay entre envios</li>
-        <li>Rastreio de origem do lead (TikTok, Instagram, anúncios)</li>
         <li>Dashboard com vendas, leads ativos e atividade em tempo real</li>
       </ul>
     </section>

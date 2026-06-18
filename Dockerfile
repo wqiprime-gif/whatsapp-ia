@@ -32,8 +32,11 @@ RUN npm ci --include=dev
 COPY src ./src
 COPY hotbot ./hotbot
 
+RUN cd hotbot && npx puppeteer browsers install chrome
+
 RUN npm run build
 
 ENV NODE_ENV=production
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 
 CMD ["npm", "start"]

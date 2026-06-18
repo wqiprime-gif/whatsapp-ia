@@ -1,8 +1,7 @@
 import type { BotConfig } from "../bots.js";
 import { env } from "../config.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
-import { BYANCA_PROMPT_TELEGRAM as BYANCA_PROMPT_WHATSAPP } from "../lib/prompt-byanca.js";
-import { LEAD_SOURCES, sourceLabel } from "../lib/lead-source.js";
+import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
 import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret } from "../lib/crypto.js";
@@ -329,33 +328,9 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         <label class="field span-2" id="prompt">Prompt / persona da IA
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-byanca-prompt">Usar prompt Byanca (oficial)</button>
-          </div>
-          <script type="application/json" id="byanca-prompt-data">${escapeHtml(JSON.stringify(BYANCA_PROMPT_WHATSAPP))}</script>
-          <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(BYANCA_PROMPT_WHATSAPP)}</textarea>
+          <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(DEFAULT_PROMPT_WHATSAPP)}</textarea>
           <span class="form-hint">Este texto é o prompt da IA desta instância. A <strong>chave Pix</strong> vem do campo acima — use <code>[[send_chave_pix]]</code> no prompt para enviar automaticamente. Salve e reinicie a instância após alterar.</span>
         </label>
-        <div class="field span-2 card" style="padding:16px;margin-top:4px">
-          <h4 style="font-family:var(--font-display);margin-bottom:8px">Rastrear origem do lead (TikTok, Instagram…)</h4>
-          <p class="form-hint">No WhatsApp, a origem do lead é detectada pela primeira mensagem (ex: <code>vim do tiktok</code>) ou pelo campo personalizado no prompt.</p>
-          <div class="tracking-links">
-            ${LEAD_SOURCES.filter((s) => s !== "unknown")
-              .map(
-                (s) =>
-                  `<div><span class="source-badge ${s}">${sourceLabel(s)}</span>
-              <span class="muted-sm"> — lead pode escrever &quot;vim do ${sourceLabel(s).toLowerCase()}&quot;</span></div>`
-              )
-              .join("")}
-          </div>
-        </div>
-        <script>
-          document.getElementById("btn-byanca-prompt")?.addEventListener("click", function(){
-            var el = document.getElementById("byanca-prompt-data");
-            var ta = document.querySelector('[name="prompt"]');
-            if (el && ta) ta.value = JSON.parse(el.textContent || '""');
-          });
-        </script>
         <label class="field">Forma de pagamento
           <select name="paymentMethod">
             <option value="pix" ${paymentPix ? "selected" : ""}>Pix manual (chave)</option>
