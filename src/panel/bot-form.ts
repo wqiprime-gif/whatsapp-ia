@@ -334,6 +334,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           </div>
           <script type="application/json" id="byanca-prompt-data">${escapeHtml(JSON.stringify(BYANCA_PROMPT_WHATSAPP))}</script>
           <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(BYANCA_PROMPT_WHATSAPP)}</textarea>
+          <span class="form-hint">Este texto é o prompt da IA desta instância. A <strong>chave Pix</strong> vem do campo acima — use <code>[[send_chave_pix]]</code> no prompt para enviar automaticamente. Salve e reinicie a instância após alterar.</span>
         </label>
         <div class="field span-2 card" style="padding:16px;margin-top:4px">
           <h4 style="font-family:var(--font-display);margin-bottom:8px">Rastrear origem do lead (TikTok, Instagram…)</h4>

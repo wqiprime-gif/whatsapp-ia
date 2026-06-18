@@ -240,11 +240,10 @@ if (fs.existsSync(pacotesConfigPath)) {
   }
 }
 
-// Variável para armazenar o prompt customizado
-let customPrompt = null;
-
-// Caminho do prompt padrão
+// Caminho do prompt padrão (fallback só se o painel não tiver prompt salvo)
 const defaultPromptPath = path.join(__dirname, 'SYSTEM_PROMPT.md');
+let customPrompt = '';
+let promptFileMtime = 0;
 
 // Carregar prompt padrão do arquivo SYSTEM_PROMPT.md
 function loadDefaultPrompt() {
@@ -353,30 +352,81 @@ async function resolveMediaLocalPath(url) {
   return null;
 }
 
-// Carregar prompt customizado do arquivo
-function loadCustomPrompt() {
+function getPixConfig() {
+  const config = loadBotConfig();
+  return {
+    pixKey: String(process.env.PIX_KEY || config.pixKey || pacotesConfig?.pixKey || '').trim(),
+    pixRecipientName: String(
+      process.env.PIX_RECIPIENT || config.pixRecipientName || pacotesConfig?.nome_destinatario || modelName || ''
+    ).trim()
+  };
+}
+
+function readPanelPromptRaw() {
   try {
     if (fs.existsSync(promptFilePath)) {
-      const data = fs.readFileSync(promptFilePath, 'utf8');
-      const parsed = JSON.parse(data);
-      customPrompt = parsed.prompt;
-      console.log('✅ Prompt customizado carregado.');
-      return customPrompt;
+      const parsed = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+      const text = String(parsed.prompt || '').trim();
+      if (text) return text;
     }
   } catch (error) {
-    console.error('Erro ao carregar prompt customizado:', error.message);
+    console.error('Erro ao ler prompt do painel:', error.message);
   }
+  return '';
+}
 
-  // Se não houver customizado, carrega o padrão e salva na variável
-  customPrompt = loadDefaultPrompt();
+function buildPixAppendix() {
+  const { pixKey, pixRecipientName } = getPixConfig();
+  if (!pixKey) {
+    return '\n\n[PIX NÃO CONFIGURADO — configure a chave Pix no painel da instância.]';
+  }
+  let block = `\n\n--- DADOS REAIS DO PAINEL (OBRIGATÓRIO) ---\nChave PIX: ${pixKey}\n`;
+  if (pixRecipientName) block += `Nome do recebedor: ${pixRecipientName}\n`;
+  block += 'Quando o lead quiser pagar, use EXATAMENTE a chave acima ou a tag [[send_chave_pix]].\n';
+  block += 'NUNCA escreva [sua_chave_pix], {chave_pix} ou "chave do painel".\n';
+  return block;
+}
+
+function buildSystemPrompt() {
+  const panelPrompt = readPanelPromptRaw();
+  const base = panelPrompt || loadDefaultPrompt() || '';
+  return base + buildPixAppendix();
+}
+
+function refreshAllConversationPrompts() {
+  const systemPrompt = buildSystemPrompt();
+  for (const key of Object.keys(userConversations)) {
+    if (userConversations[key]?.[0]?.role === 'system') {
+      userConversations[key][0].content = systemPrompt;
+    }
+  }
+}
+
+function reloadPromptFromDisk(forceReset = false) {
+  try {
+    if (fs.existsSync(promptFilePath)) {
+      const stat = fs.statSync(promptFilePath);
+      if (!forceReset && stat.mtimeMs === promptFileMtime) return false;
+      promptFileMtime = stat.mtimeMs;
+    }
+  } catch (_) {}
+  customPrompt = buildSystemPrompt();
+  const raw = readPanelPromptRaw();
+  const source = raw ? `painel (${sessionId})` : 'SYSTEM_PROMPT.md (sem prompt no painel)';
+  console.log(`✅ Prompt carregado de ${source} — ${customPrompt.length} caracteres`);
+  if (forceReset || raw) refreshAllConversationPrompts();
+  return true;
+}
+
+function loadCustomPrompt() {
+  reloadPromptFromDisk(true);
   return customPrompt;
 }
 
-// Salvar prompt customizado
 function saveCustomPrompt(prompt) {
   try {
     fs.writeFileSync(promptFilePath, JSON.stringify({ prompt }, null, 2));
-    customPrompt = prompt;
+    reloadPromptFromDisk(true);
     console.log('✅ Prompt customizado salvo.');
     return true;
   } catch (error) {
@@ -461,12 +511,15 @@ const audioFailures = {};
 const comprovantesRecebidos = {}; // Tracks which users have sent proof of payment
 const paidUsers = {}; // Users who have already paid
 
+loadCustomPrompt();
+
 function getUserConversation(userNumber) {
+  reloadPromptFromDisk(false);
   if (!userConversations[userNumber]) {
-    // Usar prompt customizado se disponível, senão SYSTEM_PROMPT.md, senão arrayImport
-    const systemPrompt = customPrompt || loadDefaultPrompt() || JSON.stringify(arrayImport);
+    const systemPrompt = buildSystemPrompt() || JSON.stringify(arrayImport);
     userConversations[userNumber] = [
       { role: "system", content: systemPrompt }
+    ];
     ];
     hasSentInformacoes[userNumber] = false;
     hasSentAmostra[userNumber] = Boolean(loadPreviewSentStore()[userNumber]);
@@ -476,7 +529,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 function parsePromptActions(text) {
   const actions = [];
@@ -496,6 +549,28 @@ function wantsPreviewIntent(text) {
   );
 }
 
+function wantsPixIntent(text) {
+  return /chave\s*pix|pix\s*key|manda(r)?\s+(a\s+)?(pix|chave)|qual\s+(a\s+)?chave|n[aã]o\s+(me\s+)?mandou.*(pix|chave)|cad[eê]\s+(a\s+)?(pix|chave)|voce\s+n[aã]o\s+mandou/i.test(
+    String(text || '')
+  );
+}
+
+function sanitizePixPlaceholders(text) {
+  const { pixKey } = getPixConfig();
+  if (!pixKey || !text) return text;
+  return String(text)
+    .replace(/\[(sua[_\s-]?chave[_\s-]?pix|chave[_\s-]?pix|pix[_\s-]?key)\]/gi, pixKey)
+    .replace(/\{(sua[_\s-]?chave[_\s-]?pix|chave[_\s-]?pix|pix[_\s-]?key)\}/gi, pixKey);
+}
+
+function responseContainsPixKey(text) {
+  const { pixKey } = getPixConfig();
+  if (!pixKey || !text) return false;
+  if (String(text).includes(pixKey)) return true;
+  const digits = pixKey.replace(/\D/g, '');
+  return digits.length >= 8 && String(text).replace(/\D/g, '').includes(digits);
+}
+
 async function executePromptActions(client, messageFrom, actions) {
   const conversation = getUserConversation(messageFrom);
   for (const action of actions) {
@@ -510,6 +585,8 @@ async function executePromptActions(client, messageFrom, actions) {
       await functionCalls.naosou_fake(client, messageFrom, conversation);
     } else if (action === 'chamada_video') {
       await functionCalls.chamada_video(client, messageFrom, conversation);
+    } else if (action === 'send_chave_pix') {
+      await functionCalls.send_chave_pix(client, messageFrom, conversation);
     } else if (action === 'ignorar_lead') {
       await functionCalls.ignorar_lead(client, messageFrom, conversation);
     }
@@ -538,6 +615,14 @@ async function runCompletion(userNumber, message) {
         function: {
           name: 'send_amostra_gratis',
           description: 'Envia uma foto de amostra gratuita para o lead. Use quando pedirem prévia, foto, amostra ou teste grátis.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'send_chave_pix',
+          description: 'Envia a chave Pix real configurada no painel. Use quando o lead quiser comprar, pedir a chave Pix, ou confirmar que vai pagar.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -626,6 +711,10 @@ async function runCompletion(userNumber, message) {
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
       }
+      if (fnName === 'send_chave_pix') {
+        await functionCalls[fnName](client, userNumber, conversation);
+        return '';
+      }
       if (fnName === 'chamada_video' || fnName === 'ignorar_lead') {
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
@@ -661,6 +750,7 @@ const functionCalls = {
     await sendInformacoes(client, messageFrom, conversation);
   },
   send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
+  send_chave_pix: async (client, messageFrom, conversation) => enviarChavePix(messageFrom, conversation),
   chamada_video: async (client, messageFrom, conversation) => { await chamadaVideo(client, messageFrom, conversation); },
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
   ignorar_lead: async (client, messageFrom, conversation) => {
@@ -715,18 +805,34 @@ Qual pacote te interessa, amor? 💕
     isProcessing[messageFrom] = false;
   }
 }
-  async function enviarChavePix(messageFrom) {
-    const config = loadBotConfig();
-    const chavePix = process.env.PIX_KEY || config.pixKey || pacotesConfig?.pixKey || '';
-    const productName = config.productName || 'VIP';
-    const price = ((config.productPriceCents || 4990) / 100).toFixed(2).replace('.', ',');
+  async function enviarChavePix(messageFrom, conversation) {
+    const { pixKey, pixRecipientName } = getPixConfig();
+    if (!pixKey) {
+      await client.sendMessage(messageFrom, 'Amor, a chave Pix ainda não foi configurada aqui — avisa o admin 😅');
+      return false;
+    }
 
     try {
-      const pixMessage = `Chave Pix: ${chavePix}\nProduto: ${productName} — R$ ${price}\nQuando pagar, manda o comprovante em imagem ou PDF.`;
-      await client.sendMessage(messageFrom, pixMessage);
-      console.log(`✅ Chave PIX enviada para ${messageFrom}`);
+      const lines = [
+        `desculpa amor 😘 minha chave Pix é: *${pixKey}*`,
+        `manda o comprovante aqui depois que pagar tá? 💕`
+      ];
+      if (pixRecipientName) {
+        lines.splice(1, 0, `Nome: ${pixRecipientName}`);
+      }
+      for (const line of lines) {
+        await client.sendMessage(messageFrom, line);
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+      console.log(`✅ Chave PIX enviada para ${messageFrom}: ${pixKey}`);
+      if (conversation) {
+        conversation.push({ role: 'assistant', content: lines.join(' ') });
+        conversation.push({ role: 'system', content: `Chave Pix ${pixKey} enviada ao lead.` });
+      }
+      return true;
     } catch (error) {
       console.error(`❌ Erro ao enviar chave PIX: ${error.message}`);
+      return false;
     }
   }
 
@@ -1301,7 +1407,8 @@ client.on("message", async (message) => {
         }
 
         if (result) {
-          const { clean, actions } = parsePromptActions(result);
+          let { clean, actions } = parsePromptActions(result);
+          clean = sanitizePixPlaceholders(clean);
           console.log('✅ RESPOSTA GERADA:');
           console.log('─'.repeat(60));
           console.log(clean || '(somente acoes)');
@@ -1333,6 +1440,14 @@ client.on("message", async (message) => {
           ) {
             const ok = await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
             if (ok) markPreviewSent(from);
+          }
+
+          const pixAlreadySent =
+            actions.includes('send_chave_pix') ||
+            responseContainsPixKey(clean) ||
+            messageParts.some((part) => responseContainsPixKey(part));
+          if (wantsPixIntent(combinedMessage) && !pixAlreadySent) {
+            await enviarChavePix(from, getUserConversation(from));
           }
         }
       } catch (completionError) {
