@@ -112,18 +112,20 @@ export function productsPage(
           ${
             products.length === 0
               ? `<div class="empty">Nenhum produto ainda.<br/><small>Salve a instância com pacotes no prompt ou clique em Sincronizar.</small></div>`
-              : `<table class="table table-pro"><thead><tr><th>Produto</th><th>Instância</th><th>Preço</th><th>Oferta 50%</th></tr></thead><tbody>
+              : `<div class="product-list-pro">
               ${products
                 .map(
-                  (p) => `<tr>
-                  <td><strong>${escapeHtml(p.name)}</strong></td>
-                  <td>${escapeHtml(p.botName || "—")}</td>
-                  <td class="product-price">${formatMoney(p.priceCents)}</td>
-                  <td>${p.allowHalfPrice ? `<span class="badge-discount-on">✓ ${p.halfPricePercent}% ativo</span>` : `<span class="badge-discount-off">desligado</span>`}</td>
-                </tr>`
+                  (p) => `<div class="product-row-pro">
+                  <div class="product-row-main">
+                    <strong>${escapeHtml(p.name)}</strong>
+                    <span>${escapeHtml(p.botName || "—")}</span>
+                  </div>
+                  <div class="product-row-price">${formatMoney(p.priceCents)}</div>
+                  <div class="product-row-offer">${p.allowHalfPrice ? `<span class="badge-discount-on">✓ Oferta ${p.halfPricePercent}% ativa</span>` : `<span class="badge-discount-off">50% desligado</span>`}</div>
+                </div>`
                 )
                 .join("")}
-              </tbody></table>`
+              </div>`
           }
         </div>
       </div>
@@ -185,7 +187,10 @@ function remarketingBlocksScript() {
   }
   function syncSchedule(){
     var sched = modeSched && modeSched.checked;
-    if (schedWrap) schedWrap.style.display = sched ? "block" : "none";
+    if (schedWrap) {
+      schedWrap.style.display = sched ? "grid" : "none";
+      schedWrap.classList.toggle("is-open", !!sched);
+    }
     if (schedHint) schedHint.style.display = sched ? "block" : "none";
     if (submitBtn) submitBtn.textContent = sched ? "Agendar disparo" : "Enviar agora";
     if (sched && schedInput) {
@@ -194,10 +199,10 @@ function remarketingBlocksScript() {
     } else if (schedInput) {
       schedInput.required = false;
     }
+    if (sched) renderCal();
   }
   modeNow?.addEventListener("change", syncSchedule);
   modeSched?.addEventListener("change", syncSchedule);
-  syncSchedule();
 
   /* Calendário visual */
   var calEl = document.getElementById("rmk-calendar");
@@ -216,7 +221,7 @@ function remarketingBlocksScript() {
     var days = new Date(y, m + 1, 0).getDate();
     var today = new Date(); today.setHours(0,0,0,0);
     var html = ["D","S","T","Q","Q","S","S"].map(function(d){ return '<div class="rmk-cal-dow">'+d+'</div>'; }).join("");
-    for (var i = 0; i < first; i++) html += '<div></div>';
+    for (var i = 0; i < first; i++) html += '<div class="rmk-cal-spacer"></div>';
     for (var d = 1; d <= days; d++) {
       var dt = new Date(y, m, d); dt.setHours(0,0,0,0);
       var cls = "rmk-cal-day";
@@ -248,6 +253,7 @@ function remarketingBlocksScript() {
   calNext?.addEventListener("click", function(){ viewDate.setMonth(viewDate.getMonth()+1); renderCal(); });
   calTime?.addEventListener("change", syncCalToInput);
   renderCal();
+  syncSchedule();
 
   if (form) {
     form.addEventListener("submit", function(e){
@@ -435,23 +441,23 @@ export function remarketingPage(
             <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-now" value="now" checked /> Enviar agora</label>
             <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-schedule" value="schedule" /> Agendar no calendário</label>
           </div>
-          <div class="rmk-calendar-wrap" id="schedule-at-wrap" style="display:none;margin-top:12px">
-            <div>
+          <div class="rmk-calendar-wrap" id="schedule-at-wrap">
+            <div class="rmk-calendar-panel">
               <div class="rmk-cal-head">
                 <button type="button" class="btn btn-secondary btn-sm" id="rmk-cal-prev">‹</button>
                 <span id="rmk-cal-month"></span>
                 <button type="button" class="btn btn-secondary btn-sm" id="rmk-cal-next">›</button>
               </div>
-              <div class="rmk-calendar" id="rmk-calendar"></div>
+              <div class="rmk-calendar" id="rmk-calendar" aria-label="Calendário de agendamento"></div>
             </div>
-            <div>
+            <div class="rmk-calendar-side">
               <label class="field">Horário do disparo
                 <input type="time" id="rmk-cal-time" value="10:00" step="60" />
               </label>
-              <label class="field" style="margin-top:12px">Confirmação (automático)
+              <label class="field">Data e hora confirmada
                 <input type="datetime-local" name="scheduledAt" step="60" />
               </label>
-              <p class="form-hint" id="schedule-tz-hint">Clique no dia no calendário e ajuste o horário. Fuso do seu navegador.</p>
+              <p class="form-hint" id="schedule-tz-hint">Clique em um dia no calendário e escolha o horário.</p>
             </div>
           </div>
         </div>

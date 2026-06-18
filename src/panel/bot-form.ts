@@ -20,15 +20,15 @@ function delayPartsFromMs(ms: number) {
 
 export function botAvatarHtml(bot: BotConfig) {
   const initials = botInitials(bot.name);
-  if (bot.avatarUrl) {
-    const url = escapeHtml(bot.avatarUrl);
-    return `<div class="bot-av-wrap">
-      <img class="bot-av-img" src="${url}" alt="" loading="lazy"
-        onerror="this.remove();this.parentElement.querySelector('.bot-av-fallback')?.classList.add('show')" />
-      <div class="bot-av bot-av-fallback">${initials}</div>
-    </div>`;
-  }
-  return `<div class="bot-av-wrap"><div class="bot-av bot-av-fallback show">${initials}</div></div>`;
+  const url = bot.avatarUrl?.trim();
+  const img = url
+    ? `<img class="bot-av-img" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
+        onerror="this.classList.add('is-broken')" />`
+    : "";
+  return `<div class="bot-av-wrap">
+    <div class="bot-av bot-av-fallback" aria-hidden="true">${initials}</div>
+    ${img}
+  </div>`;
 }
 
 function mediaChips(urls: string[], label: string) {

@@ -108,7 +108,7 @@ function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLive
   if (bots.length === 0) {
     return `<div class="empty" style="padding:16px 8px;font-size:0.85rem">Nenhuma instância cadastrada.</div>`;
   }
-  const connected = bots.filter((b) => statuses[b.id] === "connected").length;
+  const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
   const statusLabel: Record<string, string> = {
     connected: "Conectado",
     paused: "Pausado",
@@ -126,17 +126,23 @@ function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLive
       const st = statuses[b.id] || "offline";
       const on = st === "connected" || st === "meta_ready";
       const label = statusLabel[st] || st;
-      return `<div class="device-row ${on ? "device-row--on" : "device-row--off"}">
-        <div class="device-icon-wrap">${on ? "📱" : "📴"}</div>
-        <div class="device-info">
-          <strong>${escapeHtml(b.name)}</strong>
-          <span>WhatsApp Web · ${b.active ? "ativa" : "pausada"}</span>
+      return `<div class="device-card ${on ? "device-card--on" : "device-card--off"}">
+        <div class="device-card-icon">
+          <span class="device-card-glyph">${on ? "📱" : "📴"}</span>
+          <span class="device-card-dot ${on ? "device-card-dot--on" : ""}"></span>
         </div>
-        <span class="device-status ${on ? "device-status--on" : ""}">${label}</span>
+        <div class="device-card-body">
+          <strong>${escapeHtml(b.name)}</strong>
+          <span>WhatsApp Web · ${b.active ? "sessão ativa" : "pausada"}</span>
+        </div>
+        <div class="device-card-meta">
+          <span class="device-pill ${on ? "device-pill--on" : ""}">${label}</span>
+          <em>${on ? "online" : "offline"}</em>
+        </div>
       </div>`;
     })
     .join("");
-  return `<div class="devices-summary">${connected} / ${bots.length} conectados</div><div class="devices-list">${rows}</div>`;
+  return `<div class="devices-head"><span class="devices-count">${connected} / ${bots.length}</span> dispositivos conectados</div><div class="devices-grid">${rows}</div>`;
 }
 
 export function loginPage(message = "") {
@@ -275,7 +281,7 @@ export function dashboardPage(
     </div>
 
     <div class="dash-charts-hero dash-charts-hero--3">
-      <div class="card card-premium chart-card-pro chart-card-pro--wide">
+      <div class="dash-glow-card card card-premium chart-card-pro chart-card-pro--wide">
         <div class="card-head">
           <h3>${icons.card} Evolução da receita</h3>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
@@ -284,7 +290,7 @@ export function dashboardPage(
           ${salesChartSvgFromData(data.chart, { tall: true })}
         </div>
       </div>
-      <div class="card card-premium chart-card-pro">
+      <div class="dash-glow-card card card-premium chart-card-pro">
         <div class="card-head"><h3>${icons.chat} Mensagens por canal</h3></div>
         <div class="card-body">${channelDonutSvg([
           { label: "WhatsApp", value: Math.max(data.stats.messagesToday, 1), color: "#25D366" },
@@ -292,14 +298,14 @@ export function dashboardPage(
           { label: "Manual", value: Math.max(Math.round(data.stats.salesCount * 2), 0), color: "#a78bfa" }
         ])}</div>
       </div>
-      <div class="card card-premium chart-card-pro">
+      <div class="dash-glow-card card card-premium chart-card-pro">
         <div class="card-head"><h3>${icons.sparkles} Funil de vendas</h3></div>
         <div class="card-body">${salesFunnelHtml({ leads: data.stats.leads, sales: data.stats.salesCount, messages: data.stats.messagesToday })}</div>
       </div>
     </div>
 
     <div class="dash-bottom-pro dash-bottom-pro--3">
-      <div class="card card-premium card--table dash-table-card">
+      <div class="dash-glow-card card card-premium card--table dash-table-card">
         <div class="card-head">
           <h3>${icons.layers} Suas instâncias</h3>
           <div class="card-head-actions">
@@ -314,14 +320,14 @@ export function dashboardPage(
           <a href="/instances" class="card-link">Gerenciar instâncias →</a>
         </div>
       </div>
-      <div class="card card-premium card-live-feed">
+      <div class="dash-glow-card card card-premium card-live-feed">
         <div class="card-head">
           <h3><span class="live-pulse" aria-hidden="true"></span> Atividade em tempo real</h3>
           <span class="live-badge">Ao vivo</span>
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="card card-premium card-devices">
+      <div class="dash-glow-card card card-premium card-devices">
         <div class="card-head">
           <h3>${icons.chat} Dispositivos conectados</h3>
         </div>

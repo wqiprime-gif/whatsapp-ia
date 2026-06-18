@@ -46,22 +46,16 @@ ${premiumStyles}
 
 html { scroll-behavior: smooth; scrollbar-gutter: stable; }
 
+/* Scroll invisível — estilo Shark (funciona, não aparece) */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 180, 255, 0.5) rgba(4, 10, 20, 0.6);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-*::-webkit-scrollbar { width: 6px; height: 6px; }
-*::-webkit-scrollbar-track {
-  background: rgba(4, 10, 20, 0.5);
-  border-radius: 99px;
-}
-*::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #00b4ff, #25D366);
-  border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #3dc8ff, #3de07a);
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
 }
 
 body {
@@ -576,20 +570,24 @@ button, input, textarea, select { font-family: inherit; }
   width: 42px; height: 42px;
   flex-shrink: 0;
 }
+.bot-av-fallback {
+  position: absolute; inset: 0;
+  z-index: 1;
+}
 .bot-av-img {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   border-radius: 50%;
   z-index: 2;
-  border: 2px solid rgba(37, 211, 102, 0.45);
-  box-shadow: 0 0 16px rgba(37, 211, 102, 0.25);
+  border: 2px solid rgba(0, 180, 255, 0.5);
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.2);
+  background: transparent;
 }
-.bot-av-fallback { display: none !important; }
-.bot-av-fallback.show { display: grid !important; }
+.bot-av-img.is-broken { display: none !important; }
 .bot-av {
   width: 42px; height: 42px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #3de07a);
+  background: linear-gradient(135deg, #0a5cff, #25D366);
   display: grid; place-items: center;
   font-weight: 800; font-size: 0.78rem; color: #fff;
   flex-shrink: 0; overflow: hidden;

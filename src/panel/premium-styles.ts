@@ -886,26 +886,29 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .chart-svg--bars { width: 100%; height: auto; max-height: 200px; display: block; }
 
-/* Efeito premium — borda animada azul/verde */
-.card-premium, .kpi-card-pro {
+/* Efeito circulando — só nos 6 blocos da dashboard */
+.dash-glow-card {
   position: relative;
-  overflow: hidden;
+  border-radius: 18px;
+  isolation: isolate;
 }
-.card-premium::before, .kpi-card-pro::before {
+.dash-glow-card::before {
   content: "";
   position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(from var(--border-angle, 0deg), #00b4ff, #25D366, #0a5cff, #00b4ff);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.45;
-  animation: border-spin 5s linear infinite;
-  pointer-events: none;
-  z-index: 0;
+  inset: -2px;
+  border-radius: 20px;
+  background: conic-gradient(from var(--border-angle, 0deg), #00b4ff, #25D366, #0a5cff, #6366f1, #00b4ff);
+  z-index: -1;
+  animation: border-spin 4s linear infinite;
+  opacity: 0.85;
+}
+.dash-glow-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: rgba(6, 14, 28, 0.96);
+  z-index: -1;
 }
 @keyframes border-spin { to { --border-angle: 360deg; } }
 @property --border-angle {
@@ -913,6 +916,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   inherits: false;
   initial-value: 0deg;
 }
+
 .card-premium > *, .kpi-card-pro > * { position: relative; z-index: 1; }
 
 /* Funil horizontal premium */
@@ -934,32 +938,124 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .funnel-pro-stats strong { color: #fff; font-size: 1.05rem; }
 .funnel-pro-stats em { color: var(--funnel-color); font-style: normal; font-weight: 700; font-size: 0.78rem; }
 
-/* Dispositivos conectados */
-.devices-summary {
-  font-size: 0.78rem; color: var(--muted); margin-bottom: 12px;
-  padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+/* Dispositivos conectados — premium */
+.devices-head {
+  font-size: 0.82rem; color: var(--text-2); margin-bottom: 14px;
+  padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.devices-list { display: grid; gap: 10px; max-height: 340px; overflow-y: auto; }
-.device-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 12px;
-  background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);
+.devices-count {
+  font-size: 1.35rem; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, #00b4ff, #25D366);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
-.device-row--on { border-color: rgba(37, 211, 102, 0.25); background: rgba(37, 211, 102, 0.06); }
-.device-icon-wrap { font-size: 1.2rem; flex-shrink: 0; }
-.device-info { flex: 1; min-width: 0; }
-.device-info strong { display: block; font-size: 0.88rem; }
-.device-info span { font-size: 0.72rem; color: var(--muted); }
-.device-status {
-  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-  padding: 4px 8px; border-radius: 6px;
+.devices-grid { display: grid; gap: 10px; max-height: 340px; overflow-y: auto; }
+.device-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px; align-items: center;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.device-card--on {
+  border-color: rgba(37, 211, 102, 0.35);
+  box-shadow: 0 0 24px rgba(37, 211, 102, 0.08);
+  background: linear-gradient(135deg, rgba(37,211,102,0.08), rgba(0,180,255,0.05));
+}
+.device-card-icon { position: relative; width: 44px; height: 44px; }
+.device-card-glyph {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(0, 180, 255, 0.12);
+  font-size: 1.25rem;
+}
+.device-card--on .device-card-glyph { background: rgba(37, 211, 102, 0.15); }
+.device-card-dot {
+  position: absolute; bottom: 2px; right: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #555; border: 2px solid rgba(6,14,28,0.9);
+}
+.device-card-dot--on {
+  background: #25D366;
+  box-shadow: 0 0 10px rgba(37, 211, 102, 0.9);
+}
+.device-card-body strong { display: block; font-size: 0.9rem; }
+.device-card-body span { font-size: 0.72rem; color: var(--muted); }
+.device-card-meta { text-align: right; }
+.device-pill {
+  display: inline-block; font-size: 0.65rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 5px 10px; border-radius: 99px;
   background: rgba(255,255,255,0.06); color: var(--muted);
 }
-.device-status--on { background: rgba(37,211,102,0.15); color: #6ee7b7; }
+.device-pill--on { background: rgba(37,211,102,0.18); color: #6ee7b7; }
+.device-card-meta em { display: block; font-size: 0.68rem; color: var(--muted); font-style: normal; margin-top: 4px; }
+
+/* Produtos — lista visível com oferta 50% */
+.product-list-pro { display: grid; gap: 0; }
+.product-row-pro {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px; align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.product-row-pro:last-child { border-bottom: none; }
+.product-row-main strong { display: block; font-size: 0.9rem; }
+.product-row-main span { font-size: 0.75rem; color: var(--muted); }
+.product-row-price { font-weight: 800; color: #6ee7b7; font-size: 0.95rem; white-space: nowrap; }
+.product-row-offer { min-width: 120px; text-align: right; }
+
+/* Calendário remarketing */
+#schedule-at-wrap { display: none; margin-top: 16px; }
+#schedule-at-wrap.is-open, #schedule-at-wrap[style*="grid"] { display: grid !important; }
+.rmk-calendar-wrap {
+  grid-template-columns: 1.1fr 1fr;
+  gap: 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(0,180,255,0.2);
+}
+.rmk-calendar-panel { min-width: 0; }
+.rmk-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.4);
+  min-height: 220px;
+}
+.rmk-cal-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px; font-weight: 700; font-size: 0.95rem;
+}
+.rmk-cal-dow { text-align: center; font-size: 0.65rem; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.rmk-cal-spacer { min-height: 1px; }
+.rmk-cal-day {
+  aspect-ratio: 1; min-height: 32px;
+  border: none; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.05); color: var(--text-2); font-size: 0.8rem; font-weight: 600;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+.rmk-cal-day:hover:not(.is-past) { background: rgba(0,180,255,0.2); color: #fff; transform: scale(1.05); }
+.rmk-cal-day.is-today { box-shadow: inset 0 0 0 1px rgba(0,180,255,0.5); }
+.rmk-cal-day.is-selected { background: linear-gradient(135deg, #0a5cff, #25D366); color: #fff; }
+.rmk-cal-day.is-past { opacity: 0.3; pointer-events: none; }
 
 .dash-bottom-pro--3 {
   grid-template-columns: 1.2fr 1fr 0.85fr !important;
 }
+.dash-table-card .table-scroll { overflow-x: hidden; overflow-y: auto; }
+.dash-table-card .table { min-width: 0; }
+.dash-table-card .table-instances { min-width: 100%; }
+.activity-feed-live, .devices-grid { overflow-y: auto; }
+.sidebar { scrollbar-width: none; }
 @media (max-width: 1200px) { .dash-bottom-pro--3 { grid-template-columns: 1fr !important; } }
 
 /* Produtos — badge desconto */
@@ -973,7 +1069,10 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 /* Remarketing calendário */
 .rmk-calendar-wrap {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 16px;
 }
 @media (max-width: 900px) { .rmk-calendar-wrap { grid-template-columns: 1fr; } }
 .rmk-calendar {
