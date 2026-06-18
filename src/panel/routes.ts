@@ -18,6 +18,7 @@ import {
   salesByDay,
   messagesByDay,
   salesRankingByBot,
+  salesRankingByUser,
   saveProduct,
   syncProductsFromPrompt,
   syncAllProductsFromBots
@@ -69,7 +70,8 @@ import {
   newInstancePage,
   registerPage,
   settingsPage,
-  topBotsRankingHtml
+  topBotsRankingHtml,
+  topPlayersRankingHtml
 } from "./ui.js";
 import { panelUserLabel } from "./layout.js";
 
@@ -543,13 +545,15 @@ export async function registerPanelRoutes(
         chart: await salesByDay(7, user.id),
         messagesChart: await messagesByDay(7, user.id),
         activities: await listRecentActivity(8, user.id),
-        topBots: await salesRankingByBot(5, user.id)
+        topBots: await salesRankingByBot(5, user.id),
+        topPlayers: await salesRankingByUser(5)
       },
       query.msg,
       query.t === "err",
       partial,
       panelUserLabel(user),
-      statuses
+      statuses,
+      user.id
     );
     return reply.type("text/html").send(html);
   });
@@ -563,6 +567,7 @@ export async function registerPanelRoutes(
     const messagesChart = await messagesByDay(7, user.id);
     const activities = await listRecentActivity(8, user.id);
     const topBots = await salesRankingByBot(5, user.id);
+    const topPlayers = await salesRankingByUser(5);
     const latestSale = await getLatestSale(user.id);
     const recentSales = await listSales(8, user.id);
 
@@ -594,6 +599,7 @@ export async function registerPanelRoutes(
       },
       activityHtml: activityFeedHtml(activities),
       topBotsHtml: topBotsRankingHtml(topBots),
+      topPlayersHtml: topPlayersRankingHtml(topPlayers, user.id),
       chartSvg: salesChartSvgFromData(chart, { tall: true }),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),

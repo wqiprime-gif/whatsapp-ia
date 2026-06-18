@@ -199,38 +199,83 @@ button, input, textarea, select { font-family: inherit; }
   width: 280px;
   box-shadow: 12px 0 48px rgba(0, 0, 0, 0.5);
 }
-.sidebar .nav-text,
-.sidebar .brand-copy,
-.sidebar .btn-new-label,
-.sidebar-plan,
-.sidebar > form {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
+.sidebar:not(:hover) .nav-text,
+.sidebar:not(:hover) .brand-copy,
+.sidebar:not(:hover) .btn-new-label,
+.sidebar:not(:hover) .sidebar-plan,
+.sidebar:not(:hover) > form {
+  display: none;
+}
+.sidebar:not(:hover) .sidebar-brand {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0 16px;
+}
+.sidebar:not(:hover) .brand-mark {
+  align-items: center;
+}
+.sidebar:not(:hover) .btn-new {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  margin: 0 auto 16px;
+  border-radius: 12px;
+  font-size: inherit;
+}
+.sidebar:not(:hover) .btn-new svg {
+  width: 20px;
+  height: 20px;
+}
+.sidebar:not(:hover) .nav a,
+.sidebar:not(:hover) .nav button.nav-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  margin: 3px auto;
+  justify-content: center;
+  border: none;
+  box-shadow: none;
+}
+.sidebar:not(:hover) .nav a.active {
+  background: rgba(37, 211, 102, 0.14);
+  border: none;
+  box-shadow: none;
+}
+.sidebar:not(:hover) .nav a svg,
+.sidebar:not(:hover) .nav button.nav-btn svg {
+  margin: 0;
 }
 .sidebar:hover .nav-text,
 .sidebar:hover .brand-copy,
 .sidebar:hover .btn-new-label,
 .sidebar:hover .sidebar-plan,
 .sidebar:hover > form {
-  opacity: 1;
-  pointer-events: auto;
-}
-.sidebar .btn-new {
-  padding: 13px 10px;
-  font-size: 0;
+  display: revert;
 }
 .sidebar:hover .btn-new {
-  font-size: 0.88rem;
+  width: 100%;
+  height: auto;
   padding: 13px;
+  margin: 0 0 22px;
+  border-radius: var(--radius);
+}
+.sidebar:hover .nav a,
+.sidebar:hover .nav button.nav-btn {
+  width: 100%;
+  height: auto;
+  margin: 0;
+  justify-content: flex-start;
+  padding: 11px 12px;
+}
+.sidebar:hover .nav a.active {
+  border: 1px solid rgba(37, 211, 102, 0.25);
+  box-shadow: inset 3px 0 0 var(--primary), 0 0 24px rgba(37, 211, 102, 0.08);
 }
 .sidebar .nav a, .sidebar .nav button.nav-btn {
   justify-content: center;
   padding: 11px 10px;
-}
-.sidebar:hover .nav a, .sidebar:hover .nav button.nav-btn {
-  justify-content: flex-start;
-  padding: 11px 12px;
 }
 .sidebar .nav-text {
   white-space: nowrap;

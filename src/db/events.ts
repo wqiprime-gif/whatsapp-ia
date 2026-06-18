@@ -741,6 +741,14 @@ export type BotSalesRank = {
   totalCents: number;
 };
 
+export type UserSalesRank = {
+  userId: string;
+  displayName: string;
+  email: string;
+  salesCount: number;
+  totalCents: number;
+};
+
 function formatSaleSubtitle(productName: string, amountCents: number, botName: string) {
   const reais = (amountCents / 100).toFixed(2).replace(".", ",");
   return `${productName} · R$ ${reais} · ${botName || "Bot"}`;
@@ -922,6 +930,88 @@ export async function salesRankingByBot(limit = 5, userId?: string): Promise<Bot
     .sort((a, b) => b.totalCents - a.totalCents || b.salesCount - a.salesCount)
     .slice(0, limit);
 }
+
+function playerTier(totalCents: number) {
+  const v = totalCents / 100;
+  if (v >= 100_000) return "ABYSSAL PREDATOR";
+  if (v >= 50_000) return "ABYSSAL BARON";
+  if (v >= 10_000) return "SHARK HUNTER";
+  if (v >= 1_000) return "RISING WAVE";
+  return "STARTER";
+}
+
+function playerDisplayName(email: string, name?: string) {
+  const trimmed = name?.trim();
+  if (trimmed && !trimmed.startsWith("@")) return trimmed;
+  const local = email.split("@")[0] || "player";
+  return `@${local}`;
+}
+
+export async function salesRankingByUser(limit = 5): Promise<UserSalesRank[]> {
+  if (useDatabase()) {
+    const { rows } = await getPool().query<{
+      user_id: string;
+      email: string;
+      name: string;
+      sales_count: number;
+      total_cents: number;
+    }>(
+      `SELECT u.id AS user_id, u.email, u.name,
+              COUNT(s.id)::int AS sales_count,
+              COALESCE(SUM(s.amount_cents), 0)::int AS total_cents
+       FROM panel_users u
+       INNER JOIN bots b ON b.user_id = u.id
+       INNER JOIN sales s ON s.bot_id = b.id
+       GROUP BY u.id, u.email, u.name
+       ORDER BY total_cents DESC, sales_count DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return rows.map((r) => ({
+      userId: r.user_id,
+      email: r.email,
+      displayName: playerDisplayName(r.email, r.name),
+      salesCount: r.sales_count,
+      totalCents: r.total_cents
+    }));
+  }
+
+  const store = await loadFileStore();
+  const bots = await (await import("../bots.js")).loadBots();
+  const usersFile = path.join(env.DATA_DIR, "users.json");
+  let users: { id: string; email: string; name: string }[] = [];
+  try {
+    users = JSON.parse(await fs.readFile(usersFile, "utf8")) as { id: string; email: string; name: string }[];
+  } catch {
+    users = [];
+  }
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const botToUser = new Map(bots.map((b) => [b.id, b.userId ?? ""]));
+  const map = new Map<string, UserSalesRank>();
+
+  for (const s of store.sales) {
+    const uid = botToUser.get(s.botId);
+    if (!uid) continue;
+    const user = userById.get(uid);
+    const email = user?.email ?? "player@local";
+    const cur = map.get(uid) ?? {
+      userId: uid,
+      email,
+      displayName: playerDisplayName(email, user?.name),
+      salesCount: 0,
+      totalCents: 0
+    };
+    cur.salesCount += 1;
+    cur.totalCents += s.amountCents;
+    map.set(uid, cur);
+  }
+
+  return [...map.values()]
+    .sort((a, b) => b.totalCents - a.totalCents || b.salesCount - a.salesCount)
+    .slice(0, limit);
+}
+
+export { playerTier };
 
 export async function getLatestSale(userId?: string) {
   const sales = await listSales(1, userId);

@@ -886,29 +886,41 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .chart-svg--bars { width: 100%; height: auto; max-height: 200px; display: block; }
 
-/* Efeito circulando — só nos 6 blocos da dashboard */
+/* Efeito Shark — listra azul circulando só na borda (sem preencher o card) */
 .dash-glow-card {
   position: relative;
-  border-radius: 18px;
+  border-radius: 16px;
+  background: rgba(8, 12, 22, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
   isolation: isolate;
 }
 .dash-glow-card::before {
   content: "";
   position: absolute;
-  inset: -2px;
-  border-radius: 20px;
-  background: conic-gradient(from var(--border-angle, 0deg), #00b4ff, #25D366, #0a5cff, #6366f1, #00b4ff);
-  z-index: -1;
-  animation: border-spin 4s linear infinite;
-  opacity: 0.85;
-}
-.dash-glow-card::after {
-  content: "";
-  position: absolute;
   inset: 0;
-  border-radius: 18px;
-  background: rgba(6, 14, 28, 0.96);
-  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    transparent 0deg,
+    transparent 240deg,
+    rgba(14, 165, 233, 0.25) 280deg,
+    #0ea5e9 310deg,
+    #38bdf8 330deg,
+    #0ea5e9 350deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: border-spin 3.5s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.dash-glow-card > * {
+  position: relative;
+  z-index: 1;
 }
 @keyframes border-spin { to { --border-angle: 360deg; } }
 @property --border-angle {
@@ -971,7 +983,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: grid; place-items: center;
   width: 44px; height: 44px; border-radius: 12px;
   background: rgba(0, 180, 255, 0.12);
-  font-size: 1.25rem;
 }
 .device-card--on .device-card-glyph { background: rgba(37, 211, 102, 0.15); }
 .device-card-dot {
@@ -1049,8 +1060,149 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .rmk-cal-day.is-past { opacity: 0.3; pointer-events: none; }
 
 .dash-bottom-pro--3 {
-  grid-template-columns: 1.2fr 1fr 0.85fr !important;
+  grid-template-columns: 1.25fr 1fr 1fr !important;
+  gap: 16px;
 }
+.dash-shell { max-width: 1680px; margin: 0 auto; }
+.dash-charts-hero--3 { gap: 16px; margin-bottom: 16px; }
+.kpi-strip { gap: 16px; margin-bottom: 16px; }
+
+/* Top Players — corrida de faturamento */
+.top-players-card .card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.top-players-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.top-players-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.top-players-tab {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  background: rgba(14, 165, 233, 0.12);
+  color: #7dd3fc;
+}
+.top-players-tab--muted {
+  border-color: rgba(255,255,255,0.08);
+  background: transparent;
+  color: var(--muted);
+}
+.top-players-list {
+  display: grid;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.top-player-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.top-player-row--gold { border-color: rgba(251, 191, 36, 0.35); background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(0,0,0,0.35)); }
+.top-player-row--silver { border-color: rgba(203, 213, 225, 0.3); }
+.top-player-row--bronze { border-color: rgba(217, 119, 6, 0.28); }
+.top-player-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(14,165,233,0.25), rgba(37,211,102,0.15));
+  border: 1px solid rgba(14,165,233,0.35);
+  color: #fff;
+}
+.top-player-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.top-player-rank {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: var(--muted);
+}
+.top-player-row--gold .top-player-rank { background: rgba(251,191,36,0.2); color: #fcd34d; }
+.top-player-row--silver .top-player-rank { background: rgba(203,213,225,0.15); color: #e2e8f0; }
+.top-player-row--bronze .top-player-rank { background: rgba(217,119,6,0.15); color: #fdba74; }
+.top-player-tier {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(14, 165, 233, 0.85);
+  margin-top: 2px;
+}
+.top-player-revenue {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  color: #7dd3fc;
+  white-space: nowrap;
+}
+.top-player-row--me { outline: 1px solid rgba(37, 211, 102, 0.35); }
+.top-player-row--gold .top-player-revenue {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fcd34d;
+}
+.top-player-you {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(37, 211, 102, 0.15);
+  color: #6ee7b7;
+}
+
+/* Ícone smartphone premium */
+.device-phone-icon {
+  width: 22px;
+  height: 22px;
+  color: #38bdf8;
+}
+.device-card-glyph {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(0, 180, 255, 0.12);
+}
+.device-card-glyph svg { width: 22px; height: 22px; }
+.device-card--on .device-card-glyph { background: rgba(37, 211, 102, 0.15); }
+.device-card--on .device-phone-icon { color: #6ee7b7; }
 .dash-table-card .table-scroll { overflow-x: hidden; overflow-y: auto; }
 .dash-table-card .table { min-width: 0; }
 .dash-table-card .table-instances { min-width: 100%; }

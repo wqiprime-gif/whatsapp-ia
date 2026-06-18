@@ -62,6 +62,16 @@ export const panelClientScript = `
     if (proxySel) { proxySel.addEventListener("change", syncProxy); syncProxy(); }
   }
 
+  function runInlineScripts(root) {
+    (root || document).querySelectorAll("script:not([src])").forEach(function (old) {
+      if (!old.textContent || !old.textContent.trim()) return;
+      var s = document.createElement("script");
+      if (old.type) s.type = old.type;
+      s.textContent = old.textContent;
+      old.parentNode.replaceChild(s, old);
+    });
+  }
+
   function bindForms(root) {
     (root || document).querySelectorAll("form").forEach((f) => {
       if (f.dataset.bound) return;
@@ -72,7 +82,7 @@ export const panelClientScript = `
       });
     });
     bindWaInstanceForm(root);
-    (root || document).querySelectorAll("script[data-panel-init]").forEach((old) => old.remove());
+    runInlineScripts(root);
   }
 
   function pageTitle(path) {
@@ -271,6 +281,8 @@ export const panelClientScript = `
     }
     const top = document.querySelector("[data-live=top-bots]");
     if (top && data.topBotsHtml) top.innerHTML = data.topBotsHtml;
+    const topPlayers = document.querySelector("[data-live=top-players]");
+    if (topPlayers && data.topPlayersHtml) topPlayers.innerHTML = data.topPlayersHtml;
     const chart = document.querySelector("[data-live=sales-chart]");
     if (chart && data.chartSvg) chart.innerHTML = data.chartSvg;
     const msgChart = document.querySelector("[data-live=messages-chart]");

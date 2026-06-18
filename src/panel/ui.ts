@@ -1,6 +1,7 @@
 import type { BotConfig } from "../bots.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
-import type { ActivityItem, BotSalesRank } from "../db/events.js";
+import type { ActivityItem, BotSalesRank, UserSalesRank } from "../db/events.js";
+import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
@@ -23,6 +24,7 @@ export type DashboardData = {
   messagesChart: { day: string; count: number }[];
   activities: ActivityItem[];
   topBots: BotSalesRank[];
+  topPlayers: UserSalesRank[];
 };
 
 export function formatRelativeTime(iso: string) {
@@ -37,6 +39,18 @@ export function formatRelativeTime(iso: string) {
 
 function moneyBrl(cents: number) {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+function moneyCompact(cents: number) {
+  const v = cents / 100;
+  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(1).replace(".", ",")}k`;
+  return moneyBrl(cents);
+}
+
+function userInitials(name: string, email: string) {
+  const src = name.replace(/^@/, "").trim() || email.split("@")[0] || "U";
+  return src.slice(0, 2).toUpperCase();
 }
 
 export function activityFeedHtml(activities: ActivityItem[]) {
@@ -96,6 +110,30 @@ export function topBotsRankingHtml(ranking: BotSalesRank[]) {
     .join("");
 }
 
+export function topPlayersRankingHtml(ranking: UserSalesRank[], currentUserId?: string) {
+  if (ranking.length === 0) {
+    return `<div class="empty" style="padding:24px 8px;font-size:0.85rem;text-align:center">
+      Nenhum player no ranking ainda.<br/>
+      <small style="color:var(--muted)">A corrida começa na primeira venda confirmada na plataforma.</small>
+    </div>`;
+  }
+
+  return ranking
+    .map((player, i) => {
+      const rankCls = i === 0 ? "top-player-row--gold" : i === 1 ? "top-player-row--silver" : i === 2 ? "top-player-row--bronze" : "";
+      const isMe = currentUserId && player.userId === currentUserId;
+      return `<div class="top-player-row ${rankCls}${isMe ? " top-player-row--me" : ""}">
+        <div class="top-player-avatar">${escapeHtml(userInitials(player.displayName, player.email))}</div>
+        <div>
+          <span class="top-player-name">${escapeHtml(player.displayName)}<span class="top-player-rank">#${i + 1}</span>${isMe ? '<span class="top-player-you">você</span>' : ""}</span>
+          <span class="top-player-tier">${playerTier(player.totalCents)}</span>
+        </div>
+        <div class="top-player-revenue">${moneyCompact(player.totalCents)}</div>
+      </div>`;
+    })
+    .join("");
+}
+
 function activityFeed(activities: ActivityItem[]) {
   return activityFeedHtml(activities);
 }
@@ -128,7 +166,7 @@ function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLive
       const label = statusLabel[st] || st;
       return `<div class="device-card ${on ? "device-card--on" : "device-card--off"}">
         <div class="device-card-icon">
-          <span class="device-card-glyph">${on ? "📱" : "📴"}</span>
+          <span class="device-card-glyph">${icons.phone}</span>
           <span class="device-card-dot ${on ? "device-card-dot--on" : ""}"></span>
         </div>
         <div class="device-card-body">
@@ -214,9 +252,11 @@ export function dashboardPage(
   isError = false,
   partial = false,
   userName = "Usuario",
-  statuses: Record<string, WaLiveStatus> = {}
+  statuses: Record<string, WaLiveStatus> = {},
+  currentUserId = ""
 ) {
   const active = bots.filter((b) => b.active).length;
+  const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
   const previews = bots.reduce((s, b) => s + b.previewMediaUrls.length, 0);
   const salesReais = (data.stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const convRate =
@@ -327,16 +367,26 @@ export function dashboardPage(
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card card card-premium card-devices">
+      <div class="dash-glow-card card card-premium top-players-card">
         <div class="card-head">
-          <h3>${icons.chat} Dispositivos conectados</h3>
+          <div>
+            <h3>${icons.trophy} Top 5 Players</h3>
+            <div class="top-players-sub">Corrida de faturamento</div>
+          </div>
         </div>
-        <div class="card-body">${connectedDevicesHtml(bots, statuses)}</div>
+        <div class="card-body">
+          <div class="top-players-tabs">
+            <span class="top-players-tab">Concurso</span>
+            <span class="top-players-tab top-players-tab--muted">Mensal</span>
+          </div>
+          <div class="top-players-list" data-live="top-players">${topPlayersRankingHtml(data.topPlayers, currentUserId)}</div>
+        </div>
       </div>
     </div>
 
     <div class="dash-status-bar" aria-label="Status da operação">
       <div class="dash-status-item dash-status-item--ok"><span class="dash-status-dot"></span> Sistemas operacionais</div>
+      <div class="dash-status-item">Dispositivos: <strong>${connected} / ${bots.length}</strong> conectados</div>
       <div class="dash-status-item">Mensagens hoje: <strong data-live-stat="messagesToday">${data.stats.messagesToday}</strong></div>
       <div class="dash-status-item">Leads: <strong data-live-stat="leads">${data.stats.leads}</strong></div>
       <div class="dash-status-item">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong></div>

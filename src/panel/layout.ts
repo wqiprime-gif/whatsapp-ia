@@ -94,7 +94,7 @@ export function appLayout(
         <a href="/settings">Ver configurações</a>
       </div>
       <form method="post" action="/logout" style="margin-top:12px">
-        <button type="submit" class="nav-btn" style="width:100%">${icons.logout} Sair</button>
+        <button type="submit" class="nav-btn" style="width:100%">${icons.logout}<span class="nav-text"> Sair</span></button>
       </form>
     </aside>
     <div class="main-wrap">
