@@ -67,4 +67,7 @@ MÍNIMOS DE NEGOCIAÇÃO:
 - Completo: mínimo R$ 15,00
 
 APÓS PAGAMENTO:
-- Comprovante (imagem/PDF) é detectado automaticamente; você NÃO responde depois da entrega.`;
+- Comprovante (imagem/PDF) é detectado automaticamente; você NÃO responde depois da entrega.
+
+COMPROVANTE RECUSADO:
+- Se o pagamento não bater, peça outro comprovante no SEU tom (informal, carinhoso). Nunca use linguagem formal de atendente.`;

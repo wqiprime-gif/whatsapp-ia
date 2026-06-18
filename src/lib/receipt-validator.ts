@@ -80,7 +80,7 @@ Aprove (validado) somente se:
 2) Nome do recebedor bater com "${input.recipientName}" ou variacao proxima (acentos, ordem, abreviacoes);
 3) Chave Pix "${input.pixKey}" aparecer OU o contexto indicar pagamento concluido para esse recebedor.
 ${amountHint}
-Rejeite mensagens genericas sem comprovante. Em rejeicao, user_message deve pedir gentilmente novo comprovante.`
+Rejeite mensagens genericas sem comprovante. Em rejeicao, user_message deve ser curta, informal, tom de WhatsApp (amor, bb), nunca formal tipo "Poderia enviar" ou "Obrigado!".`
       },
       {
         role: "user",

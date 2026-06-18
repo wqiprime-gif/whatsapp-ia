@@ -512,6 +512,32 @@ const openai = new OpenAI({
   apiKey: openAiApiKey,
 });
 
+/** Gera fala no tom do prompt da instância — sem mensagens fixas do código. */
+async function generatePersonaReply(userNumber, instruction) {
+  const conversation = getUserConversation(userNumber);
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.55,
+      max_tokens: 120,
+      messages: [
+        ...conversation.slice(0, 22),
+        {
+          role: 'system',
+          content: `${instruction}\n\nResponda SOMENTE a mensagem para o lead (máx 2 frases curtas), no tom exato da sua persona. Sem aspas. Sem explicações.`
+        }
+      ]
+    });
+    const text = String(completion.choices[0]?.message?.content || '').trim();
+    if (!text) return '';
+    conversation.push({ role: 'assistant', content: text });
+    return text;
+  } catch (error) {
+    console.error('generatePersonaReply:', error.message);
+    return '';
+  }
+}
+
 const MAX_TOKENS = 256;
 const userConversations = {};
 const hasSentInformacoes = {};
@@ -558,9 +584,44 @@ function parsePromptActions(text) {
 }
 
 function wantsPreviewIntent(text) {
-  return /pr[eé]via|amostra|teste gr[aá]tis|manda(r)?\s+(uma\s+)?foto|tem foto|me manda/i.test(
-    String(text || '')
+  const t = String(text || '').toLowerCase();
+  return /pr[eé]via|amostra|teste gr[aá]tis|manda(r)?\s+(uma\s+)?foto|tem foto|me manda|manda\s+manda|manda\s+a[ií]|cad[eê]\s+(a\s+)?(previa|prévia|foto|amostra)|quer(o)?\s+ver|uma\s+foto\s+sua|foto\s+sua|previa\s+sua|prévia\s+sua|manda\s+pra\s+mim|tem\s+como\s+mandar/i.test(
+    t
   );
+}
+
+function hasPreviewMedia() {
+  return (loadBotConfig().previewMediaUrls || []).filter(Boolean).length > 0;
+}
+
+function conversationWantsPreview(userNumber) {
+  const conv = userConversations[userNumber] || [];
+  const users = conv
+    .filter((m) => m.role === 'user')
+    .slice(-5)
+    .map((m) => m.content)
+    .join(' ');
+  const assistants = conv
+    .filter((m) => m.role === 'assistant')
+    .slice(-3)
+    .map((m) => m.content)
+    .join(' ');
+  return wantsPreviewIntent(users) || /pr[eé]via|amostra|mandar uma|vou te mandar/i.test(assistants);
+}
+
+function aiFakesPreviewSend(clean) {
+  return /aqui est[aá]|mandei|te mandei|olha a[ií]|segue (a|sua)|vou te mandar.*pr[eé]via|prévia bem gostosa|espero que goste/i.test(
+    String(clean || '')
+  );
+}
+
+function shouldAutoSendPreview(userNumber, combinedMessage, aiClean, actions) {
+  if (hasPreviewBeenSent(userNumber) || !hasPreviewMedia()) return false;
+  if (actions.includes('send_amostra_gratis')) return true;
+  if (wantsPreviewIntent(combinedMessage)) return true;
+  if (conversationWantsPreview(userNumber)) return true;
+  if (aiFakesPreviewSend(aiClean)) return true;
+  return false;
 }
 
 function wantsPixIntent(text) {
@@ -613,6 +674,13 @@ async function runCompletion(userNumber, message) {
     conversation.splice(1, 1);
   }
   conversation.push({ role: "user", content: message });
+
+  if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber))) {
+    conversation.push({
+      role: 'system',
+      content: 'O lead quer prévia/amostra. OBRIGATÓRIO: chame send_amostra_gratis agora. Proibido dizer "aqui está" ou "mandei" sem enviar a mídia pela função.'
+    });
+  }
 
   try {
     const tools = [
@@ -689,23 +757,18 @@ async function runCompletion(userNumber, message) {
 
     // Amostra já enviada — bloqueia nova amostra
     if (hasPreviewBeenSent(userNumber) && fnName === 'send_amostra_gratis') {
-      const response = `já te mostrei amor, agora só comprando 😉`;
-      conversation.push({ role: "assistant", content: response });
-      return response;
+      return await generatePersonaReply(
+        userNumber,
+        'O lead pediu outra prévia mas você já enviou uma. Recuse com carinho e diga que só libera comprando.'
+      );
     }
 
-    // naosou_fake já enviado — resposta simples
     if (hasSentNaoSouFake[userNumber] && fnName === 'naosou_fake') {
-      const response = `Te garanto que sou real tá? 😉`;
-      conversation.push({ role: "assistant", content: response });
-      return response;
+      return await generatePersonaReply(userNumber, 'O lead ainda desconfia. Reafirme com naturalidade que você é real.');
     }
 
-    // send_informacoes já enviado — não reenvia
     if (hasSentInformacoes[userNumber] && fnName === 'send_informacoes') {
-      const response = `já te mandei os pacotes amor, qual você quer? 😊`;
-      conversation.push({ role: "assistant", content: response });
-      return response;
+      return await generatePersonaReply(userNumber, 'O lead pediu os pacotes de novo. Diga que já mandou e pergunte qual ele quer.');
     }
 
     // Executa a tool chamada
@@ -873,7 +936,11 @@ Qual pacote te interessa, amor? 💕
         console.log(`🔍 Imagem recebida de ${messageFrom} — analisando comprovante...`);
       }
 
-      await client.sendMessage(messageFrom, randomReceiptAck());
+      const ack = await generatePersonaReply(
+        messageFrom,
+        'O lead acabou de enviar um comprovante de pagamento (imagem ou PDF). Diga que recebeu e vai conferir agora, no seu tom.'
+      );
+      if (ack) await client.sendMessage(messageFrom, ack);
 
       const readingMs = Math.floor(Math.random() * (25000 - 8000 + 1) + 8000);
       console.log(`⏳ Conferindo comprovante por ${Math.round(readingMs / 1000)}s...`);
@@ -893,20 +960,26 @@ Qual pacote te interessa, amor? 💕
 
       if (resultado.paid) {
         console.log(`✅ Comprovante validado para ${messageFrom}`);
-        return await confirmarComprovante(messageFrom, resultado.outcomeMessage || randomReceiptApproved());
+        const approvedMsg = await generatePersonaReply(
+          messageFrom,
+          'O comprovante foi APROVADO. Confirme o pagamento com carinho e diga que vai liberar o acesso.'
+        );
+        return await confirmarComprovante(messageFrom, approvedMsg);
       }
 
-      const reply =
-        resultado.outcomeMessage ||
-        'Não consegui confirmar esse pagamento automaticamente. Me manda outro comprovante ou chama aqui que eu te ajudo.';
-      await client.sendMessage(messageFrom, reply);
+      const reply = await generatePersonaReply(
+        messageFrom,
+        `O comprovante NÃO foi aprovado. Motivo técnico: ${resultado.reason || 'não confere'}. Peça outro comprovante no seu tom informal, sem soar robótica.`
+      );
+      if (reply) await client.sendMessage(messageFrom, reply);
       return true;
     } catch (error) {
       console.error(`❌ Erro ao processar comprovante: ${error.message}`);
-      await client.sendMessage(
+      const errReply = await generatePersonaReply(
         messageFrom,
-        'Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo.'
+        'Deu erro ao conferir o comprovante. Peça para o lead mandar de novo, no seu tom.'
       );
+      if (errReply) await client.sendMessage(messageFrom, errReply);
       return true;
     }
   }
@@ -1043,7 +1116,13 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
     const config = loadBotConfig();
 
     try {
-      await client.sendMessage(messageFrom, approvedMessage || randomReceiptApproved());
+      const approvedText =
+        approvedMessage ||
+        (await generatePersonaReply(
+          messageFrom,
+          'Pagamento confirmado! Agradeça com carinho e diga que está liberando o acesso.'
+        ));
+      if (approvedText) await client.sendMessage(messageFrom, approvedText);
       await sleep(2000);
 
       void panelLog({
@@ -1163,11 +1242,14 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
     await new Promise(resolve => setTimeout(resolve, 2000));
     await chat.sendStateTyping();
     await new Promise(resolve => setTimeout(resolve, 1500));
-    const response = `Gostou amor? 😘`;
-    await client.sendMessage(messageFrom, response);
-    console.log(`✅ Resposta de amostra enviada para ${messageFrom}`);
-
-    conversation.push({ role: "assistant", content: response });
+    const response = await generatePersonaReply(
+      messageFrom,
+      'Você acabou de enviar a prévia/amostra gratuita. Pergunte em 1 frase curta se ele gostou.'
+    );
+    if (response) {
+      await client.sendMessage(messageFrom, response);
+      console.log(`✅ Resposta pós-prévia para ${messageFrom}`);
+    }
     conversation.push({ role: "system", content: 'Foi enviado a amostra gratuita. Não ofereça amostras gratuitas novamente.' });
     isProcessing[messageFrom] = false;
     return true;
@@ -1447,11 +1529,9 @@ client.on("message", async (message) => {
 
           if (actions.length > 0) {
             await executePromptActions(client, from, actions);
-          } else if (
-            wantsPreviewIntent(combinedMessage) &&
-            !hasPreviewBeenSent(from) &&
-            (loadBotConfig().previewMediaUrls || []).length > 0
-          ) {
+          }
+
+          if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
             const ok = await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
             if (ok) markPreviewSent(from);
           }
