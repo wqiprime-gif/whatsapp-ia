@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { loadBots, uploadsDir, type BotConfig } from "./bots.js";
@@ -13,6 +14,25 @@ const instancesDir = path.join(env.DATA_DIR, "wa-instances");
 
 function instanceDataDir(botId: string) {
   return path.join(instancesDir, botId);
+}
+
+/** Caminho do Chromium que realmente existe no disco (ignora env quebrada do Railway). */
+function resolveChromeExecutable() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.CHROME_BIN,
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome-stable"
+  ].filter(Boolean) as string[];
+  for (const candidate of candidates) {
+    try {
+      if (fsSync.existsSync(candidate)) return candidate;
+    } catch {
+      // ignore
+    }
+  }
+  return "/usr/bin/chromium";
 }
 
 type WaProcess = {
@@ -121,7 +141,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     WA_AUTH_DIR: path.join(env.DATA_DIR, "wwebjs_auth"),
     WA_INSTANCE_DIR: instDir,
     UPLOADS_DIR: uploadsDir,
-    PUPPETEER_CACHE_DIR: process.env.PUPPETEER_CACHE_DIR || path.join(rootDir, ".cache", "puppeteer")
+    PUPPETEER_EXECUTABLE_PATH: resolveChromeExecutable(),
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
 

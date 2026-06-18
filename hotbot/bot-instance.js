@@ -108,19 +108,36 @@ function resolveChromiumPath() {
   const candidates = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_BIN,
-    process.env.CHROMIUM_PATH
+    process.env.CHROMIUM_PATH,
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome-stable'
   ].filter(Boolean);
+
   for (const candidate of candidates) {
     try {
-      if (fs.existsSync(candidate)) return candidate;
+      if (fs.existsSync(candidate)) {
+        console.log(`✅ Chromium: ${candidate}`);
+        return candidate;
+      }
     } catch (_) {}
   }
+
   try {
-    return puppeteer.executablePath();
+    const fromPuppeteer = puppeteer.executablePath();
+    if (fromPuppeteer && fs.existsSync(fromPuppeteer)) {
+      console.log(`✅ Chromium (cache puppeteer): ${fromPuppeteer}`);
+      return fromPuppeteer;
+    }
+    if (fromPuppeteer) {
+      console.warn(`⚠️ Cache puppeteer aponta para ${fromPuppeteer} mas o arquivo não existe`);
+    }
   } catch (error) {
-    console.error('Chromium não encontrado:', error.message);
-    return undefined;
+    console.error('Chromium não encontrado via puppeteer:', error.message);
   }
+
+  console.error('❌ Nenhum Chromium encontrado. Instale chromium no servidor ou defina PUPPETEER_EXECUTABLE_PATH.');
+  return undefined;
 }
 
 async function panelLog(payload) {

@@ -1,8 +1,9 @@
 FROM node:22-bookworm-slim
 
-# Dependências do Chromium (Puppeteer / whatsapp-web.js)
+# Chromium do sistema (mais estável no Railway que cache do Puppeteer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    chromium \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -32,11 +33,11 @@ RUN npm ci --include=dev
 COPY src ./src
 COPY hotbot ./hotbot
 
-RUN cd hotbot && npx puppeteer browsers install chrome
-
 RUN npm run build
 
 ENV NODE_ENV=production
-ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV CHROME_BIN=/usr/bin/chromium
 
 CMD ["npm", "start"]
