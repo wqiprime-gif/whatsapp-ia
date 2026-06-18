@@ -22,9 +22,9 @@ export function panelSceneScript(mode: "auth" | "app" = "app") {
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    var blue = 0x25d366;
+    var blue = 0x0a5cff;
     var cyan = 0x00b4ff;
-    var white = 0xddeeff;
+    var green = 0x25d366;
 
     var group = new THREE.Group();
     scene.add(group);
@@ -75,7 +75,7 @@ export function panelSceneScript(mode: "auth" | "app" = "app") {
     var pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     var particlesMesh = new THREE.Points(pGeo, new THREE.PointsMaterial({
-      size: 0.045, color: white, transparent: true, opacity: 0.75,
+      size: 0.045, color: cyan, transparent: true, opacity: 0.75,
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
     }));
     scene.add(particlesMesh);

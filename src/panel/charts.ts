@@ -74,15 +74,31 @@ export function channelDonutSvg(stats: { label: string; value: number; color: st
 }
 
 export function salesFunnelHtml(input: { leads: number; sales: number; messages: number }) {
+  const leadCount = Math.max(input.leads, 1);
   const stages = [
-    { label: "Leads", value: input.leads, pct: 100 },
-    { label: "Conversas", value: input.messages, pct: input.leads ? Math.min(100, Math.round((input.messages / Math.max(input.leads, 1)) * 100)) : 0 },
-    { label: "Vendas", value: input.sales, pct: input.leads ? Math.round((input.sales / input.leads) * 100) : 0 }
+    { label: "Leads", value: input.leads, pct: 100, color: "#00b4ff" },
+    {
+      label: "Conversas",
+      value: input.messages,
+      pct: input.leads ? Math.min(100, Math.round((input.messages / leadCount) * 100)) : 0,
+      color: "#0a5cff"
+    },
+    {
+      label: "Vendas",
+      value: input.sales,
+      pct: input.leads ? Math.round((input.sales / leadCount) * 100) : 0,
+      color: "#25D366"
+    }
   ];
-  return `<div class="funnel-stack">${stages
+  return `<div class="funnel-pro">${stages
     .map(
       (s, i) =>
-        `<div class="funnel-stage" style="width:${100 - i * 14}%"><span>${s.label}</span><strong>${s.value}</strong><em>${s.pct}%</em></div>`
+        `<div class="funnel-pro-stage" style="--funnel-w:${100 - i * 12}%;--funnel-color:${s.color}">
+          <div class="funnel-pro-inner">
+            <span class="funnel-pro-label">${s.label}</span>
+            <div class="funnel-pro-stats"><strong>${s.value}</strong><em>${s.pct}%</em></div>
+          </div>
+        </div>`
     )
     .join("")}</div>`;
 }

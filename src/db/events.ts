@@ -373,6 +373,39 @@ export async function logSale(input: {
   await saveFileStore(store);
 }
 
+export async function listLeadsWithoutPurchase(botIds: string[]) {
+  if (botIds.length === 0) return [];
+  if (useDatabase()) {
+    const { rows } = await getPool().query(
+      `SELECT l.bot_id, l.chat_id, l.username, l.display_name FROM leads l
+       WHERE l.bot_id = ANY($1::uuid[])
+       AND NOT EXISTS (
+         SELECT 1 FROM sales s WHERE s.bot_id = l.bot_id AND s.chat_id = l.chat_id
+       )
+       ORDER BY l.last_message_at DESC`,
+      [botIds]
+    );
+    return rows.map((r) => ({
+      botId: String(r.bot_id),
+      chatId: Number(r.chat_id),
+      username: r.username as string | undefined,
+      displayName: r.display_name as string | undefined
+    }));
+  }
+
+  const store = await loadFileStore();
+  const set = new Set(botIds);
+  const paid = new Set(store.sales.map((s) => `${s.botId}:${s.chatId}`));
+  return store.leads
+    .filter((l) => set.has(l.botId) && !paid.has(`${l.botId}:${l.chatId}`))
+    .map((l) => ({
+      botId: l.botId,
+      chatId: l.chatId,
+      username: l.username,
+      displayName: l.displayName
+    }));
+}
+
 export async function listLeadsByBots(botIds: string[]) {
   if (botIds.length === 0) return [];
   if (useDatabase()) {
@@ -399,6 +432,10 @@ export async function listLeadsByBots(botIds: string[]) {
       username: l.username,
       displayName: l.displayName
     }));
+}
+
+export async function listLeadsWithoutPurchaseForBot(botId: string) {
+  return listLeadsWithoutPurchase([botId]);
 }
 
 export async function listLeadsByBot(botId: string) {

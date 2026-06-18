@@ -104,6 +104,41 @@ function topProducts(ranking: BotSalesRank[]) {
   return topBotsRankingHtml(ranking);
 }
 
+function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLiveStatus>) {
+  if (bots.length === 0) {
+    return `<div class="empty" style="padding:16px 8px;font-size:0.85rem">Nenhuma instância cadastrada.</div>`;
+  }
+  const connected = bots.filter((b) => statuses[b.id] === "connected").length;
+  const statusLabel: Record<string, string> = {
+    connected: "Conectado",
+    paused: "Pausado",
+    qr_pending: "Aguardando QR",
+    starting: "Iniciando",
+    offline: "Offline",
+    disconnected: "Desconectado",
+    error: "Erro",
+    auth_failure: "Falha auth",
+    meta_ready: "API Meta",
+    meta_missing: "Meta incompleto"
+  };
+  const rows = bots
+    .map((b) => {
+      const st = statuses[b.id] || "offline";
+      const on = st === "connected" || st === "meta_ready";
+      const label = statusLabel[st] || st;
+      return `<div class="device-row ${on ? "device-row--on" : "device-row--off"}">
+        <div class="device-icon-wrap">${on ? "📱" : "📴"}</div>
+        <div class="device-info">
+          <strong>${escapeHtml(b.name)}</strong>
+          <span>WhatsApp Web · ${b.active ? "ativa" : "pausada"}</span>
+        </div>
+        <span class="device-status ${on ? "device-status--on" : ""}">${label}</span>
+      </div>`;
+    })
+    .join("");
+  return `<div class="devices-summary">${connected} / ${bots.length} conectados</div><div class="devices-list">${rows}</div>`;
+}
+
 export function loginPage(message = "") {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -263,7 +298,7 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="dash-bottom-pro">
+    <div class="dash-bottom-pro dash-bottom-pro--3">
       <div class="card card-premium card--table dash-table-card">
         <div class="card-head">
           <h3>${icons.layers} Suas instâncias</h3>
@@ -285,6 +320,12 @@ export function dashboardPage(
           <span class="live-badge">Ao vivo</span>
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
+      </div>
+      <div class="card card-premium card-devices">
+        <div class="card-head">
+          <h3>${icons.chat} Dispositivos conectados</h3>
+        </div>
+        <div class="card-body">${connectedDevicesHtml(bots, statuses)}</div>
       </div>
     </div>
 

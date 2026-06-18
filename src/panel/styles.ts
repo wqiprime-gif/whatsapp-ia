@@ -44,7 +44,25 @@ ${premiumStyles}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 180, 255, 0.5) rgba(4, 10, 20, 0.6);
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track {
+  background: rgba(4, 10, 20, 0.5);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00b4ff, #25D366);
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3dc8ff, #3de07a);
+}
 
 body {
   font-family: var(--font);
@@ -64,10 +82,11 @@ body {
   z-index: 0;
   background-color: #000;
   background-image:
-    linear-gradient(rgba(37, 211, 102, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 211, 102, 0.04) 1px, transparent 1px),
-    radial-gradient(ellipse 60% 45% at 15% 0%, rgba(37, 211, 102, 0.22), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 95% 20%, rgba(0, 212, 255, 0.08), transparent 50%);
+    linear-gradient(rgba(0, 180, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 211, 102, 0.03) 1px, transparent 1px),
+    radial-gradient(ellipse 55% 45% at 10% 0%, rgba(0, 180, 255, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 95% 15%, rgba(37, 211, 102, 0.12), transparent 50%),
+    radial-gradient(ellipse 40% 35% at 50% 100%, rgba(10, 92, 255, 0.1), transparent 50%);
   background-size: 48px 48px, 48px 48px, auto, auto;
 }
 .ambient::after {
@@ -164,8 +183,9 @@ button, input, textarea, select { font-family: inherit; }
 .content > *:nth-child(4) { animation-delay: 0.22s; }
 
 /* Sidebar */
+/* Sidebar — colapsa, expande no hover */
 .sidebar {
-  width: 280px;
+  width: 72px;
   background: var(--sidebar);
   backdrop-filter: blur(var(--glass-blur)) saturate(${ds.glass.saturate});
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(${ds.glass.saturate});
@@ -173,11 +193,54 @@ button, input, textarea, select { font-family: inherit; }
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  padding: 22px 16px;
+  padding: 22px 12px;
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 40;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.38s;
+}
+.sidebar:hover {
+  width: 280px;
+  box-shadow: 12px 0 48px rgba(0, 0, 0, 0.5);
+}
+.sidebar .nav-text,
+.sidebar .brand-copy,
+.sidebar .btn-new-label,
+.sidebar-plan,
+.sidebar > form {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.sidebar:hover .nav-text,
+.sidebar:hover .brand-copy,
+.sidebar:hover .btn-new-label,
+.sidebar:hover .sidebar-plan,
+.sidebar:hover > form {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sidebar .btn-new {
+  padding: 13px 10px;
+  font-size: 0;
+}
+.sidebar:hover .btn-new {
+  font-size: 0.88rem;
+  padding: 13px;
+}
+.sidebar .nav a, .sidebar .nav button.nav-btn {
+  justify-content: center;
+  padding: 11px 10px;
+}
+.sidebar:hover .nav a, .sidebar:hover .nav button.nav-btn {
+  justify-content: flex-start;
+  padding: 11px 12px;
+}
+.sidebar .nav-text {
+  white-space: nowrap;
+  margin-left: 2px;
 }
 .sidebar-brand { padding: 2px 6px 22px; }
 .btn-new {
@@ -266,9 +329,11 @@ button, input, textarea, select { font-family: inherit; }
 
 /* Main */
 .main-wrap {
-  flex: 1; margin-left: 280px;
+  flex: 1; margin-left: 72px;
+  transition: margin-left 0.38s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; min-height: 100vh;
 }
+.app:has(.sidebar:hover) .main-wrap { margin-left: 280px; }
 .topbar {
   height: 68px; border-bottom: 1px solid var(--border);
   display: grid;

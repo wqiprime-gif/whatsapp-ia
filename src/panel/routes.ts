@@ -710,6 +710,7 @@ export async function registerPanelRoutes(
     const query = z
       .object({
         botIds: z.union([z.string(), z.array(z.string())]).optional(),
+        audience: z.enum(["all", "no_purchase"]).optional(),
         msg: z.string().optional(),
         t: z.string().optional()
       })
@@ -720,9 +721,19 @@ export async function registerPanelRoutes(
       : query.botIds
         ? query.botIds.split(",").filter(Boolean)
         : [];
-    const { listLeadsByBots } = await import("../db/events.js");
+    const audience = query.audience === "all" ? "all" : "no_purchase";
+    const { listLeadsByBots, listLeadsWithoutPurchase } = await import("../db/events.js");
     const { listScheduledCampaigns } = await import("../lib/scheduled-campaigns.js");
-    const leads = selectedBotIds.length ? await listLeadsByBots(selectedBotIds) : [];
+    const leads =
+      selectedBotIds.length === 0
+        ? []
+        : audience === "no_purchase"
+          ? await listLeadsWithoutPurchase(selectedBotIds)
+          : await listLeadsByBots(selectedBotIds);
+    const leadCountAll =
+      selectedBotIds.length > 0 ? (await listLeadsByBots(selectedBotIds)).length : 0;
+    const leadCountNoPurchase =
+      selectedBotIds.length > 0 ? (await listLeadsWithoutPurchase(selectedBotIds)).length : 0;
     const scheduled = await listScheduledCampaigns(user.id);
     const html = remarketingPage(
       bots,
@@ -731,7 +742,10 @@ export async function registerPanelRoutes(
       scheduled,
       query.msg,
       query.t === "err",
-      isPartial(request)
+      isPartial(request),
+      audience,
+      leadCountAll,
+      leadCountNoPurchase
     );
     return reply.type("text/html").send(html);
   });
@@ -754,6 +768,10 @@ export async function registerPanelRoutes(
         .map((v) => String(v || "").trim())
         .filter(Boolean);
       const seqDelayMs = Math.max(0, Number(String(raw.seqDelaySec ?? "8")) * 1000);
+      const audience = String(raw.audience || "no_purchase") === "all" ? "all" : "no_purchase";
+      const randomize = String(raw.randomize || "") === "true";
+      const randomDelayMinMs = Math.max(0, Number(String(raw.randomDelayMinSec ?? "8")) * 1000);
+      const randomDelayMaxMs = Math.max(randomDelayMinMs, Number(String(raw.randomDelayMaxSec ?? "25")) * 1000);
 
       const activeBots: BotConfig[] = [];
       const messagesByBot = new Map<string, { chatId: number; message: string }[]>();
@@ -816,7 +834,11 @@ export async function registerPanelRoutes(
           sequence,
           sequenceDelayMs: seqDelayMs,
           messagesByBot: messagesByBotObj,
-          scheduledAt: scheduledAt.toISOString()
+          scheduledAt: scheduledAt.toISOString(),
+          audience,
+          randomize,
+          randomDelayMinMs,
+          randomDelayMaxMs
         });
         return reply.redirect(
           flashRedirect(
@@ -830,7 +852,11 @@ export async function registerPanelRoutes(
         bots: activeBots,
         messagesByBot,
         sequence,
-        sequenceDelayMs: seqDelayMs
+        sequenceDelayMs: seqDelayMs,
+        audience,
+        randomize,
+        randomDelayMinMs,
+        randomDelayMaxMs
       });
       return reply.redirect(
         flashRedirect(

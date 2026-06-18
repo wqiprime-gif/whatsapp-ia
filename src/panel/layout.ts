@@ -37,7 +37,7 @@ export function escapeHtml(value: string) {
 
 function navItem(href: string, label: string, icon: string, active: boolean) {
   const cls = active ? "active" : "";
-  return `<a href="${href}" class="${cls}" data-nav>${icon} ${label}</a>`;
+  return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
 export function appLayout(
@@ -70,7 +70,7 @@ export function appLayout(
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">${brandMarkHtml()}</div>
-      <a href="/instances/new" class="btn-new">${icons.plus} Nova Instância</a>
+      <a href="/instances/new" class="btn-new">${icons.plus}<span class="btn-new-label"> Nova Instância</span></a>
       <nav class="nav">
         <div class="nav-section">
           ${navItem("/", "Dashboard", icons.dashboard, is("dashboard"))}

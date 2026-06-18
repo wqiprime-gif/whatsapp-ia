@@ -19,6 +19,10 @@ export type ScheduledCampaign = {
   status: "pending" | "running" | "done" | "failed";
   resultSummary?: string;
   createdAt: string;
+  audience?: "all" | "no_purchase";
+  randomize?: boolean;
+  randomDelayMinMs?: number;
+  randomDelayMaxMs?: number;
 };
 
 type FileStore = { campaigns: ScheduledCampaign[] };
@@ -52,6 +56,10 @@ export async function initScheduledCampaignsSchema() {
       result_summary TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE scheduled_campaigns ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'no_purchase';
+    ALTER TABLE scheduled_campaigns ADD COLUMN IF NOT EXISTS randomize BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE scheduled_campaigns ADD COLUMN IF NOT EXISTS random_delay_min_ms INTEGER NOT NULL DEFAULT 8000;
+    ALTER TABLE scheduled_campaigns ADD COLUMN IF NOT EXISTS random_delay_max_ms INTEGER NOT NULL DEFAULT 25000;
   `);
 }
 
@@ -66,6 +74,10 @@ function rowToCampaign(row: {
   status: string;
   result_summary?: string | null;
   created_at: Date | string;
+  audience?: string | null;
+  randomize?: boolean | null;
+  random_delay_min_ms?: number | null;
+  random_delay_max_ms?: number | null;
 }): ScheduledCampaign {
   const botIds =
     typeof row.bot_ids === "string" ? (JSON.parse(row.bot_ids) as string[]) : row.bot_ids;
@@ -85,7 +97,11 @@ function rowToCampaign(row: {
     scheduledAt: new Date(row.scheduled_at).toISOString(),
     status: row.status as ScheduledCampaign["status"],
     resultSummary: row.result_summary ?? undefined,
-    createdAt: new Date(row.created_at).toISOString()
+    createdAt: new Date(row.created_at).toISOString(),
+    audience: row.audience === "all" ? "all" : "no_purchase",
+    randomize: row.randomize !== false,
+    randomDelayMinMs: Number(row.random_delay_min_ms ?? 8000),
+    randomDelayMaxMs: Number(row.random_delay_max_ms ?? 25000)
   };
 }
 
@@ -99,8 +115,8 @@ export async function createScheduledCampaign(input: Omit<ScheduledCampaign, "id
 
   if (useDatabase()) {
     await getPool().query(
-      `INSERT INTO scheduled_campaigns (id, user_id, bot_ids, sequence, sequence_delay_ms, messages_by_bot, scheduled_at, status, created_at)
-       VALUES ($1,$2,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7,$8,$9)`,
+      `INSERT INTO scheduled_campaigns (id, user_id, bot_ids, sequence, sequence_delay_ms, messages_by_bot, scheduled_at, status, created_at, audience, randomize, random_delay_min_ms, random_delay_max_ms)
+       VALUES ($1,$2,$3::jsonb,$4::jsonb,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13)`,
       [
         campaign.id,
         campaign.userId,
@@ -110,7 +126,11 @@ export async function createScheduledCampaign(input: Omit<ScheduledCampaign, "id
         JSON.stringify(campaign.messagesByBot),
         campaign.scheduledAt,
         campaign.status,
-        campaign.createdAt
+        campaign.createdAt,
+        campaign.audience ?? "no_purchase",
+        campaign.randomize !== false,
+        campaign.randomDelayMinMs ?? 8000,
+        campaign.randomDelayMaxMs ?? 25000
       ]
     );
     return campaign;
@@ -211,7 +231,11 @@ async function runCampaign(campaign: ScheduledCampaign) {
       bots,
       messagesByBot,
       sequence: campaign.sequence,
-      sequenceDelayMs: campaign.sequenceDelayMs
+      sequenceDelayMs: campaign.sequenceDelayMs,
+      audience: campaign.audience ?? "no_purchase",
+      randomize: campaign.randomize !== false,
+      randomDelayMinMs: campaign.randomDelayMinMs,
+      randomDelayMaxMs: campaign.randomDelayMaxMs
     });
 
     await mark(

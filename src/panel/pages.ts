@@ -73,12 +73,13 @@ export function productsPage(
   message?: string,
   partial?: boolean
 ) {
+  const halfPriceCount = products.filter((p) => p.allowHalfPrice).length;
   const body = `
     ${message ? alertHtml(message) : ""}
     <div class="card card-premium card-accent-gold" style="margin-bottom:16px">
       <div class="card-body" style="font-size:0.88rem;color:var(--text-2);line-height:1.6">
-        <strong>Sincronizado com o prompt.</strong> Pacotes com <code>R$</code> no prompt da instância aparecem aqui automaticamente.
-        Exemplo no prompt: <code>Pacote Básico: 50 fotos - R$ 9,90</code>
+        <strong>Sincronizado com o prompt.</strong> Pacotes com <code>R$</code> no prompt aparecem aqui automaticamente.
+        ${halfPriceCount > 0 ? `<br/><span class="badge-discount-on" style="margin-top:8px;display:inline-flex">✓ Oferta 50% ativa em ${halfPriceCount} produto(s) — o bot oferece metade quando o lead diz que não consegue pagar</span>` : `<br/><small>Marque &quot;Oferta 50%&quot; ao cadastrar ou salve o prompt com pacotes.</small>`}
         <form method="post" action="/products/sync" style="margin-top:12px">
           <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh} Sincronizar do prompt agora</button>
         </form>
@@ -118,7 +119,7 @@ export function productsPage(
                   <td><strong>${escapeHtml(p.name)}</strong></td>
                   <td>${escapeHtml(p.botName || "—")}</td>
                   <td class="product-price">${formatMoney(p.priceCents)}</td>
-                  <td>${p.allowHalfPrice ? `${p.halfPricePercent}%` : "—"}</td>
+                  <td>${p.allowHalfPrice ? `<span class="badge-discount-on">✓ ${p.halfPricePercent}% ativo</span>` : `<span class="badge-discount-off">desligado</span>`}</td>
                 </tr>`
                 )
                 .join("")}
@@ -197,6 +198,57 @@ function remarketingBlocksScript() {
   modeNow?.addEventListener("change", syncSchedule);
   modeSched?.addEventListener("change", syncSchedule);
   syncSchedule();
+
+  /* Calendário visual */
+  var calEl = document.getElementById("rmk-calendar");
+  var calMonth = document.getElementById("rmk-cal-month");
+  var calPrev = document.getElementById("rmk-cal-prev");
+  var calNext = document.getElementById("rmk-cal-next");
+  var calTime = document.getElementById("rmk-cal-time");
+  var viewDate = new Date();
+  var selectedDay = null;
+  var monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  function renderCal(){
+    if (!calEl) return;
+    var y = viewDate.getFullYear(), m = viewDate.getMonth();
+    if (calMonth) calMonth.textContent = monthNames[m] + " " + y;
+    var first = new Date(y, m, 1).getDay();
+    var days = new Date(y, m + 1, 0).getDate();
+    var today = new Date(); today.setHours(0,0,0,0);
+    var html = ["D","S","T","Q","Q","S","S"].map(function(d){ return '<div class="rmk-cal-dow">'+d+'</div>'; }).join("");
+    for (var i = 0; i < first; i++) html += '<div></div>';
+    for (var d = 1; d <= days; d++) {
+      var dt = new Date(y, m, d); dt.setHours(0,0,0,0);
+      var cls = "rmk-cal-day";
+      if (+dt === +today) cls += " is-today";
+      if (dt < today) cls += " is-past";
+      if (selectedDay && +selectedDay === +dt) cls += " is-selected";
+      html += '<button type="button" class="'+cls+'" data-day="'+d+'">'+d+'</button>';
+    }
+    calEl.innerHTML = html;
+    calEl.querySelectorAll(".rmk-cal-day").forEach(function(btn){
+      btn.onclick = function(){
+        var day = Number(btn.getAttribute("data-day"));
+        selectedDay = new Date(y, m, day);
+        renderCal();
+        syncCalToInput();
+      };
+    });
+  }
+  function syncCalToInput(){
+    if (!selectedDay || !schedInput) return;
+    var t = calTime && calTime.value ? calTime.value : "10:00";
+    var parts = t.split(":");
+    var h = Number(parts[0]) || 10, min = Number(parts[1]) || 0;
+    selectedDay.setHours(h, min, 0, 0);
+    schedInput.value = selectedDay.getFullYear()+"-"+pad(selectedDay.getMonth()+1)+"-"+pad(selectedDay.getDate())+"T"+pad(h)+":"+pad(min);
+    if (modeSched) { modeSched.checked = true; syncSchedule(); }
+  }
+  calPrev?.addEventListener("click", function(){ viewDate.setMonth(viewDate.getMonth()-1); renderCal(); });
+  calNext?.addEventListener("click", function(){ viewDate.setMonth(viewDate.getMonth()+1); renderCal(); });
+  calTime?.addEventListener("change", syncCalToInput);
+  renderCal();
+
   if (form) {
     form.addEventListener("submit", function(e){
       var sub = e.submitter;
@@ -243,7 +295,10 @@ export function remarketingPage(
   scheduled: ScheduledCampaign[] = [],
   message = "",
   isError = false,
-  partial?: boolean
+  partial?: boolean,
+  audience: "all" | "no_purchase" = "no_purchase",
+  leadCountAll = 0,
+  leadCountNoPurchase = 0
 ) {
   const botNameById = new Map(bots.map((b) => [b.id, b.name]));
   const botChecks =
@@ -320,16 +375,20 @@ export function remarketingPage(
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
     <div class="page-hero neon-hero">
       <div>
-        <h2 class="hero-title"><span class="brand-accent">Remarketing</span> multi-instância</h2>
-        <p class="hero-desc">Selecione várias instâncias, defina uma <strong>sequência de mensagens</strong> com delay e personalize por lead se quiser.</p>
+        <h2 class="hero-title"><span class="brand-accent">Remarketing</span> inteligente</h2>
+        <p class="hero-desc">Agende disparos com <strong>calendário</strong>, foque em leads <strong>sem compra</strong> e randomize delays para parecer humano.</p>
       </div>
     </div>
-    <form method="post" action="/remarketing" id="rmk-form" class="card card-neon">
+    <form method="post" action="/remarketing" id="rmk-form" class="card card-premium card-neon">
       <div class="card-head"><h3>${icons.megaphone} Campanha</h3></div>
       <div class="card-body">
         <label class="field">Instâncias
           ${botChecks}
         </label>
+        <div class="rmk-audience-row">
+          <label class="bot-check"><input type="radio" name="audience" value="no_purchase" ${audience === "no_purchase" ? "checked" : ""} /> Só leads sem compra (${leadCountNoPurchase})</label>
+          <label class="bot-check"><input type="radio" name="audience" value="all" ${audience === "all" ? "checked" : ""} /> Todos os leads (${leadCountAll})</label>
+        </div>
         <button type="submit" class="btn btn-secondary btn-sm" formaction="/remarketing" formmethod="get" style="margin:8px 0 16px" ${bots.length === 0 ? "disabled" : ""}>
           Aplicar seleção
         </button>
@@ -348,6 +407,14 @@ export function remarketingPage(
           <label class="field">Delay entre mensagens (segundos)
             <input name="seqDelaySec" type="number" min="0" max="300" value="10" />
           </label>
+          <label class="field" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px">
+            <input type="checkbox" name="randomize" value="true" checked style="width:auto" />
+            <span>Randomizar ordem dos leads e delays (anti-bot)</span>
+          </label>
+          <div class="grid-2" style="margin-top:8px">
+            <label class="field">Delay mín. random (s)<input name="randomDelayMinSec" type="number" min="3" max="120" value="8" /></label>
+            <label class="field">Delay máx. random (s)<input name="randomDelayMaxSec" type="number" min="5" max="300" value="25" /></label>
+          </div>
         </div>
         ${
           leads.length > 0
@@ -366,26 +433,40 @@ export function remarketingPage(
           <h4 style="margin:20px 0 10px;font-size:0.9rem">Quando disparar?</h4>
           <div class="schedule-mode-row">
             <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-now" value="now" checked /> Enviar agora</label>
-            <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-schedule" value="schedule" /> Agendar data e hora</label>
+            <label class="bot-check"><input type="radio" name="sendMode" id="send-mode-schedule" value="schedule" /> Agendar no calendário</label>
           </div>
-          <label class="field" id="schedule-at-wrap" style="display:none;margin-top:12px">
-            Data e hora do disparo
-            <input type="datetime-local" name="scheduledAt" step="60" />
-          </label>
-          <p class="form-hint" id="schedule-tz-hint" style="display:none">Usa o fuso horário do seu navegador. O disparo roda automaticamente via whatsapp-web.js.</p>
+          <div class="rmk-calendar-wrap" id="schedule-at-wrap" style="display:none;margin-top:12px">
+            <div>
+              <div class="rmk-cal-head">
+                <button type="button" class="btn btn-secondary btn-sm" id="rmk-cal-prev">‹</button>
+                <span id="rmk-cal-month"></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="rmk-cal-next">›</button>
+              </div>
+              <div class="rmk-calendar" id="rmk-calendar"></div>
+            </div>
+            <div>
+              <label class="field">Horário do disparo
+                <input type="time" id="rmk-cal-time" value="10:00" step="60" />
+              </label>
+              <label class="field" style="margin-top:12px">Confirmação (automático)
+                <input type="datetime-local" name="scheduledAt" step="60" />
+              </label>
+              <p class="form-hint" id="schedule-tz-hint">Clique no dia no calendário e ajuste o horário. Fuso do seu navegador.</p>
+            </div>
+          </div>
         </div>
         <button type="submit" id="rmk-submit-btn" class="btn btn-primary btn-block" ${bots.length === 0 ? "disabled" : ""}>
           Enviar agora
         </button>
       </div>
     </form>
-    <div class="card card-neon" style="margin-top:16px">
+    <div class="card card-premium" style="margin-top:16px">
       <div class="card-head"><h3>${icons.doc} Agendamentos</h3></div>
       <div class="card-body">${scheduledRows}</div>
     </div>
     <script>${remarketingBlocksScript()}</script>`;
 
-  return wrap("Remarketing", "remarketing", body, partial);
+  return wrap("Remarketing", "remarketing", body, partial, "Calendário e leads sem compra");
 }
 
 export function mediaPage(bots: BotConfig[], partial?: boolean) {

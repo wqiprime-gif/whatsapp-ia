@@ -656,7 +656,7 @@ async function generatePersonaReply(userNumber, instruction) {
       temperature: 0.55,
       max_tokens: 120,
       messages: [
-        ...conversation.slice(0, 22),
+        ...conversation.slice(0, 40),
         {
           role: 'system',
           content: `${instruction}\n\nResponda SOMENTE a mensagem para o lead (máx 2 frases curtas), no tom exato da sua persona. Sem aspas. Sem explicações.`
@@ -675,6 +675,49 @@ async function generatePersonaReply(userNumber, instruction) {
 
 const MAX_TOKENS = 256;
 const userConversations = {};
+const conversationsStorePath = path.join(instancesDataDir, 'conversations-store.json');
+let conversationsSaveTimer = null;
+
+function loadConversationsStore() {
+  try {
+    if (!fs.existsSync(conversationsStorePath)) return;
+    const data = JSON.parse(fs.readFileSync(conversationsStorePath, 'utf8'));
+    if (data.conversations && typeof data.conversations === 'object') {
+      Object.assign(userConversations, data.conversations);
+    }
+    if (data.halfPriceOffered) Object.assign(halfPriceOffered, data.halfPriceOffered);
+    if (data.hasSentInformacoes) Object.assign(hasSentInformacoes, data.hasSentInformacoes);
+    if (data.hasSentNaoSouFake) Object.assign(hasSentNaoSouFake, data.hasSentNaoSouFake);
+    console.log(`💾 Memória: ${Object.keys(userConversations).length} conversa(s) restaurada(s)`);
+  } catch (error) {
+    console.warn('⚠️ Erro ao carregar memória de conversas:', error.message);
+  }
+}
+
+function scheduleSaveConversations() {
+  if (conversationsSaveTimer) clearTimeout(conversationsSaveTimer);
+  conversationsSaveTimer = setTimeout(() => {
+    try {
+      const trimmed = {};
+      for (const [jid, conv] of Object.entries(userConversations)) {
+        if (!Array.isArray(conv)) continue;
+        const system = conv[0]?.role === 'system' ? [conv[0]] : [];
+        const rest = conv.filter((m, i) => i === 0 && m.role === 'system' ? false : true).slice(-36);
+        trimmed[jid] = [...system, ...rest];
+      }
+      fs.writeFileSync(conversationsStorePath, JSON.stringify({
+        conversations: trimmed,
+        halfPriceOffered,
+        hasSentInformacoes,
+        hasSentNaoSouFake,
+        updatedAt: new Date().toISOString()
+      }, null, 0));
+    } catch (error) {
+      console.warn('⚠️ Erro ao salvar memória:', error.message);
+    }
+  }, 600);
+}
+
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
 const hasSentNaoSouFake = {};
@@ -688,6 +731,7 @@ const comprovantesRecebidos = {}; // Tracks which users have sent proof of payme
 const paidUsers = {}; // Users who have already paid
 
 loadCustomPrompt();
+loadConversationsStore();
 
 function getUserConversation(userNumber) {
   reloadPromptFromDisk(false);
@@ -805,10 +849,11 @@ async function executePromptActions(client, messageFrom, actions) {
 
 async function runCompletion(userNumber, message) {
   const conversation = getUserConversation(userNumber);
-  if (conversation.length >= 15) {
+  if (conversation.length >= 42) {
     conversation.splice(1, 1);
   }
   conversation.push({ role: "user", content: message });
+  scheduleSaveConversations();
 
   if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber))) {
     conversation.push({
@@ -936,6 +981,7 @@ async function runCompletion(userNumber, message) {
     const assistantMessage = choice.message?.content || '';
     console.log(`Mensagem do assistente para ${userNumber}:`, assistantMessage);
     conversation.push({ role: "assistant", content: assistantMessage });
+    scheduleSaveConversations();
     return assistantMessage;
   } catch (error) {
     console.error('Error in runCompletion:', error.message);

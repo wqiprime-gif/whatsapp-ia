@@ -1,9 +1,30 @@
 import type { BotConfig } from "../bots.js";
-import { listLeadsByBot } from "../db/events.js";
+import { listLeadsByBot, listLeadsWithoutPurchaseForBot } from "../db/events.js";
 import { jidFromChatId, sendWaMessage } from "../whatsapp-runtime.js";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function randomBetween(min: number, max: number) {
+  if (max <= min) return min;
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+async function leadsForBot(botId: string, audience: "all" | "no_purchase") {
+  if (audience === "no_purchase") {
+    return listLeadsWithoutPurchaseForBot(botId);
+  }
+  return listLeadsByBot(botId);
 }
 
 export async function sendRemarketing(input: {
@@ -11,15 +32,25 @@ export async function sendRemarketing(input: {
   messages: { chatId: number; message: string }[];
   sequence?: string[];
   sequenceDelayMs?: number;
+  audience?: "all" | "no_purchase";
+  randomize?: boolean;
+  randomDelayMinMs?: number;
+  randomDelayMaxMs?: number;
 }) {
-  const leads = await listLeadsByBot(input.config.id);
+  let leads = await leadsForBot(input.config.id, input.audience ?? "all");
   if (leads.length === 0) {
     return { sent: 0, failed: 0, skipped: 0, total: 0 };
   }
 
+  if (input.randomize && leads.length > 1) {
+    leads = shuffle(leads);
+  }
+
   const byChat = new Map(input.messages.map((m) => [m.chatId, m.message.trim()]));
   const sequence = (input.sequence ?? []).map((s) => s.trim()).filter(Boolean);
-  const delayMs = Math.max(0, input.sequenceDelayMs ?? 0);
+  const baseDelayMs = Math.max(0, input.sequenceDelayMs ?? 0);
+  const randMin = input.randomDelayMinMs ?? baseDelayMs;
+  const randMax = Math.max(randMin, input.randomDelayMaxMs ?? baseDelayMs);
   let sent = 0;
   let failed = 0;
   let skipped = 0;
@@ -37,9 +68,15 @@ export async function sendRemarketing(input: {
     try {
       const jid = jidFromChatId(lead.chatId);
       for (let i = 0; i < toSend.length; i++) {
-        if (i > 0 && delayMs > 0) await sleep(delayMs);
+        if (i > 0) {
+          const delay = input.randomize ? randomBetween(randMin, randMax) : baseDelayMs;
+          if (delay > 0) await sleep(delay);
+        }
         await sendWaMessage({ botId: input.config.id, jid, message: toSend[i] });
         sent++;
+      }
+      if (input.randomize && baseDelayMs > 0) {
+        await sleep(randomBetween(randMin, randMax));
       }
     } catch (error) {
       console.error(`Remarketing falhou chat ${lead.chatId}:`, error);
@@ -55,6 +92,10 @@ export async function sendRemarketingMulti(input: {
   messagesByBot: Map<string, { chatId: number; message: string }[]>;
   sequence: string[];
   sequenceDelayMs: number;
+  audience?: "all" | "no_purchase";
+  randomize?: boolean;
+  randomDelayMinMs?: number;
+  randomDelayMaxMs?: number;
 }) {
   let sent = 0;
   let failed = 0;
@@ -68,7 +109,11 @@ export async function sendRemarketingMulti(input: {
       config,
       messages,
       sequence: input.sequence,
-      sequenceDelayMs: input.sequenceDelayMs
+      sequenceDelayMs: input.sequenceDelayMs,
+      audience: input.audience,
+      randomize: input.randomize,
+      randomDelayMinMs: input.randomDelayMinMs,
+      randomDelayMaxMs: input.randomDelayMaxMs
     });
     sent += result.sent;
     failed += result.failed;
