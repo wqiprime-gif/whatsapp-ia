@@ -107,7 +107,7 @@ export function appLayout(
         </div>
       </header>
       <main class="content">${body}</main>
-      <footer class="footer">© 2026 BotManager · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
+      <footer class="footer">© 2026 ZapManager · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
     </div>
   </div>
   <div id="panel-toasts" class="panel-toasts"></div>

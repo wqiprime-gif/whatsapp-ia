@@ -54,7 +54,7 @@ import {
 import { messagesChartSvgFromData } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
-import { chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -213,7 +213,10 @@ const botFormFieldsSchema = z.object({
   proxyUrl: z.string().optional(),
   metaPhoneNumberId: z.string().optional(),
   metaAccessToken: z.string().optional(),
-  metaVerifyToken: z.string().optional()
+  metaVerifyToken: z.string().optional(),
+  followUpEnabled: z.enum(["true", "false"]).default("true"),
+  followUpAfterMinutes: z.coerce.number().min(1).max(180).default(10),
+  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2)
 });
 
 function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDelaySeconds: number }) {
@@ -247,7 +250,7 @@ function isPartial(request: FastifyRequest) {
 
 export async function registerPanelRoutes(
   app: FastifyInstance,
-  hooks: { restartBots: () => void }
+  hooks: { restartBots: () => void; syncBots: () => void }
 ) {
   await app.register(cookie);
 
@@ -645,7 +648,7 @@ export async function registerPanelRoutes(
 
       const library = mergeAudioLibrary(bot.audioLibrary ?? [], fields, newNamedAudioUrl);
       await upsertBot({ ...bot, audioLibrary: library });
-      hooks.restartBots();
+      hooks.syncBots();
       return reply.redirect(
         flashRedirect(`/audios?botId=${botId}`, "Biblioteca de áudios atualizada!")
       );
@@ -682,7 +685,7 @@ export async function registerPanelRoutes(
       const giftItems = mergeGiftItems(bot.giftItems ?? [], raw);
       const giftPrompt = String(raw.giftPrompt || "").trim();
       await upsertBot({ ...bot, giftPrompt, giftItems });
-      hooks.restartBots();
+      hooks.syncBots();
       return reply.redirect(flashRedirect(`/gifts?botId=${botId}`, "Presentes atualizados!"));
     } catch (error) {
       request.log.error(error);
@@ -945,36 +948,41 @@ export async function registerPanelRoutes(
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
-      await upsertBot(
-        applyWaFieldsFromForm(
-          {
-            ...existing,
-            name: body.name,
-            token: existing.token,
-            prompt: body.prompt,
-            pixKey: body.pixKey || existing.pixKey,
-            pixRecipientName: body.pixRecipientName?.trim() || body.name,
-            messageDelayMs: messageDelayMsFromForm(body),
-            previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
-            deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
-            audioLibrary: mergeAudioLibrary(existing.audioLibrary ?? [], fields, newNamedAudioUrl),
-            avatarUrl: avatarUrl || existing.avatarUrl,
-            active: body.active === "true",
-            paymentMethod: body.paymentMethod,
-            laranjinhaApiKeyEncrypted: laranjinhaKey
-              ? encryptSecret(laranjinhaKey)
-              : existing.laranjinhaApiKeyEncrypted,
-            productName: body.productName,
-            productPriceCents: Math.round(body.productPrice * 100),
-            telegramGroupLink: body.telegramGroupLink?.trim() || existing.telegramGroupLink || "",
-            backupToken: body.backupToken?.trim() || existing.backupToken
-          },
-          body
-        )
+      const updated = applyWaFieldsFromForm(
+        {
+          ...existing,
+          name: body.name,
+          token: existing.token,
+          prompt: body.prompt,
+          pixKey: body.pixKey || existing.pixKey,
+          pixRecipientName: body.pixRecipientName?.trim() || body.name,
+          messageDelayMs: messageDelayMsFromForm(body),
+          previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
+          deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
+          audioLibrary: mergeAudioLibrary(existing.audioLibrary ?? [], fields, newNamedAudioUrl),
+          avatarUrl: avatarUrl || existing.avatarUrl,
+          active: body.active === "true",
+          paymentMethod: body.paymentMethod,
+          laranjinhaApiKeyEncrypted: laranjinhaKey
+            ? encryptSecret(laranjinhaKey)
+            : existing.laranjinhaApiKeyEncrypted,
+          productName: body.productName,
+          productPriceCents: Math.round(body.productPrice * 100),
+          telegramGroupLink: body.telegramGroupLink?.trim() || existing.telegramGroupLink || "",
+          backupToken: body.backupToken?.trim() || existing.backupToken,
+          followUpEnabled: body.followUpEnabled === "true",
+          followUpAfterMinutes: body.followUpAfterMinutes,
+          followUpMaxPerLead: body.followUpMaxPerLead
+        },
+        body
       );
-
-      hooks.restartBots();
-      return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando bot..."));
+      await upsertBot(updated);
+      if (botNeedsMotorRestart(existing, updated)) {
+        hooks.restartBots();
+        return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando conexão..."));
+      }
+      hooks.syncBots();
+      return reply.redirect(flashRedirect("/instances", "Instância atualizada! WhatsApp permanece conectado."));
     } catch (error) {
       request.log.error(error);
       return reply.redirect(flashRedirect(editPath, `Erro: ${errorMessage(error)}`, "err"));
@@ -1026,7 +1034,7 @@ export async function registerPanelRoutes(
         ...bot,
         previewMediaUrls: mergePreviewUrls(bot.previewMediaUrls ?? [], fields, previewUploads)
       });
-      hooks.restartBots();
+      hooks.syncBots();
       return reply.redirect(
         flashRedirect(`/settings?botId=${botId}`, "Prévias da instância atualizadas!")
       );
@@ -1109,7 +1117,10 @@ export async function registerPanelRoutes(
             productName: body.productName,
             productPriceCents: Math.round(body.productPrice * 100),
             telegramGroupLink: body.telegramGroupLink?.trim() || "",
-            backupToken: body.backupToken?.trim() || undefined
+            backupToken: body.backupToken?.trim() || undefined,
+            followUpEnabled: body.followUpEnabled === "true",
+            followUpAfterMinutes: body.followUpAfterMinutes,
+            followUpMaxPerLead: body.followUpMaxPerLead
           },
           body
         )

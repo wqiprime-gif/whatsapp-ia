@@ -55,6 +55,10 @@ export type BotConfig = {
   metaPhoneNumberId?: string;
   metaAccessTokenEncrypted?: string;
   metaVerifyToken?: string;
+  /** Reengajar lead que parou de responder */
+  followUpEnabled?: boolean;
+  followUpAfterMinutes?: number;
+  followUpMaxPerLead?: number;
 };
 
 function parseAudioLibrary(value: unknown): NamedAudio[] {
@@ -124,6 +128,9 @@ function rowToBot(row: {
   meta_phone_number_id?: string | null;
   meta_access_token_encrypted?: string | null;
   meta_verify_token?: string | null;
+  follow_up_enabled?: boolean | null;
+  follow_up_after_minutes?: number | null;
+  follow_up_max_per_lead?: number | null;
 }): BotConfig {
   return {
     id: row.id,
@@ -159,7 +166,10 @@ function rowToBot(row: {
     telegramGroupLink: row.telegram_group_link ?? "",
     backupToken: row.backup_token ?? undefined,
     giftPrompt: row.gift_prompt ?? "",
-    giftItems: parseGiftItems(row.gift_items)
+    giftItems: parseGiftItems(row.gift_items),
+    followUpEnabled: row.follow_up_enabled !== false,
+    followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
+    followUpMaxPerLead: row.follow_up_max_per_lead ?? 2
   };
 }
 
@@ -167,7 +177,8 @@ const BOT_SELECT = `SELECT id, user_id, name, token, prompt, pix_key, pix_recipi
   preview_media_urls, delivery_media_urls, audio_library, avatar_url, active,
   payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
   gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
-  meta_phone_number_id, meta_access_token_encrypted, meta_verify_token
+  meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
+  follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead
   FROM bots`;
 
 /** Carrega bots. Sem userId = todos (runtime Telegram). Com userId = painel do cliente. */
@@ -224,8 +235,9 @@ export async function upsertBot(bot: BotConfig) {
         preview_media_urls, delivery_media_urls, audio_library, avatar_url, active,
         payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
         gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
-        meta_phone_number_id, meta_access_token_encrypted, meta_verify_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25,$26,$27,$28)
+        meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
+        follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -253,7 +265,10 @@ export async function upsertBot(bot: BotConfig) {
          proxy_url_encrypted = EXCLUDED.proxy_url_encrypted,
          meta_phone_number_id = EXCLUDED.meta_phone_number_id,
          meta_access_token_encrypted = EXCLUDED.meta_access_token_encrypted,
-         meta_verify_token = EXCLUDED.meta_verify_token`,
+         meta_verify_token = EXCLUDED.meta_verify_token,
+         follow_up_enabled = EXCLUDED.follow_up_enabled,
+         follow_up_after_minutes = EXCLUDED.follow_up_after_minutes,
+         follow_up_max_per_lead = EXCLUDED.follow_up_max_per_lead`,
       [
         bot.id,
         bot.userId,
@@ -282,7 +297,10 @@ export async function upsertBot(bot: BotConfig) {
         bot.proxyUrlEncrypted ?? null,
         bot.metaPhoneNumberId ?? "",
         bot.metaAccessTokenEncrypted ?? null,
-        bot.metaVerifyToken ?? ""
+        bot.metaVerifyToken ?? "",
+        bot.followUpEnabled !== false,
+        bot.followUpAfterMinutes ?? 10,
+        bot.followUpMaxPerLead ?? 2
       ]
     );
     return;

@@ -124,7 +124,7 @@ export function loginPage(message = "") {
     <section class="login-showcase">
       ${brandMarkHtml("Painel WhatsApp")}
       <p class="login-eyebrow">Painel profissional · WhatsApp</p>
-      <h1 class="login-title-3d"><span class="text-3d-line">BotManager</span><span class="text-3d-line accent">Vendas automatizadas com IA</span></h1>
+      <h1 class="login-title-3d"><span class="text-3d-line">ZapManager</span><span class="text-3d-line accent">Vendas automatizadas com IA</span></h1>
       <p class="login-prose">
         Uma plataforma feita para quem vende no WhatsApp com escala: cada instância roda com
         <strong>prompt próprio</strong>, Pix automático, validação de comprovante,
@@ -140,7 +140,7 @@ export function loginPage(message = "") {
       <div class="login-card-glow" aria-hidden="true"></div>
       <div class="login-card-premium login-card-auth">
         <h2>Entrar</h2>
-        <p class="sub">Acesse seu painel BotManager</p>
+        <p class="sub">Acesse seu painel ZapManager</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/login" class="auth-form">
           <label class="field">
@@ -311,7 +311,7 @@ export function newInstancePage(
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-    <div class="card" style="max-width:900px">
+    <div class="card instance-form-card">
       <div class="card-head">
         <h3>Nova Instância</h3>
         <a href="/instances" class="card-link">← Voltar às instâncias</a>
@@ -331,7 +331,7 @@ export function editInstancePage(
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-    <div class="card" style="max-width:900px">
+    <div class="card instance-form-card">
       <div class="card-head">
         <h3>Editar — ${escapeHtml(bot.name)}</h3>
         <a href="/instances" class="card-link">← Voltar às instâncias</a>
@@ -362,7 +362,7 @@ export function registerPage(message = "") {
     <section class="login-showcase">
       ${brandMarkHtml("Painel WhatsApp")}
       <p class="login-eyebrow">Comece em minutos</p>
-      <h1 class="login-title-3d"><span class="text-3d-line">Criar conta</span><span class="text-3d-line accent">BotManager</span></h1>
+      <h1 class="login-title-3d"><span class="text-3d-line">Criar conta</span><span class="text-3d-line accent">ZapManager</span></h1>
       <p class="login-prose">
         Crie sua conta para configurar instâncias, conectar o WhatsApp e acompanhar
         vendas, leads e conversas com o mesmo nível de controle do painel operacional.

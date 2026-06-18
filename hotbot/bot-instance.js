@@ -284,7 +284,87 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '' };
+  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2 };
+}
+
+/** Pausa entre mensagens / antes de responder — vem do painel (messageDelayMs). */
+function getMessageDelayMs() {
+  const cfg = loadBotConfig();
+  const base = Number(cfg.messageDelayMs);
+  const ms = Number.isFinite(base) && base >= 500 ? base : 4000;
+  const jitter = 0.88 + Math.random() * 0.24;
+  return Math.round(ms * jitter);
+}
+
+function getFollowUpConfig() {
+  const cfg = loadBotConfig();
+  return {
+    enabled: cfg.followUpEnabled !== false,
+    afterMs: Math.max(60000, (Number(cfg.followUpAfterMinutes) || 10) * 60 * 1000),
+    maxPerLead: Math.min(5, Math.max(1, Number(cfg.followUpMaxPerLead) || 2))
+  };
+}
+
+const followUpTimers = {};
+const followUpCounts = {};
+const lastUserActivityAt = {};
+const lastBotMessageAt = {};
+
+function clearFollowUpTimer(jid) {
+  if (followUpTimers[jid]) {
+    clearTimeout(followUpTimers[jid]);
+    followUpTimers[jid] = null;
+  }
+}
+
+function onLeadMessage(jid) {
+  lastUserActivityAt[jid] = Date.now();
+  clearFollowUpTimer(jid);
+  followUpCounts[jid] = 0;
+}
+
+function onBotOutbound(jid) {
+  lastBotMessageAt[jid] = Date.now();
+  scheduleFollowUp(jid);
+}
+
+function scheduleFollowUp(jid) {
+  clearFollowUpTimer(jid);
+  const { enabled, afterMs, maxPerLead } = getFollowUpConfig();
+  if (!enabled) return;
+  if (comprovantesRecebidos[jid] || paidUsers[jid]) return;
+  if ((followUpCounts[jid] || 0) >= maxPerLead) return;
+
+  const scheduledAt = Date.now();
+  followUpTimers[jid] = setTimeout(async () => {
+    followUpTimers[jid] = null;
+    if (comprovantesRecebidos[jid] || paidUsers[jid]) return;
+    if ((lastUserActivityAt[jid] || 0) > (lastBotMessageAt[jid] || scheduledAt)) return;
+    if ((followUpCounts[jid] || 0) >= maxPerLead) return;
+
+    const msg = await generatePersonaReply(
+      jid,
+      'O lead ficou quieto sem responder depois da sua última mensagem. Mande UMA frase curta e carinhosa para puxar conversa (tipo "oii amor, esqueceu de mim?" ou "me deixou no vácuo né kkk"). Varie — não copie frase de atendente.'
+    );
+    if (!msg) return;
+
+    followUpCounts[jid] = (followUpCounts[jid] || 0) + 1;
+    await sendTextHuman(client, jid, msg);
+    void panelLog({ type: 'message', jid, role: 'assistant', content: msg });
+    onBotOutbound(jid);
+  }, afterMs);
+}
+
+async function typingForMs(chat, durationMs) {
+  const end = Date.now() + durationMs;
+  while (Date.now() < end) {
+    try {
+      if (chat) await chat.sendStateTyping();
+    } catch (_) {}
+    const left = end - Date.now();
+    if (left <= 0) break;
+    await new Promise((r) => setTimeout(r, Math.min(3500, left)));
+  }
 }
 
 const previewSentPath = path.join(instancesDataDir, 'preview-sent.json');
@@ -474,6 +554,17 @@ if (proxyUrl) {
 
 const authDataPath = process.env.WA_AUTH_DIR || path.join(__dirname, '.wwebjs_auth');
 if (!fs.existsSync(authDataPath)) fs.mkdirSync(authDataPath, { recursive: true });
+
+function hasPersistedWaSession() {
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  if (!fs.existsSync(sessionDir)) return false;
+  return (
+    fs.existsSync(path.join(sessionDir, 'Default')) ||
+    fs.readdirSync(sessionDir).some((name) => name && name !== 'DevToolsActivePort')
+  );
+}
+
+console.log(`🔐 Auth: ${authDataPath} · clientId=${clientId} · sessão salva=${hasPersistedWaSession() ? 'sim' : 'não'}`);
 
 const chromiumPath = resolveChromiumPath();
 const client = new Client({
@@ -936,15 +1027,17 @@ Qual pacote te interessa, amor? 💕
         console.log(`🔍 Imagem recebida de ${messageFrom} — analisando comprovante...`);
       }
 
-      const ack = await generatePersonaReply(
-        messageFrom,
-        'O lead acabou de enviar um comprovante de pagamento (imagem ou PDF). Diga que recebeu e vai conferir agora, no seu tom.'
-      );
-      if (ack) await sendTextHuman(client, messageFrom, ack);
+      let chat = null;
+      try {
+        chat = await client.getChatById(messageFrom);
+      } catch (_) {}
 
-      const readingMs = Math.floor(Math.random() * (25000 - 8000 + 1) + 8000);
-      console.log(`⏳ Conferindo comprovante por ${Math.round(readingMs / 1000)}s...`);
-      await new Promise((r) => setTimeout(r, readingMs));
+      const readingMs = Math.min(
+        18000,
+        Math.max(4000, getMessageDelayMs() + Math.random() * 3000)
+      );
+      console.log(`⏳ Conferindo comprovante (digitando ${Math.round(readingMs / 1000)}s)...`);
+      await typingForMs(chat, readingMs);
 
       const resultado = await validarComprovanteNoPainel(media.data, mimetype, filename);
       const fileType = mimetype.includes('pdf') ? 'pdf' : 'image';
@@ -962,16 +1055,19 @@ Qual pacote te interessa, amor? 💕
         console.log(`✅ Comprovante validado para ${messageFrom}`);
         const approvedMsg = await generatePersonaReply(
           messageFrom,
-          'O comprovante foi APROVADO. Confirme o pagamento com carinho e diga que vai liberar o acesso.'
+          'O comprovante foi APROVADO após análise. Confirme o pagamento com carinho e diga que vai liberar o acesso — sem mencionar que "recebeu" o comprovante antes.'
         );
         return await confirmarComprovante(messageFrom, approvedMsg);
       }
 
       const reply = await generatePersonaReply(
         messageFrom,
-        `O comprovante NÃO foi aprovado. Motivo técnico: ${resultado.reason || 'não confere'}. Peça outro comprovante no seu tom informal, sem soar robótica.`
+        `Você acabou de analisar o comprovante e ele NÃO foi aprovado. Motivo: ${resultado.reason || 'valor não confere'}. Peça outro comprovante no seu tom informal e carinhoso — NUNCA diga "recebi seu comprovante" nem fale como atendente.`
       );
-      if (reply) await sendTextHuman(client, messageFrom, reply);
+      if (reply) {
+        await sendTextHuman(client, messageFrom, reply);
+        onBotOutbound(messageFrom);
+      }
       return true;
     } catch (error) {
       console.error(`❌ Erro ao processar comprovante: ${error.message}`);
@@ -979,7 +1075,10 @@ Qual pacote te interessa, amor? 💕
         messageFrom,
         'Deu erro ao conferir o comprovante. Peça para o lead mandar de novo, no seu tom.'
       );
-      if (errReply) await sendTextHuman(client, messageFrom, errReply);
+      if (errReply) {
+        await sendTextHuman(client, messageFrom, errReply);
+        onBotOutbound(messageFrom);
+      }
       return true;
     }
   }
@@ -1143,8 +1242,23 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       const delivered = await sendDeliveryMedia(client, messageFrom);
       const productLink = String(config.productDeliveryLink || '').trim();
 
+      if (delivered > 0) {
+        console.log(`   📦 ${delivered} arquivo(s) de entrega enviado(s)`);
+        void panelLog({
+          type: 'message',
+          jid: messageFrom,
+          role: 'system',
+          content: `[entrega] ${delivered} mídia(s) enviada(s)`
+        });
+      }
+
       if (productLink) {
-        await client.sendMessage(messageFrom, `Aqui está seu acesso amor, aproveite 😘\n${productLink}`);
+        const linkIntro =
+          (await generatePersonaReply(
+            messageFrom,
+            'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
+          )) || 'Aqui está seu acesso amor, aproveite 😘';
+        await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
       } else if (delivered === 0) {
         const pacote = await detectarPacote(messageFrom);
         const linkBasico = process.env.LINK_BASICO || '';
@@ -1180,6 +1294,13 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       console.log(`   Conteúdo entregue — bot silenciado para ${messageFrom}\n`);
     } catch (error) {
       console.error(`❌ Erro na entrega: ${error.message}`);
+      try {
+        await sendTextHuman(
+          client,
+          messageFrom,
+          'Amor, confirmou o pagamento mas deu um probleminha na entrega. Me chama que eu mando manual 💕'
+        );
+      } catch (_) {}
     }
 
     await notificarTelegram(messageFrom);
@@ -1376,11 +1497,6 @@ async function processGlobalQueue() {
 // ─────────────────────────────────────────────────────────────
 
 client.on("message", async (message) => {
-  // Delay de 45s a 2min (buffer por lead — fórmula correta)
-  const getRandomDelay = () => {
-    return Math.floor(Math.random() * (120000 - 45000 + 1) + 45000);
-  };
-
   // Ignora mensagens antigas que chegaram enquanto o bot estava offline
   if (message.timestamp && message.timestamp < BOT_START_TIME) {
     console.log(`⏩ Ignorando mensagem antiga (${Math.round((BOT_START_TIME - message.timestamp))}s antes do bot iniciar)`);
@@ -1396,6 +1512,8 @@ client.on("message", async (message) => {
     console.log(`⏸️  Bot pausado para ${message.from} - Aguardando ação manual`);
     return; // Para de enviar mensagens
   }
+
+  onLeadMessage(message.from);
 
   // Processar comprovante (APENAS imagem ou PDF, não áudio)
   if (message.hasMedia && (message.type === 'image' || message.type === 'document')) {
@@ -1520,6 +1638,7 @@ client.on("message", async (message) => {
               for (const part of messageParts) {
                 void panelLog({ type: 'message', jid: from, role: 'assistant', content: part });
               }
+              onBotOutbound(from);
               console.log(`✅ Mensagem(ns) enviada(s) com sucesso!\n`);
             } catch (sendError) {
               console.error(`❌ Erro fatal ao enviar mensagens: ${sendError.message}\n`);
@@ -1551,7 +1670,7 @@ client.on("message", async (message) => {
     });
 
     processGlobalQueue();
-  }, getRandomDelay());
+  }, getMessageDelayMs());
 });
 
 function splitMessages(text) {
@@ -1641,12 +1760,13 @@ async function sendMediaWithTyping(client, messageFrom, media, options = {}) {
 
 async function sendMessageParts(client, messageFrom, textParts) {
   try {
+    const gap = getMessageDelayMs();
     for (let i = 0; i < textParts.length; i++) {
       const part = textParts[i];
       if (!part || part.trim().length === 0) continue;
       await sendTextHuman(client, messageFrom, part);
       if (i < textParts.length - 1) {
-        await new Promise((r) => setTimeout(r, 700 + Math.random() * 1100));
+        await new Promise((r) => setTimeout(r, gap));
       }
     }
   } catch (error) {
@@ -1888,6 +2008,12 @@ let lastQrUrl = null;
 
 // Único listener de QR — envia para o site via socket
 client.on('qr', (qr) => {
+  if (hasPersistedWaSession()) {
+    console.log('📱 QR ignorado — sessão salva no disco, reconectando...');
+    writeConnectionStatus('authenticated');
+    return;
+  }
+
   console.log(`📱 QR Code gerado — acesse http://localhost:${port} para escanear`);
   writeConnectionStatus('qr_pending');
 

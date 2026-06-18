@@ -114,6 +114,10 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         productPriceCents: bot.productPriceCents,
         productDeliveryLink: bot.telegramGroupLink || "",
         paymentMethod: bot.paymentMethod,
+        messageDelayMs: bot.messageDelayMs ?? 4000,
+        followUpEnabled: bot.followUpEnabled !== false,
+        followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,
+        followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
         updatedAt: new Date().toISOString()
       },
       null,
@@ -181,7 +185,32 @@ async function spawnWebBot(bot: BotConfig, port: number) {
 
   processes.set(bot.id, { child, port, botId: bot.id });
   const proxyNote = bot.proxyEnabled ? " · proxy isolado" : "";
+  const authDir = childEnv.WA_AUTH_DIR;
+  const clientId = `wa-${bot.id.slice(0, 8)}`;
   console.log(`[wa-web] ${bot.name} iniciado na porta ${port}${proxyNote}`);
+  console.log(`[wa-web] Sessão: clientId=${clientId} · auth em ${authDir}`);
+}
+
+/** Sincroniza arquivos de config/prompt sem matar o processo WhatsApp (evita desconectar). */
+export async function syncWhatsAppBotConfigs() {
+  const bots = await loadBots();
+  let index = 0;
+  for (const bot of bots) {
+    if (!bot.active || isMetaBot(bot)) continue;
+    const port = bot.waPort ?? waPortForBot(bot.id, index);
+    index++;
+    await syncBotFiles(bot, port);
+  }
+}
+
+/** Reinício completo só quando muda conexão (proxy, API, ativo). */
+export function botNeedsMotorRestart(before: BotConfig, after: BotConfig): boolean {
+  return (
+    before.active !== after.active ||
+    (before.waApiProvider ?? "whatsapp_web") !== (after.waApiProvider ?? "whatsapp_web") ||
+    Boolean(before.proxyEnabled) !== Boolean(after.proxyEnabled) ||
+    (after.proxyUrlEncrypted ?? "") !== (before.proxyUrlEncrypted ?? "")
+  );
 }
 
 function registerMetaBot(bot: BotConfig) {
@@ -201,7 +230,7 @@ async function killWebBot(botId: string) {
       }
       processes.delete(botId);
       resolve();
-    }, 5000);
+    }, 15000);
     proc.child.once("exit", () => {
       clearTimeout(timer);
       processes.delete(botId);
@@ -364,6 +393,7 @@ export async function getWaLiveStatus(bot: BotConfig): Promise<WaLiveStatus> {
 
   const runtime = await fetchWebBotState(bot.id);
   if (runtime.connected) return "connected";
+  if (runtime.processRunning && runtime.state === "authenticated") return "starting";
   if (runtime.state === "qr_pending" || runtime.qr) return "qr_pending";
   if (runtime.state === "disconnected") return "disconnected";
   if (runtime.state === "auth_failure") return "auth_failure";

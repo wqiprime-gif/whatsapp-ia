@@ -79,7 +79,7 @@ export const panelClientScript = `
     if (path.startsWith("/instances/new")) return "Nova Instância";
     if (/^\\/instances\\/[^/]+\\/edit$/.test(path)) return "Editar instância";
     const hit = NAV_PATHS.find(([p]) => p === path);
-    return hit ? hit[1] : "BotManager";
+    return hit ? hit[1] : "ZapManager";
   }
 
   function setActiveNav(path) {

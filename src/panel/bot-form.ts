@@ -7,6 +7,7 @@ import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { icons } from "./icons.js";
 import { botInitials, escapeHtml } from "./layout.js";
+import { promptTagsSidebar } from "./prompt-tags-block.js";
 
 function delayPartsFromMs(ms: number) {
   const totalSec = Math.max(1, Math.round(ms / 1000));
@@ -110,7 +111,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         <span class="form-section-icon form-section-icon-cyan">${icons.box}</span>
         <div>
           <h4>Entrega do produto</h4>
-          <p>Enviado <strong>automaticamente</strong> depois que o comprovante Pix for aprovado.</p>
+          <p>Enviado <strong>automaticamente</strong> assim que o comprovante Pix for aprovado — mídias primeiro, depois o link.</p>
         </div>
       </div>
       <label class="field span-2">Link de entrega do produto
@@ -275,8 +276,13 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
   const activeTrue = !isEdit || bot.active;
   const paymentPix = !isEdit || bot.paymentMethod !== "laranjinha";
   const delay = delayPartsFromMs(isEdit ? bot.messageDelayMs : 4000);
+  const followUpOn = !isEdit || bot.followUpEnabled !== false;
+  const followUpMinutes = isEdit ? bot.followUpAfterMinutes ?? 10 : 10;
+  const followUpMax = isEdit ? bot.followUpMaxPerLead ?? 2 : 2;
   return `
     <form id="bot-preview-form" method="post" action="${action}" enctype="multipart/form-data">
+      <div class="instance-form-layout">
+        <div class="instance-form-main">
       <div class="form-grid">
         <label class="field">Nome da instância
           <input name="name" value="${isEdit ? escapeHtml(bot.name) : ""}" placeholder="Ex: MorenaVIP" required />
@@ -320,7 +326,33 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
               <input name="messageDelaySeconds" type="number" min="0" max="59" value="${delay.seconds}" />
             </label>
           </div>
-          <p class="form-hint">Ex: 1 min + 30 seg = ~90s entre cada bolha. Comprovante usa pausa extra automática.</p>
+          <p class="form-hint">Ex: 0 min + 5 seg = resposta rápida. 1 min + 30 seg = ~90s entre cada bolha e antes de responder.</p>
+        </div>
+
+        <div class="form-section span-2">
+          <div class="form-section-head">
+            <span class="form-section-icon form-section-icon-cyan">💬</span>
+            <div>
+              <h4>Reengajar lead parado</h4>
+              <p>Se o lead não responder depois da sua última mensagem, a IA manda um puxão de conversa no tom do prompt.</p>
+            </div>
+          </div>
+          <label class="field">
+            Ativar follow-up
+            <select name="followUpEnabled">
+              <option value="true" ${followUpOn ? "selected" : ""}>Sim</option>
+              <option value="false" ${!followUpOn ? "selected" : ""}>Não</option>
+            </select>
+          </label>
+          <label class="field">
+            Esperar (minutos)
+            <input name="followUpAfterMinutes" type="number" min="1" max="180" value="${followUpMinutes}" />
+          </label>
+          <label class="field">
+            Máx. por lead
+            <input name="followUpMaxPerLead" type="number" min="1" max="5" value="${followUpMax}" />
+          </label>
+          <p class="form-hint span-2">Exemplos no prompt: "oii amor, esqueceu de mim?", "me deixou no vácuo né kkk". O motor escolhe variação no seu tom.</p>
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
@@ -329,7 +361,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
 
         <label class="field span-2" id="prompt">Prompt / persona da IA
           <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(DEFAULT_PROMPT_WHATSAPP)}</textarea>
-          <span class="form-hint">Este texto é o prompt da IA desta instância. A <strong>chave Pix</strong> vem do campo acima — use <code>[[send_chave_pix]]</code> no prompt para enviar automaticamente. Salve e reinicie a instância após alterar.</span>
+          <span class="form-hint">Texto livre da IA desta instância. Use as <strong>tags à direita</strong> para ações automáticas (prévia, Pix, tabela…). Salve sem desconectar o WhatsApp se só alterou prompt, delay ou entrega.</span>
         </label>
         <label class="field">Forma de pagamento
           <select name="paymentMethod">
@@ -344,6 +376,9 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px">
         ${isEdit ? "Salvar alterações" : "Salvar e ativar instância"}
       </button>
+        </div>
+        ${promptTagsSidebar()}
+      </div>
     </form>`;
 }
 
@@ -354,7 +389,7 @@ function waStatusBadge(status: WaLiveStatus) {
     case "qr_pending":
       return { cls: "badge-paused", label: "Aguardando QR" };
     case "starting":
-      return { cls: "badge-paused", label: "Iniciando..." };
+      return { cls: "badge-paused", label: "Reconectando..." };
     case "disconnected":
       return { cls: "badge-paused", label: "Desconectado" };
     case "auth_failure":

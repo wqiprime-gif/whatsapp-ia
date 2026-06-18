@@ -170,6 +170,9 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS meta_phone_number_id TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS meta_access_token_encrypted TEXT;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS meta_verify_token TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_enabled BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_after_minutes INTEGER NOT NULL DEFAULT 10;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_max_per_lead INTEGER NOT NULL DEFAULT 2;
   `);
 }
 

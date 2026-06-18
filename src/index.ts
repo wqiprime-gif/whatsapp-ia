@@ -7,11 +7,16 @@ import { initDatabase, useDatabase } from "./db/index.js";
 import { registerPanelRoutes } from "./panel/routes.js";
 import {
   restartWhatsAppBots,
-  shutdownWhatsAppBots
+  shutdownWhatsAppBots,
+  syncWhatsAppBotConfigs
 } from "./whatsapp-runtime.js";
 
 export async function restartBots() {
   await restartWhatsAppBots();
+}
+
+export async function syncBots() {
+  await syncWhatsAppBotConfigs();
 }
 
 const app = Fastify({ logger: true });
@@ -28,6 +33,9 @@ if (!useDatabase()) {
 await registerPanelRoutes(app, {
   restartBots: () => {
     void restartBots().catch((error) => console.error("Erro ao reiniciar bots:", error));
+  },
+  syncBots: () => {
+    void syncBots().catch((error) => console.error("Erro ao sincronizar bots:", error));
   }
 });
 
@@ -41,7 +49,7 @@ try {
   console.error("[startup] Erro ao carregar bots (painel segue online):", error);
 }
 const localBase = `http://127.0.0.1:${env.PORT}`;
-console.log("[startup] BotManager WhatsApp online na porta", env.PORT);
+console.log("[startup] ZapManager WhatsApp online na porta", env.PORT);
 console.log("[startup] Banco:", useDatabase() ? "PostgreSQL OK" : "arquivos locais (data/)");
 console.log("[startup] Instâncias cadastradas:", botsOnStart);
 console.log("[startup] Painel:", `${localBase}/login`);
