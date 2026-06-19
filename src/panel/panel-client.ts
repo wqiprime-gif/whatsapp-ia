@@ -148,36 +148,63 @@ export const panelClientScript = `
     syncTopbarFromProfilePreview();
   }
 
+  function hydrateAvatarSlot(slot, src, initials) {
+    if (!slot) return;
+    let img = slot.querySelector(".user-avatar-img");
+    let fb = slot.querySelector(".user-avatar-fallback");
+    if (!fb) {
+      fb = document.createElement("div");
+      fb.className = "user-avatar user-avatar-fallback";
+      slot.appendChild(fb);
+    }
+    fb.textContent = initials;
+    if (!img) {
+      img = document.createElement("img");
+      img.className = "user-avatar-img";
+      img.alt = "";
+      slot.insertBefore(img, fb);
+    }
+    const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+    const dataSrc = img.getAttribute("data-avatar-src") || "";
+    const trySrc = preview || src || dataSrc || "";
+    if (!trySrc) {
+      img.hidden = true;
+      fb.classList.remove("user-avatar-fallback--hidden");
+      return;
+    }
+    img.hidden = true;
+    fb.classList.remove("user-avatar-fallback--hidden");
+    img.onload = function () {
+      img.hidden = false;
+      fb.classList.add("user-avatar-fallback--hidden");
+    };
+    img.onerror = function () {
+      img.hidden = true;
+      fb.classList.remove("user-avatar-fallback--hidden");
+      if (preview && img.src !== preview && trySrc !== preview) {
+        img.src = preview;
+      }
+    };
+    img.src =
+      trySrc.indexOf("data:") === 0
+        ? trySrc
+        : trySrc.split("?")[0] + "?v=" + Date.now();
+  }
+
   function syncTopbarFromProfilePreview() {
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
     const profileImg = document.getElementById("profile-avatar-preview");
-    const src =
+    const profileSrc =
       profileImg && profileImg.style.display !== "none" && profileImg.src
         ? profileImg.src
-        : preview;
+        : "";
+    const src = profileSrc || preview;
     if (!src) return;
     const pill = document.getElementById("panel-user-pill");
     if (!pill) return;
-    let img = pill.querySelector(".user-avatar-img");
-    const info = pill.querySelector(".name");
-    const infoWrap = info ? info.parentElement : null;
     const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
-    const initials = label.slice(0, 2).toUpperCase();
-    if (!img) {
-      pill.querySelectorAll(".user-avatar, .user-avatar-img").forEach((el) => el.remove());
-      img = document.createElement("img");
-      img.className = "user-avatar-img";
-      const fallback = document.createElement("div");
-      fallback.className = "user-avatar";
-      fallback.style.display = "none";
-      fallback.textContent = initials;
-      pill.insertBefore(img, infoWrap);
-      pill.insertBefore(fallback, infoWrap);
-    }
-    img.src = src.indexOf("data:") === 0 ? src : src.split("?")[0] + "?v=" + Date.now();
-    img.style.display = "block";
-    const fb = img.nextElementSibling;
-    if (fb && fb.classList.contains("user-avatar")) fb.style.display = "none";
+    const slot = pill.querySelector(".user-avatar-slot");
+    hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
   }
 
   function bindPeriodTabs(root) {
@@ -215,36 +242,52 @@ export const panelClientScript = `
       const svg = chart.querySelector(".shark-chart-svg");
       const tooltip = chart.querySelector(".shark-chart-tooltip");
       const cursor = chart.querySelector(".shark-chart-cursor");
-      if (!stage || !svg || !tooltip) return;
+      if (!stage || !svg || !tooltip || points.length === 0) return;
 
-      function showTip(i, clientX) {
+      const vbW = Number(chart.getAttribute("data-chart-w") || 560);
+      const vbH = Number(chart.getAttribute("data-chart-h") || 220);
+      const padT = Number(chart.getAttribute("data-pad-t") || 36);
+      const chartH = Number(chart.getAttribute("data-chart-h-inner") || 152);
+
+      function showTip(i) {
         const p = points[i];
         if (!p) return;
+        const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
         const dayEl = tooltip.querySelector(".shark-chart-tooltip-day");
         const valEl = tooltip.querySelector(".shark-chart-tooltip-val");
         if (dayEl) dayEl.textContent = p.label;
         if (valEl) valEl.textContent = money(p.cents);
-        tooltip.style.display = "block";
-        const rect = stage.getBoundingClientRect();
-        const x = clientX - rect.left;
-        tooltip.style.left = Math.min(Math.max(x - 70, 8), rect.width - 150) + "px";
-        if (cursor) {
-          const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
-          if (dot) {
-            cursor.setAttribute("x1", dot.getAttribute("cx"));
-            cursor.setAttribute("x2", dot.getAttribute("cx"));
-            cursor.style.display = "";
-          }
+        tooltip.hidden = false;
+        svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
+          d.setAttribute("r", d.getAttribute("data-idx") === String(i) ? "7" : "5");
+        });
+        if (cursor && dot) {
+          const cx = dot.getAttribute("cx");
+          cursor.setAttribute("x1", cx);
+          cursor.setAttribute("x2", cx);
+          cursor.setAttribute("opacity", "1");
+        }
+        if (dot) {
+          const stageRect = stage.getBoundingClientRect();
+          const cx = Number(dot.getAttribute("cx"));
+          const cy = Number(dot.getAttribute("cy"));
+          const left = (cx / vbW) * stageRect.width - 72;
+          const top = (cy / vbH) * stageRect.height - 78;
+          tooltip.style.left = Math.min(Math.max(left, 4), stageRect.width - 148) + "px";
+          tooltip.style.top = Math.max(top, 4) + "px";
         }
       }
+
       function hideTip() {
-        tooltip.style.display = "none";
-        if (cursor) cursor.style.display = "none";
+        tooltip.hidden = true;
+        if (cursor) cursor.setAttribute("opacity", "0");
+        svg.querySelectorAll(".shark-chart-dot").forEach((d) => d.setAttribute("r", "5"));
       }
-      svg.querySelectorAll(".shark-chart-dot").forEach((dot) => {
-        dot.addEventListener("mouseenter", (e) => showTip(Number(dot.getAttribute("data-idx")), e.clientX));
-        dot.addEventListener("mousemove", (e) => showTip(Number(dot.getAttribute("data-idx")), e.clientX));
-        dot.addEventListener("mouseleave", hideTip);
+
+      svg.querySelectorAll(".shark-chart-hit").forEach((hit) => {
+        hit.addEventListener("mouseenter", () => showTip(Number(hit.getAttribute("data-idx"))));
+        hit.addEventListener("mousemove", () => showTip(Number(hit.getAttribute("data-idx"))));
+        hit.addEventListener("mouseleave", hideTip);
       });
       stage.addEventListener("mouseleave", hideTip);
     });
@@ -268,50 +311,19 @@ export const panelClientScript = `
         pageCache.delete("/perfil");
       }
       pill.dataset.avatar = next;
-      const info = pill.querySelector(".name");
-      const infoWrap = info ? info.parentElement : null;
-      pill.querySelectorAll(".user-avatar, .user-avatar-img").forEach((el) => el.remove());
       const initials = label.slice(0, 2).toUpperCase();
       const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
-      const avatarSrc = next || preview;
-      if (avatarSrc) {
-        const img = document.createElement("img");
-        img.className = "user-avatar-img";
-        img.src = avatarSrc.indexOf("data:") === 0
-          ? avatarSrc
-          : avatarSrc + (avatarSrc.includes("?") ? "&" : "?") + "v=" + Date.now();
-        img.alt = "";
-        const fallback = document.createElement("div");
-        fallback.className = "user-avatar";
-        fallback.style.display = "none";
-        fallback.textContent = initials;
-        img.onerror = function () {
-          if (preview && img.src !== preview) {
-            img.src = preview;
-            return;
-          }
-          img.style.display = "none";
-          fallback.style.display = "grid";
-        };
-        pill.insertBefore(img, infoWrap);
-        pill.insertBefore(fallback, infoWrap);
-      } else if (preview) {
-        const img = document.createElement("img");
-        img.className = "user-avatar-img";
-        img.src = preview;
-        img.alt = "";
-        const fallback = document.createElement("div");
-        fallback.className = "user-avatar";
-        fallback.style.display = "none";
-        fallback.textContent = initials;
-        pill.insertBefore(img, infoWrap);
-        pill.insertBefore(fallback, infoWrap);
-      } else {
-        const div = document.createElement("div");
-        div.className = "user-avatar";
-        div.textContent = initials;
-        pill.insertBefore(div, infoWrap);
+      const avatarSrc = preview || next;
+      let slot = pill.querySelector(".user-avatar-slot");
+      if (!slot) {
+        pill.querySelectorAll(".user-avatar, .user-avatar-img, .user-avatar-slot").forEach((el) => el.remove());
+        slot = document.createElement("span");
+        slot.className = "user-avatar-slot";
+        const info = pill.querySelector(".name");
+        const infoWrap = info ? info.parentElement : null;
+        pill.insertBefore(slot, infoWrap);
       }
+      hydrateAvatarSlot(slot, avatarSrc, initials);
     } catch (_) {}
   }
 
@@ -399,6 +411,19 @@ export const panelClientScript = `
   });
 
   bindForms(document);
+  document.querySelectorAll(".user-avatar-slot").forEach((slot) => {
+    const pill = slot.closest(".user-pill");
+    const img = slot.querySelector(".user-avatar-img");
+    const fb = slot.querySelector(".user-avatar-fallback");
+    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+    const serverSrc =
+      (img && img.getAttribute("data-avatar-src")) ||
+      (img && img.getAttribute("src")) ||
+      (pill && pill.dataset.avatar) ||
+      "";
+    hydrateAvatarSlot(slot, preview || serverSrc, label.slice(0, 2).toUpperCase());
+  });
   refreshUserPill().then(() => syncTopbarFromProfilePreview());
 
   const toastRoot = document.getElementById("panel-toasts");

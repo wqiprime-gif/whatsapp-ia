@@ -297,13 +297,20 @@ export function sharkPerformanceChartHtml(
   const dots = coords
     .map(
       (c, i) =>
-        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#0a0a0a" stroke-width="2"/>`
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#0A0A0A" stroke-width="2" pointer-events="none"/>`
+    )
+    .join("");
+  const hitW = chartW / Math.max(dayCount - 1, 1) * 0.85;
+  const hits = coords
+    .map(
+      (c, i) =>
+        `<rect class="shark-chart-hit" data-idx="${i}" x="${(c.x - hitW / 2).toFixed(1)}" y="${padT}" width="${hitW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:crosshair"/>`
     )
     .join("");
   const labels = coords
     .map(
       (c) =>
-        `<text x="${c.x}" y="${h - 8}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10">${chartDayLabel(c.day)}</text>`
+        `<text x="${c.x}" y="${h - 8}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" pointer-events="none">${chartDayLabel(c.day)}</text>`
     )
     .join("");
   const dataJson = JSON.stringify(
@@ -315,7 +322,7 @@ export function sharkPerformanceChartHtml(
     }))
   ).replace(/'/g, "&#39;");
 
-  return `<div class="shark-perf-chart" data-chart-points='${dataJson}'>
+  return `<div class="shark-perf-chart" data-chart-points='${dataJson}' data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
     <div class="shark-chart-legend">
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
@@ -329,17 +336,18 @@ export function sharkPerformanceChartHtml(
           </linearGradient>
         </defs>
         ${grid}
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${padT + chartH}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4 3" style="display:none"/>
-        <path d="${area}" fill="url(#${gid})"/>
-        <polyline points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${padT + chartH}" stroke="rgba(255,255,255,0.35)" stroke-width="1" opacity="0"/>
+        <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
+        <polyline points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
         ${dots}
         ${labels}
+        ${hits}
       </svg>
-      <div class="shark-chart-tooltip" style="display:none">
+      <div class="shark-chart-tooltip" hidden>
         <span class="shark-chart-tooltip-day"></span>
         <div class="shark-chart-tooltip-row">
           <span class="shark-chart-legend-dot"></span>
-          <span>Receita</span>
+          <span class="shark-chart-tooltip-label">Receita</span>
           <strong class="shark-chart-tooltip-val"></strong>
         </div>
       </div>

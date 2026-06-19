@@ -1,11 +1,11 @@
 /** ZapManager — tema preto + verde (estilo Shark) */
 export const designSystem = {
   colors: {
-    bgBase: "#000000",
-    bgElevated: "#050505",
-    bgSidebar: "#000000",
-    bgCard: "#050505",
-    bgCardSolid: "#050505",
+    bgBase: "#0A0A0A",
+    bgElevated: "#0f0f0f",
+    bgSidebar: "#0A0A0A",
+    bgCard: "#0f0f0f",
+    bgCardSolid: "#0f0f0f",
     bgCardHover: "rgba(12, 16, 12, 0.95)",
     border: "rgba(255, 255, 255, 0.06)",
     borderHighlight: "rgba(37, 211, 102, 0.35)",

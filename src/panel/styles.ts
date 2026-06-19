@@ -74,7 +74,7 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-color: #000;
+  background-color: #0A0A0A;
   background-image:
     linear-gradient(rgba(37, 211, 102, 0.015) 1px, transparent 1px),
     linear-gradient(90deg, rgba(37, 211, 102, 0.015) 1px, transparent 1px);
@@ -170,7 +170,7 @@ button, input, textarea, select { font-family: inherit; }
 /* Sidebar — colapsa, expande no hover e empurra o conteúdo */
 .sidebar {
   width: 72px;
-  background: #000;
+  background: #0A0A0A;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
@@ -336,7 +336,7 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar-plan {
   margin-top: auto;
   padding: 16px;
-  background: #050505;
+  background: #0f0f0f;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius);
 }
@@ -376,7 +376,7 @@ button, input, textarea, select { font-family: inherit; }
   margin-left: 72px;
   transition: margin-left 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; min-height: 100vh;
-  background: #000;
+  background: #0A0A0A;
 }
 .app:has(.sidebar:hover) .main-wrap {
   margin-left: 280px;
@@ -388,7 +388,7 @@ button, input, textarea, select { font-family: inherit; }
   align-items: center;
   gap: 16px;
   padding: 0 24px;
-  background: #000;
+  background: #0A0A0A;
   position: sticky; top: 0; z-index: 30;
 }
 .topbar-left h1 {
@@ -480,20 +480,42 @@ button, input, textarea, select { font-family: inherit; }
   flex-shrink: 0;
 }
 .user-avatar--lg { width: 96px; height: 96px; font-size: 1.5rem; }
-.user-avatar-img {
-  width: 34px; height: 34px; border-radius: 50%;
-  display: block !important;
+.user-avatar-slot {
+  position: relative;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.user-avatar-slot .user-avatar-img,
+.user-avatar-slot .user-avatar-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.user-avatar-slot .user-avatar-img:not([hidden]) {
+  display: block !important;
+}
+.user-avatar-slot .user-avatar-img[hidden] {
+  display: none !important;
+}
+.user-avatar-fallback--hidden { display: none !important; }
+.user-avatar-img {
+  width: 100%; height: 100%; border-radius: 50%;
   object-fit: cover;
   border: 2px solid rgba(37, 211, 102, 0.35);
   background: transparent;
+  box-sizing: border-box;
 }
 .user-avatar-img--lg { width: 96px; height: 96px; }
 .user-pill .name { font-weight: 700; font-size: 0.84rem; }
 .user-pill .role { font-size: 0.7rem; color: var(--muted); }
 
-.content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: #000; }
-.page-shell { background: #000; min-height: 100%; }
+.content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: #0A0A0A; }
+.page-shell { background: #0A0A0A; min-height: 100%; }
 .content:has(.page-form-shell),
 .content:has(.dash-shell) { padding: 20px 24px 40px; }
 
