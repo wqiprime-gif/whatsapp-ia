@@ -301,15 +301,20 @@ export function dashboardPage(
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
 
     <div class="shark-dash-head">
-      <div class="shark-fat-pill dash-glow-card" style="${glowStyle(0)}">
+      <div class="shark-fat-pill shark-card dash-glow-card" style="${glowStyle(0)}">
         ${sharkIconBox(icons.dollar, true, true)}
         <div class="shark-fat-body">
-          <span class="shark-fat-label">Faturamento</span>
-          <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
+          <div class="shark-fat-top">
+            <span class="shark-fat-label">Faturamento</span>
+            <span class="shark-fat-pct">${fatProgress}%</span>
+          </div>
           <div class="shark-fat-bar" role="progressbar" aria-valuenow="${fatProgress}" aria-valuemin="0" aria-valuemax="100">
             <span style="width:${fatProgress}%"></span>
           </div>
-          <span class="shark-fat-meta">R$ ${salesReais} / 10k · ${approvalPct}% Aprov.</span>
+          <div class="shark-fat-bottom">
+            <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
+            <span class="shark-fat-meta">/ 10k</span>
+          </div>
         </div>
       </div>
       <div class="shark-greeting">
@@ -322,46 +327,56 @@ export function dashboardPage(
     </div>
 
     <div class="shark-period-bar shark-period-card">
-      <span class="shark-period-label">${sharkIconBox(icons.calendar)} Período</span>
-      <div class="shark-period-tabs" data-period-tabs>
-        <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>
-        <button type="button" class="shark-period-tab" data-period="ontem">Ontem</button>
-        <button type="button" class="shark-period-tab" data-period="7d">7 dias</button>
-        <button type="button" class="shark-period-tab" data-period="30d">30 dias</button>
-        <button type="button" class="shark-period-tab" data-period="total">Total</button>
+      <span class="shark-period-label">${icons.calendar} Período</span>
+      <div class="shark-period-tabs-wrap">
+        <div class="shark-period-tabs" data-period-tabs>
+          <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>
+          <button type="button" class="shark-period-tab" data-period="ontem">Ontem</button>
+          <button type="button" class="shark-period-tab" data-period="7d">7 dias</button>
+          <button type="button" class="shark-period-tab" data-period="30d">30 dias</button>
+          <button type="button" class="shark-period-tab" data-period="total">Total</button>
+        </div>
       </div>
     </div>
 
     <div class="shark-main-grid">
       <div class="shark-kpi-grid">
-        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(1)}">
-          ${sharkIconBox(icons.dollar)}
-          <span class="shark-kpi-label">Vendas aprovadas</span>
+        <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(1)}">
+          <div class="shark-kpi-head">
+            ${sharkIconBox(icons.dollar)}
+            <h3 class="shark-kpi-title">Vendas aprovadas</h3>
+          </div>
           <div class="shark-kpi-value" data-live-stat="salesValue">R$ ${salesReais}</div>
           <div class="shark-kpi-foot">
             <div class="shark-mini-bar"><span style="width:${approvalPct}%"></span></div>
             <span>${approvalPct}% Aprov.</span>
           </div>
         </div>
-        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(2)}">
-          ${sharkIconBox(icons.trending)}
-          <span class="shark-kpi-label">Taxa de conversão</span>
+        <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(2)}">
+          <div class="shark-kpi-head">
+            ${sharkIconBox(icons.trending)}
+            <h3 class="shark-kpi-title">Taxa de conversão</h3>
+          </div>
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
-        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(3)}">
-          ${sharkIconBox(icons.zap)}
-          <span class="shark-kpi-label">Total starts</span>
+        <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(3)}">
+          <div class="shark-kpi-head">
+            ${sharkIconBox(icons.zap)}
+            <h3 class="shark-kpi-title">Total starts</h3>
+          </div>
           <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
           <span class="shark-kpi-sub">leads iniciaram conversa</span>
         </div>
-        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(4)}">
-          ${sharkIconBox(icons.receipt)}
-          <span class="shark-kpi-label">Ticket médio</span>
+        <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(4)}">
+          <div class="shark-kpi-head">
+            ${sharkIconBox(icons.receipt)}
+            <h3 class="shark-kpi-title">Ticket médio</h3>
+          </div>
           <div class="shark-kpi-value">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
         </div>
       </div>
-      <div class="shark-chart-card dash-glow-card" style="${glowStyle(5)}">
+      <div class="shark-chart-card shark-card dash-glow-card" style="${glowStyle(5)}">
         <div class="card-head shark-chart-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity)}
@@ -379,7 +394,7 @@ export function dashboardPage(
     </div>
 
     <div class="shark-bottom-grid">
-      <div class="dash-glow-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
+      <div class="dash-glow-card shark-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity)}
@@ -392,7 +407,7 @@ export function dashboardPage(
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card card card-premium shark-award-card" style="${glowStyle(1)}">
+      <div class="dash-glow-card shark-card card card-premium shark-award-card" style="${glowStyle(1)}">
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.trophy)}
@@ -410,7 +425,7 @@ export function dashboardPage(
           </div>
         </div>
       </div>
-      <div class="dash-glow-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
+      <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.crown)}
