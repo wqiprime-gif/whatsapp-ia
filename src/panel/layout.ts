@@ -16,6 +16,7 @@ export type NavId =
   | "media"
   | "gifts"
   | "remarketing"
+  | "links"
   | "profile";
 
 export function panelUserLabel(input: { name: string; email: string }) {
@@ -155,6 +156,7 @@ export function appLayout(
         <div class="nav-section">
           ${navItem("/", "Dashboard", icons.dashboard, is("dashboard"))}
           ${navItem("/instances", "Instâncias", icons.layers, is("instances"))}
+          ${navItem("/links", "Gerar links", icons.link, is("links"))}
           ${navItem("/leads", "Leads", icons.users, is("leads"))}
           ${navItem("/remarketing", "Remarketing", icons.megaphone, is("remarketing"))}
           ${navItem("/gifts", "Pedir presentes", icons.sparkles, is("gifts"))}

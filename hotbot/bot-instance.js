@@ -85,15 +85,17 @@ const errorFilePath = path.join(instancesDataDir, 'error.txt');
 let connectionState = 'starting';
 let lastErrorMessage = '';
 
-function writeConnectionStatus(state, errorMessage = '') {
+function writeConnectionStatus(state, errorMessage = '', whatsappNumber = null) {
   connectionState = state;
   if (errorMessage) lastErrorMessage = errorMessage;
   try {
-    fs.writeFileSync(statusFilePath, JSON.stringify({
+    const payload = {
       state,
       error: lastErrorMessage || undefined,
       updatedAt: new Date().toISOString()
-    }));
+    };
+    if (whatsappNumber) payload.whatsappNumber = whatsappNumber;
+    fs.writeFileSync(statusFilePath, JSON.stringify(payload));
     if (errorMessage) {
       fs.writeFileSync(errorFilePath, String(errorMessage));
     } else if (fs.existsSync(errorFilePath)) {
@@ -2034,12 +2036,27 @@ app.post('/api/prompt', (req, res) => {
   }
 });
 
+let cachedWhatsappNumber = null;
+
+function persistWhatsappNumber() {
+  try {
+    if (client && client.info && client.info.wid) {
+      cachedWhatsappNumber = client.info.wid._serialized || String(client.info.wid);
+      writeConnectionStatus(connectionState, lastErrorMessage, cachedWhatsappNumber);
+      console.log(`📱 Número conectado: ${cachedWhatsappNumber}`);
+    }
+  } catch (error) {
+    console.error(`⚠️ Erro ao salvar WhatsApp number: ${error.message}`);
+  }
+}
+
 app.get('/api/status', (_req, res) => {
   const connected = connectionState === 'ready' || connectionState === 'authenticated';
   return res.json({
     ok: true,
     state: connectionState,
     connected,
+    whatsappNumber: cachedWhatsappNumber || undefined,
     qrAvailable: connectionState === 'qr_pending' && Boolean(lastQrUrl),
     error: lastErrorMessage || undefined,
     chromium: chromiumPath || null,
@@ -2127,6 +2144,7 @@ io.on('connection', function(socket) {
 
 client.on('ready', () => {
   writeConnectionStatus('ready');
+  persistWhatsappNumber();
   Object.values(clientSockets).forEach(socket => {
     socket.emit('ready', 'Dispositivo pronto!');
     socket.emit('message', 'Dispositivo pronto!');
@@ -2160,6 +2178,8 @@ client.on('authenticated', () => {
   try {
     if (client.info && client.info.wid) {
       const whatsappNumber = client.info.wid._serialized || client.info.wid.toString();
+      cachedWhatsappNumber = whatsappNumber;
+      writeConnectionStatus(connectionState, lastErrorMessage, whatsappNumber);
       sessionManager.updateSessionStatus(sessionId, 'connected', whatsappNumber);
       console.log(`📱 Número conectado: ${whatsappNumber}`);
     }

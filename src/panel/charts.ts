@@ -263,6 +263,27 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
   </div>`;
 }
 
+function smoothChartPath(points: { x: number; y: number }[], tension = 0.35) {
+  if (points.length < 2) {
+    return points.length ? `M ${points[0].x} ${points[0].y}` : "";
+  }
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] ?? p2;
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
+    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return path;
+}
+
+const SHARK_CHART_BLUE = "#3B82F6";
+
 export function sharkPerformanceChartHtml(
   points: { day: string; totalCents: number }[],
   opts?: { dayCount?: number; endOffset?: number }
@@ -272,35 +293,36 @@ export function sharkPerformanceChartHtml(
   const days = buildChartDays(dayCount, endOffset);
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
-  const w = 560;
-  const h = 220;
-  const padL = 28;
-  const padR = 20;
-  const padT = 36;
-  const padB = 32;
+  const w = 640;
+  const h = 260;
+  const padL = 8;
+  const padR = 8;
+  const padT = 12;
+  const padB = 28;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
+  const baseY = padT + chartH;
   const coords = values.map((v, i) => {
     const x = padL + (i / Math.max(dayCount - 1, 1)) * chartW;
     const y = padT + chartH - (v / max) * chartH;
     return { x, y, v, day: days[i]! };
   });
-  const line = coords.map((c) => `${c.x},${c.y}`).join(" ");
-  const area = `M${coords[0].x},${padT + chartH} ${coords.map((c) => `L${c.x},${c.y}`).join(" ")} L${coords[coords.length - 1].x},${padT + chartH} Z`;
+  const curve = smoothChartPath(coords);
+  const area = `${curve} L ${coords[coords.length - 1].x} ${baseY} L ${coords[0].x} ${baseY} Z`;
   const gid = `sg${Math.random().toString(36).slice(2, 9)}`;
   const grid = [0.25, 0.5, 0.75]
     .map((g) => {
       const y = padT + chartH - g * chartH;
-      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="3 3"/>`;
     })
     .join("");
   const dots = coords
     .map(
       (c, i) =>
-        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#050505" stroke-width="2" pointer-events="none"/>`
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="0" fill="${SHARK_CHART_BLUE}" stroke="#050505" stroke-width="2" pointer-events="none" opacity="0"/>`
     )
     .join("");
-  const hitW = chartW / Math.max(dayCount - 1, 1) * 0.85;
+  const hitW = (chartW / Math.max(dayCount - 1, 1)) * 0.9;
   const hits = coords
     .map(
       (c, i) =>
@@ -310,7 +332,7 @@ export function sharkPerformanceChartHtml(
   const labels = coords
     .map(
       (c) =>
-        `<text x="${c.x}" y="${h - 8}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" pointer-events="none">${chartDayLabel(c.day)}</text>`
+        `<text x="${c.x}" y="${h - 6}" text-anchor="middle" fill="#71717a" font-size="10" font-family="JetBrains Mono, ui-monospace, monospace" pointer-events="none">${chartDayLabel(c.day)}</text>`
     )
     .join("");
   const dataJson = JSON.stringify(
@@ -331,25 +353,25 @@ export function sharkPerformanceChartHtml(
       <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="rgba(37,211,102,0.35)"/>
-            <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
+            <stop offset="5%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.28"/>
+            <stop offset="95%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
         </defs>
         ${grid}
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${padT + chartH}" stroke="rgba(255,255,255,0.35)" stroke-width="1" opacity="0"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.55)" stroke-width="1" opacity="0"/>
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
-        <polyline points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+        <path d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
         ${dots}
         ${labels}
         ${hits}
       </svg>
       <div class="shark-chart-tooltip" hidden>
-        <span class="shark-chart-tooltip-day"></span>
-        <div class="shark-chart-tooltip-row">
+        <div class="shark-chart-tooltip-row shark-chart-tooltip-row--main">
           <span class="shark-chart-legend-dot"></span>
           <span class="shark-chart-tooltip-label">Receita</span>
           <strong class="shark-chart-tooltip-val"></strong>
         </div>
+        <span class="shark-chart-tooltip-day"></span>
       </div>
     </div>
   </div>`;

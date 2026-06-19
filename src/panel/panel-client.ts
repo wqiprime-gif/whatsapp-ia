@@ -8,6 +8,7 @@ export const panelClientScript = `
   const NAV_PATHS = [
     ["/", "Dashboard"],
     ["/instances", "Instâncias"],
+    ["/links", "Gerar links"],
     ["/leads", "Leads"],
     ["/remarketing", "Remarketing"],
     ["/gifts", "Pedir presentes"],
@@ -289,7 +290,9 @@ export const panelClientScript = `
         if (valEl) valEl.textContent = money(p.cents);
         tooltip.hidden = false;
         svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
-          d.setAttribute("r", d.getAttribute("data-idx") === String(i) ? "7" : "5");
+          const active = d.getAttribute("data-idx") === String(i);
+          d.setAttribute("r", active ? "5" : "0");
+          d.setAttribute("opacity", active ? "1" : "0");
         });
         if (cursor && dot) {
           const cx = dot.getAttribute("cx");
@@ -300,18 +303,20 @@ export const panelClientScript = `
         if (dot) {
           const stageRect = stage.getBoundingClientRect();
           const cx = Number(dot.getAttribute("cx"));
-          const cy = Number(dot.getAttribute("cy"));
-          const left = (cx / vbW) * stageRect.width - 72;
-          const top = (cy / vbH) * stageRect.height - 78;
-          tooltip.style.left = Math.min(Math.max(left, 4), stageRect.width - 148) + "px";
-          tooltip.style.top = Math.max(top, 4) + "px";
+          const left = (cx / vbW) * stageRect.width - 84;
+          const top = 12;
+          tooltip.style.left = Math.min(Math.max(left, 8), stageRect.width - 176) + "px";
+          tooltip.style.top = top + "px";
         }
       }
 
       function hideTip() {
         tooltip.hidden = true;
         if (cursor) cursor.setAttribute("opacity", "0");
-        svg.querySelectorAll(".shark-chart-dot").forEach((d) => d.setAttribute("r", "5"));
+        svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
+          d.setAttribute("r", "0");
+          d.setAttribute("opacity", "0");
+        });
       }
 
       svg.querySelectorAll(".shark-chart-hit").forEach((hit) => {

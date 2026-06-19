@@ -1746,7 +1746,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: var(--muted);
   font-weight: 600;
 }
-.shark-chart-card .card-body { flex: 1; display: flex; align-items: stretch; }
+.shark-chart-card .card-body { flex: 1; display: flex; align-items: stretch; padding: 8px 12px 16px !important; }
+.shark-chart-card .chart-wrap--hero { min-height: 300px; padding: 0; }
 
 .shark-bottom-grid {
   display: grid;
@@ -1815,14 +1816,14 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-chart-legend-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #25D366;
-  box-shadow: 0 0 8px rgba(37, 211, 102, 0.6);
+  background: #3B82F6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.55);
   flex-shrink: 0;
 }
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  min-height: 280px;
+  min-height: 300px;
 }
 .shark-chart-svg {
   width: 100%;
@@ -1837,22 +1838,28 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-tooltip {
   position: absolute;
   top: 8px;
-  min-width: 140px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #0a0a0a;
-  border: 1px solid rgba(37, 211, 102, 0.2);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+  min-width: 168px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(10, 10, 10, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   z-index: 8;
 }
 .shark-chart-tooltip[hidden] { display: none !important; }
+.shark-chart-tooltip-row--main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .shark-chart-tooltip-day {
   display: block;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 8px;
+  font-size: 0.68rem;
+  color: #71717a;
   font-weight: 500;
+  font-family: var(--font-mono, ui-monospace, monospace);
 }
 .shark-chart-tooltip-row {
   display: flex;
@@ -1867,10 +1874,147 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   margin-left: auto;
   color: #fff !important;
   font-weight: 800;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
-.shark-chart-dot { transition: r 0.12s ease; }
+.shark-chart-dot { transition: r 0.12s ease, opacity 0.12s ease; }
 .shark-chart-hit { pointer-events: all; }
+
+/* Instâncias ativas — card dashboard */
+.shark-instances-card .card-body { min-height: 260px; display: flex; flex-direction: column; gap: 14px; }
+.shark-instances-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+.shark-instances-count {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.shark-instances-hero span:last-child {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.shark-instances-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; }
+.shark-instance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.2s, border-color 0.2s;
+}
+.shark-instance-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.shark-instance-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #71717a;
+}
+.shark-instance-dot--on {
+  background: #22C55E;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+.shark-instance-name {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e5e5e5;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shark-instance-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.shark-instance-status--on { color: #22C55E; }
+
+/* Gerar links WhatsApp */
+.wa-links-page { display: flex; flex-direction: column; gap: 20px; max-width: 960px; }
+.wa-links-intro {
+  font-size: 0.88rem;
+  color: var(--text-2);
+  line-height: 1.55;
+  max-width: 720px;
+}
+.wa-links-grid { display: grid; gap: 18px; }
+.wa-link-card {
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.wa-link-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.wa-link-card-head strong { font-size: 0.95rem; }
+.wa-link-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.wa-link-pill--on { background: rgba(34, 197, 94, 0.12); color: #22C55E; border: 1px solid rgba(34, 197, 94, 0.25); }
+.wa-link-pill--off { background: rgba(255, 255, 255, 0.04); color: var(--muted); border: 1px solid rgba(255, 255, 255, 0.06); }
+.wa-link-field {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.wa-link-field input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+}
+.wa-link-copy {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: #22C55E;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.wa-link-copy:hover { background: rgba(34, 197, 94, 0.18); }
+.wa-link-copy--ok { background: rgba(34, 197, 94, 0.22); }
+.wa-dist-card {
+  padding: 22px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.wa-dist-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.wa-dist-card p { margin: 0 0 14px; font-size: 0.82rem; color: var(--text-2); line-height: 1.5; }
 `;

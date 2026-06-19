@@ -263,6 +263,42 @@ export function loginPage(message = "") {
 </html>`;
 }
 
+function activeInstancesCardHtml(bots: BotConfig[], statuses: Record<string, WaLiveStatus>) {
+  const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
+  const statusLabel: Record<string, string> = {
+    connected: "Online",
+    meta_ready: "Online",
+    paused: "Pausado",
+    qr_pending: "QR",
+    starting: "Iniciando",
+    offline: "Offline",
+    disconnected: "Offline",
+    error: "Erro",
+    auth_failure: "Auth",
+    meta_missing: "Meta"
+  };
+  const rows =
+    bots.length === 0
+      ? `<p class="form-hint" style="padding:12px 4px">Nenhuma instância cadastrada.</p>`
+      : bots
+          .map((b) => {
+            const st = statuses[b.id] || "offline";
+            const on = st === "connected" || st === "meta_ready";
+            const label = statusLabel[st] || st;
+            return `<div class="shark-instance-row">
+              <span class="shark-instance-dot${on ? " shark-instance-dot--on" : ""}"></span>
+              <span class="shark-instance-name">${escapeHtml(b.name)}</span>
+              <span class="shark-instance-status${on ? " shark-instance-status--on" : ""}">${label}</span>
+            </div>`;
+          })
+          .join("");
+  return `<div class="shark-instances-hero">
+      <span class="shark-instances-count">${connected}</span>
+      <span>de ${bots.length} online</span>
+    </div>
+    <div class="shark-instances-list">${rows}</div>`;
+}
+
 export function dashboardPage(
   bots: BotConfig[],
   data: DashboardData,
@@ -383,7 +419,6 @@ export function dashboardPage(
               <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
             </div>
           </div>
-          <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
         </div>
         <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
           ${sharkPerformanceChartHtml(data.chart, { dayCount: 7, endOffset: 0 })}
@@ -405,23 +440,17 @@ export function dashboardPage(
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card shark-card card card-premium shark-award-card" style="${glowStyle(1)}">
+      <div class="dash-glow-card shark-card card card-premium shark-instances-card" style="${glowStyle(1)}">
         <div class="card-head">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.trophy)}
+            ${sharkIconBox(icons.layers)}
             <div>
-              <h3>Premiações</h3>
-              <span class="shark-card-sub">Conquiste novas placas</span>
+              <h3>Instâncias ativas</h3>
+              <span class="shark-card-sub">WhatsApp conectados</span>
             </div>
           </div>
         </div>
-        <div class="card-body shark-award-body">
-          <div class="shark-award-preview">
-            <div class="shark-award-lock">${icons.lock}</div>
-            <strong>Zap Pro</strong>
-            <span class="shark-award-meta">Meta R$ ${salesReais} / R$ 10k</span>
-          </div>
-        </div>
+        <div class="card-body">${activeInstancesCardHtml(bots, statuses)}</div>
       </div>
       <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">

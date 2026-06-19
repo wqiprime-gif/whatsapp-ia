@@ -330,18 +330,24 @@ type WaRuntimeState = {
   qr: string | null;
   error: string | null;
   processRunning: boolean;
+  whatsappNumber: string | null;
 };
 
-async function readStatusFile(botId: string): Promise<{ state: string | null; error: string | null }> {
+async function readStatusFile(botId: string): Promise<{
+  state: string | null;
+  error: string | null;
+  whatsappNumber: string | null;
+}> {
   try {
     const raw = await fs.readFile(path.join(instanceDataDir(botId), "status.json"), "utf8");
-    const data = JSON.parse(raw) as { state?: string; error?: string };
+    const data = JSON.parse(raw) as { state?: string; error?: string; whatsappNumber?: string };
     return {
       state: data.state?.trim() || null,
-      error: data.error?.trim() || null
+      error: data.error?.trim() || null,
+      whatsappNumber: data.whatsappNumber?.trim() || null
     };
   } catch {
-    return { state: null, error: null };
+    return { state: null, error: null, whatsappNumber: null };
   }
 }
 
@@ -370,6 +376,7 @@ async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
           state?: string;
           connected?: boolean;
           error?: string;
+          whatsappNumber?: string;
         };
         const state = data.state?.trim() || fileStatus.state || "starting";
         const connected = Boolean(data.connected);
@@ -379,7 +386,8 @@ async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
           connected,
           qr,
           error: data.error?.trim() || fileStatus.error,
-          processRunning: true
+          processRunning: true,
+          whatsappNumber: data.whatsappNumber?.trim() || fileStatus.whatsappNumber
         };
       }
     } catch {
@@ -399,7 +407,8 @@ async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
     connected,
     qr: connected ? null : fileQr,
     error: fileStatus.error || exitError,
-    processRunning: Boolean(proc)
+    processRunning: Boolean(proc),
+    whatsappNumber: fileStatus.whatsappNumber
   };
 }
 
@@ -487,4 +496,29 @@ export function jidFromChatId(chatId: number) {
 /** Exportado para bot-instance validar args de proxy no spawn. */
 export function proxyArgsForUrl(proxyUrl: string) {
   return puppeteerProxyArgs(proxyUrl);
+}
+
+const distRoundRobin = new Map<string, number>();
+
+export async function getWaPhoneForBot(bot: BotConfig): Promise<string | null> {
+  if (!bot.active) return null;
+  const status = await getWaLiveStatus(bot);
+  if (status !== "connected" && status !== "meta_ready") return null;
+  if (isMetaBot(bot)) return null;
+  const runtime = await fetchWebBotState(bot.id);
+  return runtime.whatsappNumber;
+}
+
+export async function getWaPhonesForBots(bots: BotConfig[]): Promise<Record<string, string | null>> {
+  const entries = await Promise.all(bots.map(async (b) => [b.id, await getWaPhoneForBot(b)] as const));
+  return Object.fromEntries(entries);
+}
+
+export function pickDistributionPhone(userId: string, phones: string[]): string | null {
+  const valid = phones.filter((p) => Boolean(p?.trim()));
+  if (valid.length === 0) return null;
+  const idx = distRoundRobin.get(userId) ?? 0;
+  const phone = valid[idx % valid.length]!;
+  distRoundRobin.set(userId, idx + 1);
+  return phone;
 }

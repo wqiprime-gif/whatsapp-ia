@@ -62,7 +62,8 @@ import {
 import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
-import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { buildWaMeUrl } from "../lib/wa-links.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -78,6 +79,7 @@ import {
   topBotsRankingHtml,
   topPlayersRankingHtml
 } from "./ui.js";
+import { buildWaLinkRows, waLinksPage } from "./links-page.js";
 import { panelUserLabel } from "./layout.js";
 
 async function rowsForUser<T extends Record<string, unknown>>(rows: T[], userId: string) {
@@ -1171,6 +1173,39 @@ export async function registerPanelRoutes(
     if (!user) return;
     const html = mediaPage(await loadBots(user.id), isPartial(request));
     return reply.type("text/html").send(html);
+  });
+
+  app.get("/links", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
+    const phones = await getWaPhonesForBots(bots);
+    const rows = buildWaLinkRows(bots, statuses, phones);
+    const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
+    const distUrl = `${base}/wa/${user.id}`;
+    return reply
+      .type("text/html")
+      .send(waLinksPage(rows, distUrl, "", isPartial(request), panelUserLabel(user)));
+  });
+
+  app.get("/wa/:userId", async (request, reply) => {
+    const { userId } = z.object({ userId: z.string().uuid() }).parse(request.params);
+    const query = z.object({ text: z.string().optional() }).parse(request.query);
+    const bots = await loadBots(userId);
+    const phonesMap = await getWaPhonesForBots(bots);
+    const phones = Object.values(phonesMap).filter((p): p is string => Boolean(p?.trim()));
+    const pick = pickDistributionPhone(userId, phones);
+    if (!pick) {
+      return reply
+        .code(503)
+        .type("text/html")
+        .send(
+          "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum WhatsApp conectado no momento. Tente novamente em instantes.</p></body></html>"
+        );
+    }
+    const url = buildWaMeUrl(pick, query.text || "");
+    return reply.redirect(url);
   });
 
   app.get("/instances", async (request, reply) => {
