@@ -4,9 +4,9 @@ import type { ActivityItem, BotSalesRank, UserSalesRank } from "../db/events.js"
 import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
-import { alertHtml, appLayout, escapeHtml } from "./layout.js";
+import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
-import { salesChartSvgFromData, messagesChartSvgFromData, sparklineSvg, chartDayValues, kpiTrendLabel, channelDonutSvg, salesFunnelHtml } from "./charts.js";
+import { salesChartSvgFromData, conversionGaugeSvg } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
@@ -267,148 +267,154 @@ export function dashboardPage(
   userName = "Usuario",
   statuses: Record<string, WaLiveStatus> = {},
   currentUserId = "",
-  userAvatar = ""
+  userAvatar = "",
+  userEmail = "",
+  userDisplayName = ""
 ) {
-  const active = bots.filter((b) => b.active).length;
   const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
-  const previews = bots.reduce((s, b) => s + b.previewMediaUrls.length, 0);
   const salesReais = (data.stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const convRate =
     data.stats.leads > 0
-      ? ((data.stats.salesCount / data.stats.leads) * 100).toFixed(1).replace(".", ",")
-      : "0,0";
-
-  const salesVals = chartDayValues(data.chart, (p) => p.totalCents / 100);
-  const msgVals = chartDayValues(data.messagesChart, (p) => p.count);
-  const salesTrend = kpiTrendLabel(salesVals);
-  const msgTrend = kpiTrendLabel(msgVals);
-  const leadsTrend = kpiTrendLabel(msgVals.map((v) => Math.round(v * 0.4)));
-  const convTrend = kpiTrendLabel(
-    salesVals.map((v, i) => (msgVals[i] > 0 ? (v > 0 ? 1 : 0) : 0))
-  );
+      ? ((data.stats.salesCount / data.stats.leads) * 100)
+      : 0;
+  const ticketMedio =
+    data.stats.salesCount > 0
+      ? (data.stats.salesTotalCents / data.stats.salesCount / 100).toFixed(2).replace(".", ",")
+      : "0,00";
+  const approvalPct =
+    data.stats.leads > 0
+      ? Math.round((data.stats.salesCount / data.stats.leads) * 100)
+      : 0;
+  const fatGoal = 10_000;
+  const fatProgress = Math.min(100, Math.round((data.stats.salesTotalCents / 100 / fatGoal) * 100));
+  const greetingName = escapeHtml(greetingDisplayName(userDisplayName || userName, userEmail || userName));
+  const greet = timeGreeting();
+  const dateStr = dashboardDateLabel();
 
   const body = `
-    <div class="dash-shell">
+    <div class="dash-shell shark-dash">
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
 
-    <div class="kpi-strip">
-      <div class="kpi-card-pro">
-        <div class="kpi-card-top">
-          <span class="kpi-label">${icons.card} Receita</span>
-          <span class="kpi-trend ${salesTrend.positive ? "positive" : "negative"}">${salesTrend.text}</span>
+    <div class="shark-dash-head">
+      <div class="shark-fat-pill dash-glow-card" style="${glowStyle(0)}">
+        <div class="shark-fat-icon">${icons.card}</div>
+        <div class="shark-fat-body">
+          <span class="shark-fat-label">Faturamento</span>
+          <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
+          <div class="shark-fat-bar" role="progressbar" aria-valuenow="${fatProgress}" aria-valuemin="0" aria-valuemax="100">
+            <span style="width:${fatProgress}%"></span>
+          </div>
+          <span class="shark-fat-meta">R$ ${salesReais} / 10k · ${approvalPct}% Aprov.</span>
         </div>
-        <div class="kpi-value accent" data-live-stat="salesValue">R$ ${salesReais}</div>
-        <div data-live="spark-sales">${sparklineSvg(salesVals)}</div>
       </div>
-      <div class="kpi-card-pro">
-        <div class="kpi-card-top">
-          <span class="kpi-label">${icons.chat} Mensagens hoje</span>
-          <span class="kpi-trend ${msgTrend.positive ? "positive" : "negative"}">${msgTrend.text}</span>
-        </div>
-        <div class="kpi-value" data-live-stat="messagesTodayVal">${data.stats.messagesToday}</div>
-        <div data-live="spark-messages">${sparklineSvg(msgVals, "#34d399")}</div>
+      <div class="shark-greeting">
+        <h2 class="shark-greeting-title">${greet}, ${greetingName}</h2>
+        <p class="shark-greeting-date">${dateStr}</p>
       </div>
-      <div class="kpi-card-pro">
-        <div class="kpi-card-top">
-          <span class="kpi-label">${icons.users} Leads</span>
-          <span class="kpi-trend ${leadsTrend.positive ? "positive" : "negative"}">${leadsTrend.text}</span>
-        </div>
-        <div class="kpi-value" data-live-stat="leads">${data.stats.leads}</div>
-        <div data-live="spark-leads">${sparklineSvg(msgVals.map((v) => Math.max(0, Math.round(v * 0.35))), "#4ade80")}</div>
-      </div>
-      <div class="kpi-card-pro">
-        <div class="kpi-card-top">
-          <span class="kpi-label">${icons.sparkles} Conversões</span>
-          <span class="kpi-trend positive" data-live-stat="salesCount">${data.stats.salesCount} venda(s)</span>
-        </div>
-        <div class="kpi-value accent" data-live-stat="salesCountVal">${data.stats.salesCount}</div>
-        <div data-live="spark-sales">${sparklineSvg(salesVals.map((v) => (v > 0 ? 1 : 0)))}</div>
-      </div>
-      <div class="kpi-card-pro">
-        <div class="kpi-card-top">
-          <span class="kpi-label">${icons.layers} Taxa conversão</span>
-          <span class="kpi-trend ${convTrend.positive ? "positive" : "negative"}">${convTrend.text}</span>
-        </div>
-        <div class="kpi-value" data-live-stat="convRate">${convRate}%</div>
-        <div>${sparklineSvg(salesVals, "#34d399")}</div>
+      <div class="shark-head-right">
+        <span class="shark-head-stat"><strong>${connected}</strong>/${bots.length} online</span>
       </div>
     </div>
 
-    <div class="dash-charts-hero dash-charts-hero--3">
-      <div class="dash-glow-card card card-premium chart-card-pro chart-card-pro--wide" style="${glowStyle(0)}">
-        <div class="card-head">
-          <h3>${icons.card} Evolução da receita</h3>
+    <div class="shark-period-bar">
+      <span class="shark-period-label">Período</span>
+      <div class="shark-period-tabs">
+        <button type="button" class="shark-period-tab shark-period-tab--active">Hoje</button>
+        <button type="button" class="shark-period-tab">Ontem</button>
+        <button type="button" class="shark-period-tab">7 dias</button>
+        <button type="button" class="shark-period-tab">30 dias</button>
+        <button type="button" class="shark-period-tab">Total</button>
+      </div>
+    </div>
+
+    <div class="shark-main-grid">
+      <div class="shark-kpi-grid">
+        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(1)}">
+          <div class="shark-kpi-icon">${icons.card}</div>
+          <span class="shark-kpi-label">Vendas aprovadas</span>
+          <div class="shark-kpi-value accent" data-live-stat="salesValue">R$ ${salesReais}</div>
+          <div class="shark-kpi-foot">
+            <div class="shark-mini-bar"><span style="width:${approvalPct}%"></span></div>
+            <span>${approvalPct}% Aprov.</span>
+          </div>
+        </div>
+        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(2)}">
+          <div class="shark-kpi-icon">${icons.sparkles}</div>
+          <span class="shark-kpi-label">Taxa de conversão</span>
+          <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
+        </div>
+        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(3)}">
+          <div class="shark-kpi-icon">${icons.users}</div>
+          <span class="shark-kpi-label">Total starts</span>
+          <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
+          <span class="shark-kpi-sub">leads iniciaram conversa</span>
+        </div>
+        <div class="shark-kpi-card dash-glow-card" style="${glowStyle(4)}">
+          <div class="shark-kpi-icon">${icons.card}</div>
+          <span class="shark-kpi-label">Ticket médio</span>
+          <div class="shark-kpi-value accent">R$ ${ticketMedio}</div>
+          <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
+        </div>
+      </div>
+      <div class="shark-chart-card dash-glow-card" style="${glowStyle(5)}">
+        <div class="card-head shark-chart-head">
+          <div>
+            <h3>${icons.layers} Seu desempenho</h3>
+            <span class="shark-chart-sub">Receita · últimos 7 dias</span>
+          </div>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
         </div>
         <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
           ${salesChartSvgFromData(data.chart, { tall: true })}
         </div>
       </div>
-      <div class="dash-glow-card card card-premium chart-card-pro" style="${glowStyle(1)}">
-        <div class="card-head"><h3>${icons.chat} Mensagens por canal</h3></div>
-        <div class="card-body">${channelDonutSvg([
-          { label: "WhatsApp", value: Math.max(data.stats.messagesToday, 1), color: "#25D366" },
-          { label: "Remarketing", value: Math.max(Math.round(data.stats.leads * 0.15), 0), color: "#4ade80" },
-          { label: "Manual", value: Math.max(Math.round(data.stats.salesCount * 2), 0), color: "#22c55e" }
-        ])}</div>
-      </div>
-      <div class="dash-glow-card card card-premium chart-card-pro" style="${glowStyle(2)}">
-        <div class="card-head"><h3>${icons.sparkles} Funil de vendas</h3></div>
-        <div class="card-body">${salesFunnelHtml({ leads: data.stats.leads, sales: data.stats.salesCount, messages: data.stats.messagesToday })}</div>
-      </div>
     </div>
 
-    <div class="dash-bottom-pro dash-bottom-pro--3">
-      <div class="dash-glow-card card card-premium card--table dash-table-card" style="${glowStyle(3)}">
+    <div class="shark-bottom-grid">
+      <div class="dash-glow-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
         <div class="card-head">
-          <h3>${icons.layers} Suas instâncias</h3>
-          <div class="card-head-actions">
-            <a href="/instances/new" class="btn btn-primary btn-sm">${icons.plus} Nova</a>
-            <form method="post" action="/restart" style="display:inline">
-              <button type="submit" class="btn btn-secondary btn-sm">${icons.refresh}</button>
-            </form>
+          <div>
+            <h3><span class="live-pulse" aria-hidden="true"></span> Log de atividades</h3>
+            <span class="shark-card-sub">Tempo real</span>
           </div>
-        </div>
-        <div class="card-body card-body--flush">${instancesTableHtml(bots, statuses)}</div>
-        <div class="card-foot">
-          <a href="/instances" class="card-link">Gerenciar instâncias →</a>
-        </div>
-      </div>
-      <div class="dash-glow-card card card-premium card-live-feed" style="${glowStyle(4)}">
-        <div class="card-head">
-          <h3><span class="live-pulse" aria-hidden="true"></span> Atividade em tempo real</h3>
           <span class="live-badge">Ao vivo</span>
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card card card-premium top-players-card" style="${glowStyle(5)}">
+      <div class="dash-glow-card card card-premium shark-award-card" style="${glowStyle(1)}">
+        <div class="card-head">
+          <div>
+            <h3>${icons.trophy} Premiações</h3>
+            <span class="shark-card-sub">Conquiste novas placas</span>
+          </div>
+        </div>
+        <div class="card-body shark-award-body">
+          <div class="shark-award-preview">
+            <div class="shark-award-lock">${icons.lock}</div>
+            <strong>Zap Pro</strong>
+            <span class="shark-award-meta">Meta R$ ${salesReais} / R$ 10k</span>
+          </div>
+        </div>
+      </div>
+      <div class="dash-glow-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">
           <div>
             <h3>${icons.trophy} Top 5 Players</h3>
-            <div class="top-players-sub">Corrida de faturamento</div>
+            <span class="shark-card-sub">Corrida de faturamento</span>
           </div>
         </div>
         <div class="card-body">
           <div class="top-players-tabs">
-            <span class="top-players-tab">Concurso</span>
+            <span class="top-players-tab top-players-tab--active">Concurso</span>
             <span class="top-players-tab top-players-tab--muted">Mensal</span>
           </div>
           <div class="top-players-list" data-live="top-players">${topPlayersRankingHtml(data.topPlayers, currentUserId)}</div>
         </div>
       </div>
     </div>
-
-    <div class="dash-status-bar" aria-label="Status da operação">
-      <div class="dash-status-item dash-status-item--ok"><span class="dash-status-dot"></span> Sistemas operacionais</div>
-      <div class="dash-status-item">Dispositivos: <strong>${connected} / ${bots.length}</strong> conectados</div>
-      <div class="dash-status-item">Mensagens hoje: <strong data-live-stat="messagesToday">${data.stats.messagesToday}</strong></div>
-      <div class="dash-status-item">Leads: <strong data-live-stat="leads">${data.stats.leads}</strong></div>
-      <div class="dash-status-item">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong></div>
-      <div class="dash-status-item">Receita: <strong data-live-stat="salesValue">R$ ${salesReais}</strong></div>
-    </div>
     </div>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "Visão geral do seu negócio", userAvatar);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar);
 }
 
 export function profilePage(
@@ -425,7 +431,7 @@ export function profilePage(
   const shortId = user.id.slice(0, 8);
 
   const avatarSrc = user.avatarUrl?.trim()
-    ? `${escapeHtml(user.avatarUrl)}${user.avatarUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
+    ? `${escapeHtml(user.avatarUrl)}${user.avatarUrl.includes("?") ? "&" : "?"}v=${user.avatarUrl.match(/(\d{13})/)?.[1] ?? "1"}`
     : "";
 
   const body = `

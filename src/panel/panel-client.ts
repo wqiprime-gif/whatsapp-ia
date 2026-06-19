@@ -21,6 +21,7 @@ export const panelClientScript = `
 
   const LS_LAST_SALE = "panelLastSaleId";
   const LS_BELL_SEEN = "panelBellSeenAt";
+  const LS_AVATAR = "panelAvatarUrl";
   const pageCache = new Map();
   let navigating = false;
   let fetchCtrl = null;
@@ -126,6 +127,53 @@ export const panelClientScript = `
     if (h) h.textContent = pageTitle(path);
     setActiveNav(path);
     bindForms(main);
+    if (path === "/perfil" || path.startsWith("/perfil")) pageCache.delete("/perfil");
+  }
+
+  async function refreshUserPill() {
+    try {
+      const res = await fetch("/api/panel/me", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const me = await res.json();
+      const pill = document.getElementById("panel-user-pill");
+      if (!pill) return;
+      const nameEl = document.getElementById("panel-user-name");
+      const label = me.label || me.email || "Conta";
+      if (nameEl) nameEl.textContent = label;
+      const prev = localStorage.getItem(LS_AVATAR) || "";
+      const next = me.avatarUrl || "";
+      if (next !== prev) {
+        localStorage.setItem(LS_AVATAR, next);
+        pageCache.delete("/");
+        pageCache.delete("/perfil");
+      }
+      pill.dataset.avatar = next;
+      const info = pill.querySelector(".name");
+      const infoWrap = info ? info.parentElement : null;
+      pill.querySelectorAll(".user-avatar, .user-avatar-img").forEach((el) => el.remove());
+      const initials = label.slice(0, 2).toUpperCase();
+      if (next) {
+        const img = document.createElement("img");
+        img.className = "user-avatar user-avatar-img";
+        img.src = next + (next.includes("?") ? "&" : "?") + "v=" + Date.now();
+        img.alt = "";
+        const fallback = document.createElement("div");
+        fallback.className = "user-avatar";
+        fallback.style.display = "none";
+        fallback.textContent = initials;
+        img.onerror = function () {
+          img.style.display = "none";
+          fallback.style.display = "flex";
+        };
+        pill.insertBefore(img, infoWrap);
+        pill.insertBefore(fallback, infoWrap);
+      } else {
+        const div = document.createElement("div");
+        div.className = "user-avatar";
+        div.textContent = initials;
+        pill.insertBefore(div, infoWrap);
+      }
+    } catch (_) {}
   }
 
   async function fetchPartial(href, signal) {
@@ -165,6 +213,7 @@ export const panelClientScript = `
     if (cached) {
       applyContent(cached, path);
       if (push) history.pushState({ panel: true }, "", href);
+      refreshUserPill();
       if (path === "/") refreshLive(true);
       return;
     }
@@ -180,6 +229,7 @@ export const panelClientScript = `
       pageCache.set(path, html);
       applyContent(html, path);
       if (push) history.pushState({ panel: true }, "", href);
+      refreshUserPill();
       if (path === "/") refreshLive(true);
     } catch (err) {
       if (err && err.name === "AbortError") return;
@@ -210,6 +260,7 @@ export const panelClientScript = `
   });
 
   bindForms(document);
+  refreshUserPill();
 
   const toastRoot = document.getElementById("panel-toasts");
   const bellBtn = document.querySelector(".icon-btn.bell-btn");
@@ -288,6 +339,8 @@ export const panelClientScript = `
     if (topPlayers && data.topPlayersHtml) topPlayers.innerHTML = data.topPlayersHtml;
     const chart = document.querySelector("[data-live=sales-chart]");
     if (chart && data.chartSvg) chart.innerHTML = data.chartSvg;
+    const convGauge = document.querySelector("[data-live=conv-gauge]");
+    if (convGauge && data.convGaugeHtml) convGauge.innerHTML = data.convGaugeHtml;
     const msgChart = document.querySelector("[data-live=messages-chart]");
     if (msgChart && data.messagesChartSvg) msgChart.innerHTML = data.messagesChartSvg;
     const sparkSales = document.querySelector("[data-live=spark-sales]");

@@ -26,6 +26,30 @@ export function panelUserLabel(input: { name: string; email: string }) {
   return name;
 }
 
+export function greetingDisplayName(name: string, email: string) {
+  const n = name?.trim();
+  if (n && !n.includes("@") && n.toLowerCase() !== "usuario") {
+    return n.split(/\s+/)[0]!.toLowerCase();
+  }
+  return (email.split("@")[0] || "user").toLowerCase();
+}
+
+export function timeGreeting(hour = new Date().getHours()) {
+  if (hour >= 0 && hour < 6) return "Boa madrugada";
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+const MONTHS_PT = [
+  "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
+  "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+];
+
+export function dashboardDateLabel(date = new Date()) {
+  return `${date.getDate()} DE ${MONTHS_PT[date.getMonth()]} DE ${date.getFullYear()}`;
+}
+
 export function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -41,13 +65,14 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
   return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
-export function userAvatarHtml(avatarUrl: string, label: string, large = false) {
+export function userAvatarHtml(avatarUrl: string, label: string, large = false, cacheBust = "") {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
   const cls = large ? "user-avatar user-avatar--lg" : "user-avatar";
   const src = avatarUrl?.trim();
   if (src) {
-    const bust = src.includes("?") ? "&" : "?";
-    return `<img class="${cls} user-avatar-img" src="${escapeHtml(src + bust + "t=1")}" alt="" />`;
+    const bust = cacheBust || String(Date.now());
+    const sep = src.includes("?") ? "&" : "?";
+    return `<img class="${cls} user-avatar-img" src="${escapeHtml(src + sep + "v=" + bust)}" alt="" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" /><div class="${cls}" style="display:none">${initials}</div>`;
   }
   return `<div class="${cls}">${initials}</div>`;
 }
@@ -135,9 +160,9 @@ export function appLayout(
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>
             <div id="bell-menu" class="bell-menu"></div>
           </div>
-          <a href="/perfil" class="user-pill" title="Minha conta">
+          <a href="/perfil" class="user-pill" id="panel-user-pill" title="Minha conta" data-avatar="${escapeHtml(userAvatar)}">
             ${userAvatarHtml(userAvatar, userName)}
-            <div><div class="name">${escapeHtml(userName)}</div><div class="role">Conta ativa</div></div>
+            <div><div class="name" id="panel-user-name">${escapeHtml(userName)}</div><div class="role">Conta ativa</div></div>
           </a>
         </div>
       </header>

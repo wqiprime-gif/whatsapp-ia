@@ -55,7 +55,7 @@ import {
   remarketingPage,
   salesChartSvgFromData
 } from "./pages.js";
-import { messagesChartSvgFromData, sparklineSvg, chartDayValues } from "./charts.js";
+import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
@@ -562,6 +562,7 @@ export async function registerPanelRoutes(
     const statuses = await getWaLiveStatuses(bots);
     const partial = isPartial(request);
     const meta = await panelUserMeta(user.id, user.email);
+    const full = await getUserById(user.id);
     const html = dashboardPage(
       bots,
       {
@@ -578,9 +579,24 @@ export async function registerPanelRoutes(
       meta.label,
       statuses,
       user.id,
-      meta.avatarUrl
+      meta.avatarUrl,
+      user.email,
+      full?.name ?? ""
     );
     return reply.type("text/html").send(html);
+  });
+
+  app.get("/api/panel/me", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const full = await getUserById(user.id);
+    const label = panelUserLabel({ name: full?.name ?? "", email: full?.email ?? user.email });
+    return reply.send({
+      name: full?.name ?? "",
+      email: full?.email ?? user.email,
+      label,
+      avatarUrl: full?.avatarUrl ?? ""
+    });
   });
 
   app.get("/api/panel/live", async (request, reply) => {
@@ -610,6 +626,8 @@ export async function registerPanelRoutes(
       };
     });
 
+    const convPct = stats.leads > 0 ? (stats.salesCount / stats.leads) * 100 : 0;
+
     return reply.send({
       stats: {
         leads: stats.leads,
@@ -626,6 +644,7 @@ export async function registerPanelRoutes(
       topBotsHtml: topBotsRankingHtml(topBots),
       topPlayersHtml: topPlayersRankingHtml(topPlayers, user.id),
       chartSvg: salesChartSvgFromData(chart, { tall: true }),
+      convGaugeHtml: conversionGaugeSvg(convPct, `${stats.salesCount} pagos de ${stats.leads} leads`),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),
       sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#34d399"),

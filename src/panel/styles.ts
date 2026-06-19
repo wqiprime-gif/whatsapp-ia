@@ -167,25 +167,24 @@ button, input, textarea, select { font-family: inherit; }
 .content > *:nth-child(3) { animation-delay: 0.16s; }
 .content > *:nth-child(4) { animation-delay: 0.22s; }
 
-/* Sidebar — colapsa, expande no hover (overlay, sem empurrar layout) */
+/* Sidebar — colapsa, expande no hover e empurra o conteúdo */
 .sidebar {
   width: 72px;
-  background: #050505;
+  background: #000;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   padding: 22px 12px;
   position: fixed;
   top: 0; left: 0; bottom: 0;
-  z-index: 50;
+  z-index: 35;
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width 0.22s ease, box-shadow 0.22s ease;
+  transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   contain: layout style;
 }
 .sidebar:hover {
   width: 280px;
-  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.85);
 }
 .sidebar:not(:hover) .nav-text,
 .sidebar:not(:hover) .brand-copy,
@@ -354,11 +353,16 @@ button, input, textarea, select { font-family: inherit; }
 }
 .sidebar-plan a:hover { background: rgba(37, 211, 102, 0.18); }
 
-/* Main — margem fixa; sidebar expande por cima sem travar */
+/* Main — empurrado pela sidebar ao expandir */
 .main-wrap {
-  flex: 1; margin-left: 72px;
+  flex: 1;
+  margin-left: 72px;
+  transition: margin-left 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; min-height: 100vh;
   background: #000;
+}
+.app:has(.sidebar:hover) .main-wrap {
+  margin-left: 280px;
 }
 .topbar {
   height: 68px; border-bottom: 1px solid var(--border);

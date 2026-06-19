@@ -1,3 +1,10 @@
+const WEEKDAY_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+export function chartDayLabel(iso: string) {
+  const d = new Date(iso + "T12:00:00");
+  return WEEKDAY_PT[d.getDay()] ?? iso.slice(5);
+}
+
 export function chartDayValues<T extends { day: string }>(
   points: T[],
   pick: (p: T) => number
@@ -139,7 +146,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
   const labels = days
     .map((d, i) => {
       const x = pad + (i / 6) * (w - pad * 2);
-      return `<text x="${x}" y="${h - 4}" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="10">${d.slice(5)}</text>`;
+      return `<text x="${x}" y="${h - 4}" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="10">${chartDayLabel(d)}</text>`;
     })
     .join("");
 
@@ -215,4 +222,27 @@ export function leadSourcesBarSvg(stats: { source: string; count: number }[]) {
     })
     .join("");
   return `<div class="src-bars">${rows}</div>`;
+}
+
+export function conversionGaugeSvg(pct: number, subtitle: string) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  const r = 54;
+  const half = Math.PI * r;
+  const dash = (clamped / 100) * half;
+  const gid = `cg${Math.random().toString(36).slice(2, 9)}`;
+  return `<div class="conv-gauge">
+    <svg class="conv-gauge-svg" viewBox="0 0 140 88" aria-hidden="true">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#25D366"/>
+          <stop offset="100%" stop-color="#3de07a"/>
+        </linearGradient>
+      </defs>
+      <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${dash.toFixed(2)} ${half.toFixed(2)}" />
+      <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="800">${clamped.toFixed(0)}%</text>
+    </svg>
+    <span class="conv-gauge-sub">${subtitle}</span>
+  </div>`;
 }
