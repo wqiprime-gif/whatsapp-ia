@@ -1526,9 +1526,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  color: var(--green-bright);
-  background: rgba(37, 211, 102, 0.08);
-  border: 1px solid rgba(37, 211, 102, 0.22);
+  color: #22C55E;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+.shark-kpi-card:hover .shark-icon-box,
+.shark-fat-pill:hover .shark-icon-box,
+.shark-card-head-row:hover .shark-icon-box {
+  background: rgba(34, 197, 94, 0.15);
 }
 .shark-icon-box svg { width: 18px; height: 18px; }
 .shark-icon-box--lg {
@@ -1537,6 +1543,11 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: 12px;
 }
 .shark-icon-box--lg svg { width: 20px; height: 20px; }
+.shark-icon-box--circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
 .shark-card-head-row {
   display: flex;
   align-items: flex-start;

@@ -40,8 +40,8 @@ function glowStyle(i: number) {
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
 }
 
-function sharkIconBox(icon: string, large = false) {
-  const cls = large ? " shark-icon-box--lg" : "";
+function sharkIconBox(icon: string, large = false, circle = false) {
+  const cls = large ? " shark-icon-box--lg" : circle ? " shark-icon-box--circle" : "";
   return `<span class="shark-icon-box${cls}" aria-hidden="true">${icon}</span>`;
 }
 
@@ -302,7 +302,7 @@ export function dashboardPage(
 
     <div class="shark-dash-head">
       <div class="shark-fat-pill dash-glow-card" style="${glowStyle(0)}">
-        ${sharkIconBox(icons.dollar, true)}
+        ${sharkIconBox(icons.dollar, true, true)}
         <div class="shark-fat-body">
           <span class="shark-fat-label">Faturamento</span>
           <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
@@ -349,13 +349,13 @@ export function dashboardPage(
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(3)}">
-          ${sharkIconBox(icons.bolt)}
+          ${sharkIconBox(icons.zap)}
           <span class="shark-kpi-label">Total starts</span>
           <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
           <span class="shark-kpi-sub">leads iniciaram conversa</span>
         </div>
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(4)}">
-          ${sharkIconBox(icons.ticket)}
+          ${sharkIconBox(icons.receipt)}
           <span class="shark-kpi-label">Ticket médio</span>
           <div class="shark-kpi-value">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
@@ -364,7 +364,7 @@ export function dashboardPage(
       <div class="shark-chart-card dash-glow-card" style="${glowStyle(5)}">
         <div class="card-head shark-chart-head">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.pulse)}
+            ${sharkIconBox(icons.activity)}
             <div>
               <h3>Seu desempenho</h3>
               <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
@@ -382,7 +382,7 @@ export function dashboardPage(
       <div class="dash-glow-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
         <div class="card-head">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.pulse)}
+            ${sharkIconBox(icons.activity)}
             <div>
               <h3><span class="live-pulse" aria-hidden="true"></span> Log de atividades</h3>
               <span class="shark-card-sub">Tempo real</span>
@@ -508,6 +508,7 @@ export function profilePage(
                 <span class="profile-avatar-placeholder" id="profile-avatar-ph" style="${avatarSrc ? "display:none" : ""}">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>
                 <span class="profile-avatar-camera">${icons.image}</span>
                 <input type="file" name="avatarFile" accept="image/jpeg,image/png,image/webp" />
+                <input type="hidden" name="avatarData" id="profile-avatar-data" value="" />
               </label>
               <div class="profile-identity-info">
                 <label class="field">Nome completo<input name="name" value="${escapeHtml(user.name)}" required /></label>
@@ -550,8 +551,13 @@ export function profilePage(
       var img = document.getElementById('profile-avatar-preview');
       var ph = document.getElementById('profile-avatar-ph');
       var form = document.getElementById('profile-form');
+      var dataInp = document.getElementById('profile-avatar-data');
       var LS_PREVIEW = 'panelAvatarPreview';
       var LS_AVATAR = 'panelAvatarUrl';
+      function pushTopbar(src) {
+        if (!src) return;
+        window.dispatchEvent(new CustomEvent('panel-sync-avatar', { detail: { src: src } }));
+      }
       function showPh() {
         if (img) img.style.display = 'none';
         if (ph) ph.style.display = 'grid';
@@ -561,6 +567,7 @@ export function profilePage(
         img.src = src;
         img.style.display = 'block';
         if (ph) ph.style.display = 'none';
+        pushTopbar(src);
       }
       if (img) {
         img.onerror = function() {
@@ -589,11 +596,17 @@ export function profilePage(
           if (img && img.src && img.src.indexOf('data:') === 0) {
             sessionStorage.setItem(LS_PREVIEW, img.src);
             localStorage.setItem(LS_AVATAR, img.src);
+            if (dataInp) dataInp.value = img.src;
+            pushTopbar(img.src);
           }
         });
       }
+      if (img && img.src && img.style.display !== 'none' && img.src.indexOf('data:') !== 0 && img.naturalWidth > 0) {
+        pushTopbar(img.src);
+      }
       if (img && img.src && img.src.indexOf('data:') === 0) {
         localStorage.setItem(LS_AVATAR, img.src);
+        pushTopbar(img.src);
       }
       if (img && img.src && img.src.indexOf('/uploads/') !== -1 && img.complete && img.naturalWidth > 0) {
         sessionStorage.removeItem(LS_PREVIEW);

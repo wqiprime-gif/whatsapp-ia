@@ -1048,12 +1048,14 @@ export async function registerPanelRoutes(
       const full = await getUserById(user.id);
       const patch: { name?: string; avatarUrl?: string } = {};
       if (fields.name?.trim()) patch.name = fields.name.trim();
-      if (avatarUrl) patch.avatarUrl = avatarUrl;
+      const avatarData = fields.avatarData?.trim() ?? "";
+      const nextAvatar = avatarUrl || (avatarData.startsWith("data:") ? avatarData : "");
+      if (nextAvatar) patch.avatarUrl = nextAvatar;
       if (Object.keys(patch).length === 0) {
         return reply.redirect(flashRedirect("/perfil", "Nada para salvar.", "err"));
       }
       await updateUserProfile(user.id, patch);
-      const msg = avatarUrl ? "Perfil e foto atualizados!" : "Perfil atualizado!";
+      const msg = nextAvatar ? "Perfil e foto atualizados!" : "Perfil atualizado!";
       return reply.redirect(flashRedirect("/perfil", msg));
     } catch (error) {
       return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));

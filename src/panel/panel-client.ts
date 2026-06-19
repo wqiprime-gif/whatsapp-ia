@@ -148,6 +148,17 @@ export const panelClientScript = `
     syncTopbarFromProfilePreview();
   }
 
+  function resolveAvatarSrc(preview, cached, serverSrc, apiAvatar) {
+    const cachedData = cached.indexOf("data:") === 0 ? cached : "";
+    if (preview) return preview;
+    if (cachedData) return cachedData;
+    if (serverSrc && serverSrc.indexOf("data:") === 0) return serverSrc;
+    if (serverSrc && serverSrc.indexOf("/uploads/") === 0) return serverSrc;
+    if (serverSrc && serverSrc.indexOf("http") === 0) return serverSrc;
+    if (apiAvatar) return "/api/panel/avatar";
+    return serverSrc || "";
+  }
+
   function hydrateAvatarSlot(slot, src, initials) {
     if (!slot) return;
     let img = slot.querySelector(".user-avatar-img");
@@ -166,10 +177,9 @@ export const panelClientScript = `
     }
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
     const cached = localStorage.getItem(LS_AVATAR) || "";
-    const cachedData = cached.indexOf("data:") === 0 ? cached : "";
     const apiAvatar = slot.getAttribute("data-avatar-api") === "1";
     const dataSrc = img.getAttribute("data-avatar-src") || "";
-    let trySrc = preview || cachedData || (apiAvatar ? "/api/panel/avatar" : "") || src || dataSrc || cached || "";
+    const trySrc = resolveAvatarSrc(preview, cached, src || dataSrc, apiAvatar);
     if (!trySrc) {
       img.hidden = true;
       fb.classList.remove("user-avatar-fallback--hidden");
@@ -188,8 +198,18 @@ export const panelClientScript = `
         img.src = preview;
         return;
       }
-      if (apiAvatar && img.src.indexOf("/api/panel/avatar") >= 0 && cachedData) {
+      const cachedData = (localStorage.getItem(LS_AVATAR) || "").indexOf("data:") === 0
+        ? localStorage.getItem(LS_AVATAR)
+        : "";
+      if (cachedData && img.src !== cachedData) {
         img.src = cachedData;
+        return;
+      }
+      if (apiAvatar && img.src.indexOf("/api/panel/avatar") >= 0) {
+        const prof = document.getElementById("profile-avatar-preview");
+        if (prof && prof.src && prof.style.display !== "none") {
+          img.src = prof.src;
+        }
       }
     };
     if (trySrc.indexOf("data:") === 0) {
@@ -323,22 +343,20 @@ export const panelClientScript = `
       pill.dataset.avatar = next;
       const initials = label.slice(0, 2).toUpperCase();
       const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
-      const avatarSrc = preview || (next.indexOf("data:") === 0 ? next : "") || next;
+      const cached = localStorage.getItem(LS_AVATAR) || "";
+      const avatarSrc = resolveAvatarSrc(preview, cached, next, true);
       if (next.indexOf("data:") === 0) localStorage.setItem(LS_AVATAR, next);
       let slot = pill.querySelector(".user-avatar-slot");
       if (!slot) {
         pill.querySelectorAll(".user-avatar, .user-avatar-img, .user-avatar-slot").forEach((el) => el.remove());
         slot = document.createElement("span");
         slot.className = "user-avatar-slot";
+        slot.setAttribute("data-avatar-api", "1");
         const info = pill.querySelector(".name");
         const infoWrap = info ? info.parentElement : null;
         pill.insertBefore(slot, infoWrap);
       }
       hydrateAvatarSlot(slot, avatarSrc, initials);
-      const apiImg = slot.querySelector(".user-avatar-img");
-      if (apiImg && slot.getAttribute("data-avatar-api") === "1") {
-        apiImg.src = "/api/panel/avatar?v=" + Date.now();
-      }
     } catch (_) {}
   }
 
@@ -425,6 +443,20 @@ export const panelClientScript = `
     loadPage(location.pathname + location.search, false);
   });
 
+  window.addEventListener("panel-sync-avatar", function (e) {
+    const src = e.detail && e.detail.src;
+    if (!src) return;
+    const pill = document.getElementById("panel-user-pill");
+    if (!pill) return;
+    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const slot = pill.querySelector(".user-avatar-slot");
+    if (src.indexOf("data:") === 0) {
+      sessionStorage.setItem(LS_AVATAR_PREVIEW, src);
+      localStorage.setItem(LS_AVATAR, src);
+    }
+    hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
+  });
+
   bindForms(document);
   document.querySelectorAll(".user-avatar-slot").forEach((slot) => {
     const pill = slot.closest(".user-pill");
@@ -437,7 +469,7 @@ export const panelClientScript = `
       (img && img.getAttribute("src")) ||
       (pill && pill.dataset.avatar) ||
       "";
-    const src = preview || (cached.indexOf("data:") === 0 ? cached : "") || serverSrc;
+    const src = resolveAvatarSrc(preview, cached, serverSrc, slot.getAttribute("data-avatar-api") === "1");
     hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
   });
   refreshUserPill().then(() => syncTopbarFromProfilePreview());
