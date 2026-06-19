@@ -93,13 +93,33 @@ async function panelUserMeta(userId: string, fallbackEmail: string) {
   };
 }
 
+const AVATAR_MAX_DATA_BYTES = 600_000;
+
+async function saveProfileAvatar(file: AsyncIterable<Buffer>, originalName: string) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of file) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  const ext = path.extname(originalName).toLowerCase();
+  const mime =
+    ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+  if (buf.length > 0 && buf.length <= AVATAR_MAX_DATA_BYTES) {
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  }
+  await fs.mkdir(uploadsDir, { recursive: true });
+  const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const fileName = `${Date.now()}-${randomUUID()}-${safeName}`;
+  const filePath = path.join(uploadsDir, fileName);
+  await fs.writeFile(filePath, buf);
+  return `/uploads/${fileName}`;
+}
+
 async function parseProfileMultipart(request: FastifyRequest) {
   const fields: Record<string, string> = {};
   let avatarUrl = "";
   for await (const part of request.parts()) {
     if (part.type === "file") {
       if (!part.filename || part.fieldname !== "avatarFile") continue;
-      avatarUrl = await saveUploadedFile(part.file, part.filename);
+      avatarUrl = await saveProfileAvatar(part.file, part.filename);
       continue;
     }
     fields[part.fieldname] = String(part.value || "");

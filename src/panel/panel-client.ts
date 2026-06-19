@@ -165,8 +165,10 @@ export const panelClientScript = `
       slot.insertBefore(img, fb);
     }
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+    const cached = localStorage.getItem(LS_AVATAR) || "";
     const dataSrc = img.getAttribute("data-avatar-src") || "";
-    const trySrc = preview || src || dataSrc || "";
+    const cachedData = cached.indexOf("data:") === 0 ? cached : "";
+    const trySrc = preview || cachedData || src || dataSrc || cached || "";
     if (!trySrc) {
       img.hidden = true;
       fb.classList.remove("user-avatar-fallback--hidden");
@@ -313,7 +315,8 @@ export const panelClientScript = `
       pill.dataset.avatar = next;
       const initials = label.slice(0, 2).toUpperCase();
       const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
-      const avatarSrc = preview || next;
+      const avatarSrc = preview || (next.indexOf("data:") === 0 ? next : "") || next;
+      if (next.indexOf("data:") === 0) localStorage.setItem(LS_AVATAR, next);
       let slot = pill.querySelector(".user-avatar-slot");
       if (!slot) {
         pill.querySelectorAll(".user-avatar, .user-avatar-img, .user-avatar-slot").forEach((el) => el.remove());
@@ -414,15 +417,16 @@ export const panelClientScript = `
   document.querySelectorAll(".user-avatar-slot").forEach((slot) => {
     const pill = slot.closest(".user-pill");
     const img = slot.querySelector(".user-avatar-img");
-    const fb = slot.querySelector(".user-avatar-fallback");
     const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+    const cached = localStorage.getItem(LS_AVATAR) || "";
     const serverSrc =
       (img && img.getAttribute("data-avatar-src")) ||
       (img && img.getAttribute("src")) ||
       (pill && pill.dataset.avatar) ||
       "";
-    hydrateAvatarSlot(slot, preview || serverSrc, label.slice(0, 2).toUpperCase());
+    const src = preview || (cached.indexOf("data:") === 0 ? cached : "") || serverSrc;
+    hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
   });
   refreshUserPill().then(() => syncTopbarFromProfilePreview());
 
@@ -576,37 +580,7 @@ export const panelClientScript = `
     return hit ? hit[0] : null;
   }
 
-  function bindGlobalSearch() {
-    const input = document.getElementById("panel-global-search");
-    if (!input) return;
-    main.addEventListener("pointerdown", () => {
-      if (document.activeElement === input) input.blur();
-    });
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        input.focus();
-        input.select();
-      }
-    });
-    input.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      if (document.activeElement !== input) return;
-      const q = input.value.trim().toLowerCase();
-      if (!q) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const route = findNavRoute(q);
-      if (route) {
-        input.value = "";
-        input.blur();
-        loadPage(route);
-        return;
-      }
-      if (/^\\d|@|lead/.test(q)) loadPage("/leads?q=" + encodeURIComponent(input.value.trim()));
-      else loadPage("/instances?q=" + encodeURIComponent(input.value.trim()));
-    });
-  }
+  function bindGlobalSearch() {}
   bindGlobalSearch();
 })();
 </script>`;

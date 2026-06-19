@@ -383,9 +383,9 @@ button, input, textarea, select { font-family: inherit; }
 }
 .topbar {
   height: 68px; border-bottom: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(200px, 2fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   padding: 0 24px;
   background: #0A0A0A;
@@ -517,7 +517,7 @@ button, input, textarea, select { font-family: inherit; }
 .content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: #0A0A0A; }
 .page-shell { background: #0A0A0A; min-height: 100%; }
 .content:has(.page-form-shell),
-.content:has(.dash-shell) { padding: 20px 24px 40px; }
+.content:has(.dash-shell) { padding: 24px 28px 48px; }
 
 /* Stats */
 .stats-row {

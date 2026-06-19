@@ -605,13 +605,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .chart-badge {
   font-family: var(--font-display);
-  font-size: 0.82rem; font-weight: 700;
-  color: var(--green-bright);
-  padding: 4px 10px; border-radius: 8px;
-  background: rgba(37, 211, 102, 0.12);
-  border: 1px solid rgba(37, 211, 102, 0.25);
+  font-size: 0.88rem; font-weight: 700;
+  color: #fff;
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.chart-wrap--hero { min-height: 220px; padding: 8px 4px 0 !important; }
+.chart-wrap--hero { min-height: 280px; padding: 12px 8px 0 !important; }
 .chart-pro { width: 100%; }
 .chart-svg--pro { width: 100%; height: 200px; min-height: 180px; display: block; }
 .chart-wrap--hero .chart-line-anim {
@@ -1382,7 +1382,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-security-form { display: grid; gap: 12px; }
 
 /* —— SHARK DASHBOARD —— */
-.shark-dash { display: flex; flex-direction: column; gap: 18px; }
+.shark-dash { display: flex; flex-direction: column; gap: 22px; }
 .shark-dash-head {
   display: grid;
   grid-template-columns: minmax(200px, 280px) 1fr auto;
@@ -1396,7 +1396,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
+  padding: 20px 22px;
 }
 .shark-fat-icon {
   width: 44px; height: 44px; border-radius: 50%;
@@ -1414,7 +1414,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-fat-value {
   font-family: var(--font-display);
-  font-size: 1.35rem; font-weight: 800;
+  font-size: clamp(1.4rem, 2.2vw, 1.75rem); font-weight: 800;
   letter-spacing: -0.03em;
   color: #fff;
   margin: 2px 0 8px;
@@ -1491,8 +1491,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 .shark-main-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.35fr);
-  gap: 16px;
+  grid-template-columns: minmax(300px, 1fr) minmax(380px, 1.55fr);
+  gap: 20px;
   align-items: stretch;
 }
 @media (max-width: 1100px) {
@@ -1501,17 +1501,17 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-kpi-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 18px;
 }
 @media (max-width: 600px) {
   .shark-kpi-grid { grid-template-columns: 1fr; }
 }
 .shark-kpi-card {
-  padding: 16px;
+  padding: 22px 20px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-height: 130px;
+  gap: 8px;
+  min-height: 168px;
 }
 .shark-kpi-icon {
   width: 32px; height: 32px;
@@ -1529,13 +1529,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-kpi-value {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #fff;
   line-height: 1.1;
 }
-.shark-kpi-value.accent { color: var(--green-bright); }
+.shark-kpi-value.accent { color: #fff; }
 .shark-kpi-sub { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
 .shark-kpi-foot {
   display: flex;
@@ -1576,7 +1576,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
 @media (max-width: 1100px) {
   .shark-bottom-grid { grid-template-columns: 1fr; }
@@ -1591,11 +1591,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   margin-top: 2px;
 }
 .shark-log-card .card-head h3 { flex-direction: column; align-items: flex-start; }
+.shark-log-card .card-body,
+.shark-players-card .card-body,
+.shark-award-card .card-body {
+  min-height: 260px;
+}
 .shark-award-body {
   display: grid;
   place-items: center;
-  min-height: 200px;
-  padding: 20px !important;
+  min-height: 240px;
+  padding: 24px !important;
 }
 .shark-award-preview {
   text-align: center;
@@ -1637,7 +1642,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  min-height: 220px;
+  min-height: 280px;
 }
 .shark-chart-svg {
   width: 100%;

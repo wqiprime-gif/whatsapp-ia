@@ -93,8 +93,11 @@ export function userAvatarHtml(avatarUrl: string, label: string, large = false, 
   const lg = large ? " user-avatar--lg" : "";
   const imgLg = large ? " user-avatar-img--lg" : "";
   const src = avatarUrl?.trim();
+  if (src?.startsWith("data:")) {
+    return `<span class="user-avatar-slot" data-avatar-deferred="1"><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
+  }
   let imgTag = "";
-  if (src && (src.startsWith("/uploads/") || src.startsWith("data:") || src.startsWith("http"))) {
+  if (src && (src.startsWith("/uploads/") || src.startsWith("http"))) {
     const bust = cacheBust || String(Date.now());
     const sep = src.includes("?") ? "&" : "?";
     imgTag = `<img class="user-avatar-img${imgLg}" data-avatar-src="${escapeHtml(src + sep + "v=" + bust)}" alt="" decoding="async" hidden />`;
@@ -166,19 +169,6 @@ export function appLayout(
         <div class="topbar-left">
           <h1>${escapeHtml(title)}</h1>
           ${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}
-        </div>
-        <div class="topbar-center">
-          <div class="topbar-search-wrap">
-            <span class="topbar-search-icon" aria-hidden="true">${icons.search}</span>
-            <input
-              type="search"
-              id="panel-global-search"
-              class="topbar-search"
-              placeholder="Buscar leads, instâncias, campanhas..."
-              autocomplete="off"
-            />
-            <kbd class="topbar-kbd">Ctrl K</kbd>
-          </div>
         </div>
         <div class="topbar-right">
           <div class="bell-wrap">

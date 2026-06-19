@@ -332,7 +332,7 @@ export function dashboardPage(
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(1)}">
           <div class="shark-kpi-icon">${icons.card}</div>
           <span class="shark-kpi-label">Vendas aprovadas</span>
-          <div class="shark-kpi-value accent" data-live-stat="salesValue">R$ ${salesReais}</div>
+          <div class="shark-kpi-value" data-live-stat="salesValue">R$ ${salesReais}</div>
           <div class="shark-kpi-foot">
             <div class="shark-mini-bar"><span style="width:${approvalPct}%"></span></div>
             <span>${approvalPct}% Aprov.</span>
@@ -352,7 +352,7 @@ export function dashboardPage(
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(4)}">
           <div class="shark-kpi-icon">${icons.card}</div>
           <span class="shark-kpi-label">Ticket médio</span>
-          <div class="shark-kpi-value accent">R$ ${ticketMedio}</div>
+          <div class="shark-kpi-value">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
         </div>
       </div>
@@ -465,8 +465,11 @@ export function profilePage(
   const salesReais = (stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const shortId = user.id.slice(0, 8);
 
-  const avatarSrc = user.avatarUrl?.trim()
-    ? `${escapeHtml(user.avatarUrl)}${user.avatarUrl.includes("?") ? "&" : "?"}v=${user.avatarUrl.match(/(\d{13})/)?.[1] ?? "1"}`
+  const rawAvatar = user.avatarUrl?.trim() ?? "";
+  const avatarSrc = rawAvatar
+    ? rawAvatar.startsWith("data:")
+      ? escapeHtml(rawAvatar)
+      : `${escapeHtml(rawAvatar)}${rawAvatar.includes("?") ? "&" : "?"}v=${rawAvatar.match(/(\d{13})/)?.[1] ?? "1"}`
     : "";
 
   const body = `
@@ -531,6 +534,7 @@ export function profilePage(
       var ph = document.getElementById('profile-avatar-ph');
       var form = document.getElementById('profile-form');
       var LS_PREVIEW = 'panelAvatarPreview';
+      var LS_AVATAR = 'panelAvatarUrl';
       function showPh() {
         if (img) img.style.display = 'none';
         if (ph) ph.style.display = 'grid';
@@ -558,6 +562,7 @@ export function profilePage(
           r.onload = function(){
             showImg(r.result);
             sessionStorage.setItem(LS_PREVIEW, r.result);
+            localStorage.setItem(LS_AVATAR, r.result);
           };
           r.readAsDataURL(f);
         });
@@ -566,8 +571,12 @@ export function profilePage(
         form.addEventListener('submit', function(){
           if (img && img.src && img.src.indexOf('data:') === 0) {
             sessionStorage.setItem(LS_PREVIEW, img.src);
+            localStorage.setItem(LS_AVATAR, img.src);
           }
         });
+      }
+      if (img && img.src && img.src.indexOf('data:') === 0) {
+        localStorage.setItem(LS_AVATAR, img.src);
       }
       if (img && img.src && img.src.indexOf('/uploads/') !== -1 && img.complete && img.naturalWidth > 0) {
         sessionStorage.removeItem(LS_PREVIEW);
