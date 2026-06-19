@@ -36,7 +36,7 @@ import {
 import { applyWaFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
-import { authenticateUser, createUser } from "../db/users.js";
+import { authenticateUser, createUser, getUserById, updateUserProfile } from "../db/users.js";
 import { encryptSecret } from "../lib/crypto.js";
 import {
   clearSessionCookie,
@@ -69,6 +69,7 @@ import {
   editInstancePage,
   newInstancePage,
   registerPage,
+  profilePage,
   settingsPage,
   topBotsRankingHtml,
   topPlayersRankingHtml
@@ -78,6 +79,28 @@ import { panelUserLabel } from "./layout.js";
 async function rowsForUser<T extends Record<string, unknown>>(rows: T[], userId: string) {
   const ids = new Set((await loadBots(userId)).map((b) => b.id));
   return rows.filter((r) => ids.has(String(r.bot_id ?? r.botId ?? "")));
+}
+
+async function panelUserMeta(userId: string, fallbackEmail: string) {
+  const full = await getUserById(userId);
+  return {
+    label: panelUserLabel({ name: full?.name ?? "", email: full?.email ?? fallbackEmail }),
+    avatarUrl: full?.avatarUrl ?? ""
+  };
+}
+
+async function parseProfileMultipart(request: FastifyRequest) {
+  const fields: Record<string, string> = {};
+  let avatarUrl = "";
+  for await (const part of request.parts()) {
+    if (part.type === "file") {
+      if (!part.filename || part.fieldname !== "avatarFile") continue;
+      avatarUrl = await saveUploadedFile(part.file, part.filename);
+      continue;
+    }
+    fields[part.fieldname] = String(part.value || "");
+  }
+  return { fields, avatarUrl };
 }
 
 async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: string) {
@@ -538,6 +561,7 @@ export async function registerPanelRoutes(
     const bots = await loadBots(user.id);
     const statuses = await getWaLiveStatuses(bots);
     const partial = isPartial(request);
+    const meta = await panelUserMeta(user.id, user.email);
     const html = dashboardPage(
       bots,
       {
@@ -551,9 +575,10 @@ export async function registerPanelRoutes(
       query.msg,
       query.t === "err",
       partial,
-      panelUserLabel(user),
+      meta.label,
       statuses,
-      user.id
+      user.id,
+      meta.avatarUrl
     );
     return reply.type("text/html").send(html);
   });
@@ -893,6 +918,67 @@ export async function registerPanelRoutes(
     if (!user) return;
     const html = paymentsPage(await rowsForUser(await listReceipts(80), user.id), isPartial(request));
     return reply.type("text/html").send(html);
+  });
+
+  app.get("/perfil", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const full = await getUserById(user.id);
+    if (!full) return reply.redirect("/login");
+    const stats = await dashboardStats(user.id);
+    const ranking = await salesRankingByUser(50);
+    const rankIdx = ranking.findIndex((r) => r.userId === user.id);
+    const meta = await panelUserMeta(user.id, user.email);
+    const html = profilePage(
+      full,
+      {
+        salesTotalCents: stats.salesTotalCents,
+        salesCount: stats.salesCount,
+        rank: rankIdx >= 0 ? rankIdx + 1 : null
+      },
+      query.msg,
+      query.t === "err",
+      isPartial(request),
+      meta.label
+    );
+    return reply.type("text/html").send(html);
+  });
+
+  app.post("/perfil", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const { fields, avatarUrl } = await parseProfileMultipart(request);
+      const full = await getUserById(user.id);
+      await updateUserProfile(user.id, {
+        name: fields.name,
+        avatarUrl: avatarUrl || full?.avatarUrl || ""
+      });
+      return reply.redirect(flashRedirect("/perfil", "Perfil atualizado!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/perfil/senha", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          password: z.string().min(6),
+          passwordConfirm: z.string().min(6)
+        })
+        .parse(request.body);
+      if (body.password !== body.passwordConfirm) {
+        return reply.redirect(flashRedirect("/perfil", "As senhas não coincidem.", "err"));
+      }
+      await updateUserProfile(user.id, { password: body.password });
+      return reply.redirect(flashRedirect("/perfil", "Senha atualizada!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));
+    }
   });
 
   app.get("/products", async (request, reply) => {

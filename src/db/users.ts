@@ -10,6 +10,7 @@ export type PanelUser = {
   email: string;
   name: string;
   createdAt: string;
+  avatarUrl?: string;
 };
 
 type UserRow = {
@@ -22,7 +23,7 @@ type UserRow = {
 
 const usersFile = path.join(env.DATA_DIR, "users.json");
 
-type FileUser = PanelUser & { passwordHash: string };
+type FileUser = PanelUser & { passwordHash: string; avatarUrl?: string };
 
 async function loadFileUsers(): Promise<FileUser[]> {
   try {
@@ -38,12 +39,13 @@ async function saveFileUsers(users: FileUser[]) {
   await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
 }
 
-function rowToUser(row: UserRow): PanelUser {
+function rowToUser(row: UserRow & { avatar_url?: string }): PanelUser {
   return {
     id: row.id,
     email: row.email,
     name: row.name,
-    createdAt: new Date(row.created_at).toISOString()
+    createdAt: new Date(row.created_at).toISOString(),
+    avatarUrl: row.avatar_url ?? ""
   };
 }
 
@@ -73,6 +75,7 @@ export async function initUsersSchema() {
       ALTER TABLE bots ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT '';
       ALTER TABLE bots ADD COLUMN IF NOT EXISTS pix_recipient_name TEXT NOT NULL DEFAULT '';
       ALTER TABLE bots ADD COLUMN IF NOT EXISTS audio_library JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT '';
     `);
 
     const { rows } = await db.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM panel_users");
@@ -215,10 +218,10 @@ export async function authenticateUser(email: string, password: string) {
   return rowToUser(row);
 }
 
-export async function getUserById(id: string) {
+export async function getUserById(id: string): Promise<PanelUser | null> {
   if (useDatabase()) {
-    const { rows } = await getPool().query<UserRow>(
-      `SELECT id, email, password_hash, name, created_at FROM panel_users WHERE id = $1`,
+    const { rows } = await getPool().query<UserRow & { avatar_url?: string }>(
+      `SELECT id, email, password_hash, name, created_at, avatar_url FROM panel_users WHERE id = $1`,
       [id]
     );
     return rows[0] ? rowToUser(rows[0]) : null;
@@ -226,5 +229,42 @@ export async function getUserById(id: string) {
 
   const users = await loadFileUsers();
   const hit = users.find((u) => u.id === id);
-  return hit ? { id: hit.id, email: hit.email, name: hit.name, createdAt: hit.createdAt } : null;
+  return hit
+    ? { id: hit.id, email: hit.email, name: hit.name, createdAt: hit.createdAt, avatarUrl: hit.avatarUrl ?? "" }
+    : null;
+}
+
+export async function updateUserProfile(
+  id: string,
+  input: { name?: string; avatarUrl?: string; password?: string }
+) {
+  if (useDatabase()) {
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let i = 1;
+    if (input.name?.trim()) {
+      sets.push(`name = $${i++}`);
+      vals.push(input.name.trim());
+    }
+    if (input.avatarUrl !== undefined) {
+      sets.push(`avatar_url = $${i++}`);
+      vals.push(input.avatarUrl);
+    }
+    if (input.password) {
+      sets.push(`password_hash = $${i++}`);
+      vals.push(hashPassword(input.password));
+    }
+    if (sets.length === 0) return;
+    vals.push(id);
+    await getPool().query(`UPDATE panel_users SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+    return;
+  }
+
+  const users = await loadFileUsers();
+  const hit = users.find((u) => u.id === id);
+  if (!hit) return;
+  if (input.name?.trim()) hit.name = input.name.trim();
+  if (input.avatarUrl !== undefined) hit.avatarUrl = input.avatarUrl;
+  if (input.password) hit.passwordHash = hashPassword(input.password);
+  await saveFileUsers(users);
 }

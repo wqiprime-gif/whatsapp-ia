@@ -15,7 +15,8 @@ export type NavId =
   | "products"
   | "media"
   | "gifts"
-  | "remarketing";
+  | "remarketing"
+  | "profile";
 
 export function panelUserLabel(input: { name: string; email: string }) {
   const email = input.email?.trim();
@@ -40,13 +41,23 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
   return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
+export function userAvatarHtml(avatarUrl: string, label: string, large = false) {
+  const initials = escapeHtml(label.slice(0, 2).toUpperCase());
+  const cls = large ? "user-avatar user-avatar--lg" : "user-avatar";
+  if (avatarUrl?.trim()) {
+    return `<img class="${cls} user-avatar-img" src="${escapeHtml(avatarUrl)}" alt="" />`;
+  }
+  return `<div class="${cls}">${initials}</div>`;
+}
+
 export function appLayout(
   title: string,
   active: NavId,
   body: string,
   partial = false,
   userName = "Usuario",
-  subtitle = ""
+  subtitle = "",
+  userAvatar = ""
 ) {
   if (partial) return body;
 
@@ -82,6 +93,7 @@ export function appLayout(
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
           ${navItem("/settings", "Configurações", icons.settings, is("settings"))}
+          ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
         </div>
       </nav>
       <div class="sidebar-plan">
@@ -121,10 +133,10 @@ export function appLayout(
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>
             <div id="bell-menu" class="bell-menu"></div>
           </div>
-          <div class="user-pill">
-            <div class="user-avatar">${escapeHtml(userName.slice(0, 2).toUpperCase())}</div>
+          <a href="/perfil" class="user-pill" title="Minha conta">
+            ${userAvatarHtml(userAvatar, userName)}
             <div><div class="name">${escapeHtml(userName)}</div><div class="role">Conta ativa</div></div>
-          </div>
+          </a>
         </div>
       </header>
       <main class="content">${body}</main>

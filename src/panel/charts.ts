@@ -76,12 +76,12 @@ export function channelDonutSvg(stats: { label: string; value: number; color: st
 export function salesFunnelHtml(input: { leads: number; sales: number; messages: number }) {
   const leadCount = Math.max(input.leads, 1);
   const stages = [
-    { label: "Leads", value: input.leads, pct: 100, color: "#00b4ff" },
+    { label: "Leads", value: input.leads, pct: 100, color: "#4ade80" },
     {
       label: "Conversas",
       value: input.messages,
       pct: input.leads ? Math.min(100, Math.round((input.messages / leadCount) * 100)) : 0,
-      color: "#0a5cff"
+      color: "#22c55e"
     },
     {
       label: "Vendas",
@@ -122,6 +122,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
   });
   const line = coords.map((c) => `${c.x},${c.y}`).join(" ");
   const area = `M${coords[0].x},${h - pad} ${coords.map((c) => `L${c.x},${c.y}`).join(" ")} L${coords[6].x},${h - pad} Z`;
+  const gradId = `sg${Math.random().toString(36).slice(2, 9)}`;
   const grid = [0.25, 0.5, 0.75, 1]
     .map((g) => {
       const y = h - pad - g * (h - pad * 2);
@@ -131,7 +132,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
   const bars = coords
     .map(
       (c, i) =>
-        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#3de07a" class="chart-dot" style="animation-delay:${i * 0.08}s">
+        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#25D366" class="chart-dot" style="animation-delay:${i * 0.08}s">
       <title>R$ ${(c.v / 100).toFixed(2).replace(".", ",")}</title></circle>`
     )
     .join("");
@@ -144,16 +145,16 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
 
   return `<div class="chart-pro ${opts?.tall ? "chart-pro--tall" : ""}">
     ${opts?.title ? `<div class="chart-pro-title">${opts.title}</div>` : ""}
-    <svg class="chart-svg chart-svg--pro" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="none">
+    <svg class="chart-svg chart-svg--pro" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(10,92,255,0.45)"/>
-          <stop offset="100%" stop-color="rgba(10,92,255,0)"/>
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(37,211,102,0.4)"/>
+          <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
         </linearGradient>
       </defs>
       ${grid}
-      <path d="${area}" fill="url(#salesGrad)"/>
-      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#3de07a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${area}" fill="url(#${gradId})"/>
+      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       ${bars}
       ${labels}
     </svg>
@@ -178,7 +179,7 @@ export function messagesChartSvgFromData(points: { day: string; count: number }[
       const bh = (v / max) * (h - pad * 2);
       const x = pad + i * ((w - pad * 2) / 7) + 4;
       const y = h - pad - bh;
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(10,92,255,0.85)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(37,211,102,0.75)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
         <title>${v} msgs</title></rect>`;
     })
     .join("");

@@ -27,6 +27,19 @@ export type DashboardData = {
   topPlayers: UserSalesRank[];
 };
 
+const GLOW_SEQ = [
+  { delay: "0.4s", cycle: "6.8s" },
+  { delay: "2.3s", cycle: "8.1s" },
+  { delay: "1.1s", cycle: "7.4s" },
+  { delay: "3.6s", cycle: "9.2s" },
+  { delay: "0.8s", cycle: "7.9s" },
+  { delay: "4.2s", cycle: "8.6s" }
+];
+function glowStyle(i: number) {
+  const t = GLOW_SEQ[i % GLOW_SEQ.length];
+  return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
+}
+
 export function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -253,7 +266,8 @@ export function dashboardPage(
   partial = false,
   userName = "Usuario",
   statuses: Record<string, WaLiveStatus> = {},
-  currentUserId = ""
+  currentUserId = "",
+  userAvatar = ""
 ) {
   const active = bots.filter((b) => b.active).length;
   const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
@@ -300,7 +314,7 @@ export function dashboardPage(
           <span class="kpi-trend ${leadsTrend.positive ? "positive" : "negative"}">${leadsTrend.text}</span>
         </div>
         <div class="kpi-value" data-live-stat="leads">${data.stats.leads}</div>
-        <div data-live="spark-leads">${sparklineSvg(msgVals.map((v) => Math.max(0, Math.round(v * 0.35))), "#60a5fa")}</div>
+        <div data-live="spark-leads">${sparklineSvg(msgVals.map((v) => Math.max(0, Math.round(v * 0.35))), "#4ade80")}</div>
       </div>
       <div class="kpi-card-pro">
         <div class="kpi-card-top">
@@ -316,12 +330,12 @@ export function dashboardPage(
           <span class="kpi-trend ${convTrend.positive ? "positive" : "negative"}">${convTrend.text}</span>
         </div>
         <div class="kpi-value" data-live-stat="convRate">${convRate}%</div>
-        <div>${sparklineSvg(salesVals, "#a78bfa")}</div>
+        <div>${sparklineSvg(salesVals, "#34d399")}</div>
       </div>
     </div>
 
     <div class="dash-charts-hero dash-charts-hero--3">
-      <div class="dash-glow-card card card-premium chart-card-pro chart-card-pro--wide">
+      <div class="dash-glow-card card card-premium chart-card-pro chart-card-pro--wide" style="${glowStyle(0)}">
         <div class="card-head">
           <h3>${icons.card} Evolução da receita</h3>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
@@ -330,22 +344,22 @@ export function dashboardPage(
           ${salesChartSvgFromData(data.chart, { tall: true })}
         </div>
       </div>
-      <div class="dash-glow-card card card-premium chart-card-pro">
+      <div class="dash-glow-card card card-premium chart-card-pro" style="${glowStyle(1)}">
         <div class="card-head"><h3>${icons.chat} Mensagens por canal</h3></div>
         <div class="card-body">${channelDonutSvg([
           { label: "WhatsApp", value: Math.max(data.stats.messagesToday, 1), color: "#25D366" },
-          { label: "Remarketing", value: Math.max(Math.round(data.stats.leads * 0.15), 0), color: "#60a5fa" },
-          { label: "Manual", value: Math.max(Math.round(data.stats.salesCount * 2), 0), color: "#a78bfa" }
+          { label: "Remarketing", value: Math.max(Math.round(data.stats.leads * 0.15), 0), color: "#4ade80" },
+          { label: "Manual", value: Math.max(Math.round(data.stats.salesCount * 2), 0), color: "#22c55e" }
         ])}</div>
       </div>
-      <div class="dash-glow-card card card-premium chart-card-pro">
+      <div class="dash-glow-card card card-premium chart-card-pro" style="${glowStyle(2)}">
         <div class="card-head"><h3>${icons.sparkles} Funil de vendas</h3></div>
         <div class="card-body">${salesFunnelHtml({ leads: data.stats.leads, sales: data.stats.salesCount, messages: data.stats.messagesToday })}</div>
       </div>
     </div>
 
     <div class="dash-bottom-pro dash-bottom-pro--3">
-      <div class="dash-glow-card card card-premium card--table dash-table-card">
+      <div class="dash-glow-card card card-premium card--table dash-table-card" style="${glowStyle(3)}">
         <div class="card-head">
           <h3>${icons.layers} Suas instâncias</h3>
           <div class="card-head-actions">
@@ -360,14 +374,14 @@ export function dashboardPage(
           <a href="/instances" class="card-link">Gerenciar instâncias →</a>
         </div>
       </div>
-      <div class="dash-glow-card card card-premium card-live-feed">
+      <div class="dash-glow-card card card-premium card-live-feed" style="${glowStyle(4)}">
         <div class="card-head">
           <h3><span class="live-pulse" aria-hidden="true"></span> Atividade em tempo real</h3>
           <span class="live-badge">Ao vivo</span>
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card card card-premium top-players-card">
+      <div class="dash-glow-card card card-premium top-players-card" style="${glowStyle(5)}">
         <div class="card-head">
           <div>
             <h3>${icons.trophy} Top 5 Players</h3>
@@ -394,7 +408,78 @@ export function dashboardPage(
     </div>
     </div>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "Visão geral do seu negócio");
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "Visão geral do seu negócio", userAvatar);
+}
+
+export function profilePage(
+  user: { id: string; name: string; email: string; avatarUrl?: string; createdAt: string },
+  stats: { salesTotalCents: number; salesCount: number; rank: number | null },
+  message = "",
+  isError = false,
+  partial = false,
+  userLabel = ""
+) {
+  const memberSince = new Date(user.createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+  const rankLabel = stats.rank ? `#${stats.rank}` : "—";
+  const salesReais = (stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
+  const shortId = user.id.slice(0, 8);
+
+  const body = `
+    ${message ? alertHtml(message, isError ? "error" : "success") : ""}
+    <div class="profile-shell">
+      <div class="page-hero neon-hero profile-hero">
+        <div>
+          <h2 class="hero-title">Minha <span class="brand-accent">conta</span></h2>
+          <p class="hero-desc">Gerencie suas informações pessoais e visualize seu progresso no sistema.</p>
+        </div>
+      </div>
+      <div class="profile-grid">
+        <div class="dash-glow-card card card-premium profile-card-main" style="${glowStyle(0)}">
+          <div class="card-body profile-identity">
+            <form method="post" action="/perfil" enctype="multipart/form-data" class="profile-form">
+              <div class="profile-form-top">
+              <label class="profile-avatar-upload" title="Alterar foto">
+                ${user.avatarUrl?.trim() ? `<img class="profile-avatar-img" src="${escapeHtml(user.avatarUrl)}" alt="" />` : `<span class="profile-avatar-placeholder">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>`}
+                <span class="profile-avatar-camera">${icons.image}</span>
+                <input type="file" name="avatarFile" accept="image/*" />
+              </label>
+              <div class="profile-identity-info">
+                <label class="field">Nome completo<input name="name" value="${escapeHtml(user.name)}" required /></label>
+                <p class="profile-email">${escapeHtml(user.email)}</p>
+                <span class="profile-rank-badge">${icons.trophy} Ranking ${rankLabel}</span>
+              </div>
+              </div>
+              <div class="profile-meta-row">
+                <div><span>Membro desde</span><strong>${memberSince}</strong></div>
+                <div><span>ID da conta</span><strong>${shortId}…</strong></div>
+                <div><span>Faturamento</span><strong>R$ ${salesReais}</strong></div>
+              </div>
+              <button type="submit" class="btn btn-primary">Salvar perfil</button>
+            </form>
+          </div>
+        </div>
+        <div class="dash-glow-card card card-premium" style="${glowStyle(1)}">
+          <div class="card-head"><h3>${icons.card} Seu desempenho</h3></div>
+          <div class="card-body profile-stats">
+            <div class="profile-stat"><span>Vendas confirmadas</span><strong>${stats.salesCount}</strong></div>
+            <div class="profile-stat"><span>Receita total</span><strong class="accent">R$ ${salesReais}</strong></div>
+            <div class="profile-stat"><span>Posição global</span><strong>${rankLabel}</strong></div>
+          </div>
+        </div>
+        <div class="dash-glow-card card card-premium" style="${glowStyle(2)}">
+          <div class="card-head"><h3>${icons.lock} Segurança</h3></div>
+          <div class="card-body">
+            <form method="post" action="/perfil/senha" class="profile-security-form">
+              <label class="field">Nova senha<input name="password" type="password" minlength="6" placeholder="Mínimo 6 caracteres" /></label>
+              <label class="field">Confirmar senha<input name="passwordConfirm" type="password" placeholder="Repita a senha" /></label>
+              <button type="submit" class="btn btn-secondary btn-block">Atualizar senha</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  return appLayout("Minha conta", "profile", body, partial, userLabel || user.email, "Perfil e preferências", user.avatarUrl ?? "");
 }
 
 export function instancesPage(

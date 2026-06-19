@@ -15,6 +15,7 @@ export const panelClientScript = `
     ["/products", "Produtos"],
     ["/media", "Mídias"],
     ["/settings", "Configurações"],
+    ["/perfil", "Minha conta"],
     ["/instances/new", "Nova Instância"]
   ];
 

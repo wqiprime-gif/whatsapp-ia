@@ -76,11 +76,11 @@ body {
   z-index: 0;
   background-color: #000;
   background-image:
-    linear-gradient(rgba(0, 180, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 211, 102, 0.03) 1px, transparent 1px),
-    radial-gradient(ellipse 55% 45% at 10% 0%, rgba(0, 180, 255, 0.18), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 95% 15%, rgba(37, 211, 102, 0.12), transparent 50%),
-    radial-gradient(ellipse 40% 35% at 50% 100%, rgba(10, 92, 255, 0.1), transparent 50%);
+    linear-gradient(rgba(37, 211, 102, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 211, 102, 0.025) 1px, transparent 1px),
+    radial-gradient(ellipse 55% 45% at 10% 0%, rgba(37, 211, 102, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 95% 15%, rgba(37, 211, 102, 0.06), transparent 50%),
+    radial-gradient(ellipse 40% 35% at 50% 100%, rgba(37, 211, 102, 0.05), transparent 50%);
   background-size: 48px 48px, 48px 48px, auto, auto;
 }
 .ambient::after {
@@ -456,17 +456,27 @@ button, input, textarea, select { font-family: inherit; }
 .user-pill {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 14px 6px 6px;
-  background: rgba(14, 28, 46, 0.7);
+  background: rgba(8, 12, 8, 0.85);
   backdrop-filter: blur(14px);
-  border: 1px solid var(--border-hi);
+  border: 1px solid rgba(37, 211, 102, 0.2);
   border-radius: 999px;
+  text-decoration: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.user-pill:hover {
+  border-color: rgba(37, 211, 102, 0.45);
+  box-shadow: 0 0 20px rgba(37, 211, 102, 0.12);
 }
 .user-avatar {
   width: 34px; height: 34px; border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), #5ee4a8);
   display: grid; place-items: center;
   font-size: 0.68rem; font-weight: 800; color: #041018;
+  flex-shrink: 0;
+  object-fit: cover;
 }
+.user-avatar--lg { width: 96px; height: 96px; font-size: 1.5rem; }
+.user-avatar-img { border: 2px solid rgba(37, 211, 102, 0.35); }
 .user-pill .name { font-weight: 700; font-size: 0.84rem; }
 .user-pill .role { font-size: 0.7rem; color: var(--muted); }
 

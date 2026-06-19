@@ -19,15 +19,18 @@ function cleanName(raw: string) {
     .slice(0, 80);
 }
 
-export function parseProductsFromPrompt(prompt: string): ParsedPromptProduct[] {
-  const results: ParsedPromptProduct[] = [];
-  const seen = new Set<string>();
-  const text = String(prompt || "");
+function extractPacotesSection(text: string) {
+  const match = text.match(
+    /pacotes?\s*:?\s*\r?\n([\s\S]*?)(?=\r?\n\s*(?:CHAMADA|M[IÍ]NIMOS|USE |\[\[|PR[EÉ]VIAS|FLUXO|COMPROVANTE|SE O LEAD|M[IÍ]DIAS|$))/i
+  );
+  return match?.[1]?.trim() || text;
+}
 
+function parseLines(text: string, results: ParsedPromptProduct[], seen: Set<string>) {
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("USE ") || /\[\[/.test(trimmed)) continue;
-    if (/m[ií]nimo|negoci/i.test(trimmed)) continue;
+    if (/m[ií]nimo|negoci|exemplo:/i.test(trimmed)) continue;
 
     const colonPrice = trimmed.match(
       /^(?:[-•*]\s*)?([^:\n]+?)\s*:[^R$\n]*R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i
@@ -74,10 +77,27 @@ export function parseProductsFromPrompt(prompt: string): ParsedPromptProduct[] {
       }
     }
   }
+}
 
-  if (results.length > 0) return results;
+export function parseProductsFromPrompt(prompt: string): ParsedPromptProduct[] {
+  const results: ParsedPromptProduct[] = [];
+  const seen = new Set<string>();
+  const text = String(prompt || "");
+  const pacotesBlock = extractPacotesSection(text);
 
-  const section = text.match(/pacotes?[\s\S]{0,1200}/i)?.[0] ?? text;
+  parseLines(pacotesBlock, results, seen);
+  if (results.length === 0) parseLines(text, results, seen);
+
+  if (results.length > 0) {
+    const byName = new Map<string, ParsedPromptProduct>();
+    for (const item of results) {
+      const key = item.name.toLowerCase();
+      if (!byName.has(key)) byName.set(key, item);
+    }
+    return [...byName.values()];
+  }
+
+  const section = pacotesBlock || (text.match(/pacotes?[\s\S]{0,1200}/i)?.[0] ?? text);
   const priceRe = /R\$\s*(\d{1,4})[,.](\d{2})/gi;
   const fallbackNames = ["Pacote Básico", "Chamada Vídeo", "Pacote Completo", "VIP"];
   let i = 0;

@@ -1100,7 +1100,13 @@ export async function syncAllProductsFromBots(bots: { id: string; prompt: string
 
 export async function syncProductsFromPrompt(botId: string, prompt: string) {
   const { parseProductsFromPrompt } = await import("../lib/parse-prompt-products.js");
-  const items = parseProductsFromPrompt(prompt);
+  const raw = parseProductsFromPrompt(prompt);
+  const byName = new Map<string, (typeof raw)[0]>();
+  for (const item of raw) {
+    const key = item.name.toLowerCase().trim();
+    if (!byName.has(key)) byName.set(key, item);
+  }
+  const items = [...byName.values()];
   if (items.length === 0) return 0;
 
   if (useDatabase()) {
