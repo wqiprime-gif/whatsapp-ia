@@ -419,7 +419,12 @@ export function dashboardPage(
               <span class="shark-chart-sub" data-live="chart-period-label">Últimos 7 dias</span>
             </div>
           </div>
+          <div class="shark-chart-legend">
+            <span class="shark-chart-legend-dot"></span>
+            <span>Receita</span>
+          </div>
         </div>
+        <div class="shark-chart-divider shark-chart-divider--head" aria-hidden="true"></div>
         <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
           ${sharkPerformanceChartHtml(data.chart, { dayCount: 7, endOffset: 0 })}
         </div>

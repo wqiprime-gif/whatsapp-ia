@@ -294,11 +294,11 @@ export function sharkPerformanceChartHtml(
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
   const w = 720;
-  const h = 320;
+  const h = 240;
   const padL = 12;
   const padR = 12;
-  const padT = 8;
-  const padB = 32;
+  const padT = 6;
+  const padB = 26;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -340,11 +340,6 @@ export function sharkPerformanceChartHtml(
   ).replace(/'/g, "&#39;");
 
   return `<div class="shark-perf-chart" data-chart-points='${dataJson}' data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
-    <div class="shark-chart-legend">
-      <span class="shark-chart-legend-dot"></span>
-      <span>Receita</span>
-    </div>
-    <div class="shark-chart-divider" aria-hidden="true"></div>
     <div class="shark-chart-stage">
       <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         <defs>
