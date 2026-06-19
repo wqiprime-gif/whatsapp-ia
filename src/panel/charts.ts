@@ -344,8 +344,9 @@ export function sharkPerformanceChartHtml(
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
     </div>
+    <div class="shark-chart-divider" aria-hidden="true"></div>
     <div class="shark-chart-stage">
-      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.35"/>

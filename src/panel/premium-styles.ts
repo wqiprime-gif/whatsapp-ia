@@ -1399,25 +1399,14 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 /* —— SHARK DASHBOARD —— */
 .shark-dash { display: flex; flex-direction: column; gap: 16px; }
-.shark-dash .dash-glow-card::before,
-.shark-dash .dash-glow-card::after {
-  display: none !important;
-  content: none !important;
-}
 .shark-dash .dash-glow-card {
   border: 1px solid rgba(255, 255, 255, 0.04);
-  background: #0a0a0a;
-}
-.shark-dash .shark-kpi-card {
   background:
-    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(59, 130, 246, 0.14), transparent 65%),
+    radial-gradient(ellipse 88% 68% at 50% 108%, rgba(59, 130, 246, 0.13), transparent 64%),
+    radial-gradient(ellipse 45% 38% at 92% 8%, rgba(59, 130, 246, 0.06), transparent 58%),
     #0a0a0a;
 }
 .shark-dash .shark-chart-card--pro {
-  background:
-    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(59, 130, 246, 0.1), transparent 70%),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.06), transparent 60%),
-    #0a0a0a;
   min-height: 420px;
 }
 .shark-icon-box--blue {
@@ -1449,8 +1438,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   margin: 0 0 2px;
 }
 .shark-greeting--topbar .shark-greeting-name {
-  color: #3B82F6;
-  text-shadow: 0 0 20px rgba(59, 130, 246, 0.35);
+  color: var(--green-bright);
+  text-shadow: 0 0 20px rgba(37, 211, 102, 0.35);
 }
 .shark-greeting--topbar .shark-greeting-date {
   font-size: 0.62rem;
@@ -1476,11 +1465,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   gap: 20px;
 }
 .shark-dash-head--greet-only { display: none; }
-.shark-fat-pill {
-  text-align: center;
-  padding-top: 4px;
-  align-self: start;
-}
 .shark-fat-pill {
   display: flex;
   align-items: center;
@@ -1579,17 +1563,17 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   justify-content: space-between;
   gap: 16px;
   flex-wrap: nowrap;
-  padding: 0;
-  border-radius: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
 }
 .shark-period-card {
-  background: transparent;
-  border: none;
-  transition: none;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 .shark-period-card:hover {
-  background: transparent;
-  border-color: transparent;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .shark-period-card::before,
 .shark-period-card::after { display: none !important; content: none !important; }
@@ -1882,15 +1866,23 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
   flex-shrink: 0;
 }
+.shark-chart-divider {
+  height: 1px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0 10px;
+  flex-shrink: 0;
+}
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  flex: 1;
+  height: 300px;
   min-height: 300px;
+  flex-shrink: 0;
 }
 .shark-chart-svg {
   width: 100%;
-  height: 100%;
+  height: 300px;
   min-height: 300px;
   display: block;
 }
