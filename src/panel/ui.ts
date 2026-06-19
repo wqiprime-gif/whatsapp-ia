@@ -276,7 +276,6 @@ export function dashboardPage(
   userEmail = "",
   userDisplayName = ""
 ) {
-  const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
   const salesReais = (data.stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const convRate =
     data.stats.leads > 0
@@ -296,12 +295,8 @@ export function dashboardPage(
   const greet = timeGreeting();
   const dateStr = dashboardDateLabel();
 
-  const body = `
-    <div class="dash-shell shark-dash">
-    ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-
-    <div class="shark-dash-head">
-      <div class="shark-fat-pill shark-card dash-glow-card" style="${glowStyle(0)}">
+  const topbarFatPill = `
+      <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
         ${sharkIconBox(icons.dollar, true, true)}
         <div class="shark-fat-body">
           <div class="shark-fat-top">
@@ -316,13 +311,16 @@ export function dashboardPage(
             <span class="shark-fat-meta">/ 10k</span>
           </div>
         </div>
-      </div>
+      </div>`;
+
+  const body = `
+    <div class="dash-shell shark-dash">
+    ${message ? alertHtml(message, isError ? "error" : "success") : ""}
+
+    <div class="shark-dash-head shark-dash-head--greet-only">
       <div class="shark-greeting">
         <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
         <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
-      </div>
-      <div class="shark-head-right">
-        <span class="shark-head-stat"><strong>${connected}</strong>/${bots.length} online</span>
       </div>
     </div>
 
@@ -481,7 +479,7 @@ export function dashboardPage(
     })();
     </script>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill);
 }
 
 export function profilePage(

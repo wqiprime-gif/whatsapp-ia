@@ -1398,15 +1398,30 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-security-form { display: grid; gap: 12px; }
 
 /* —— SHARK DASHBOARD —— */
-.shark-dash { display: flex; flex-direction: column; gap: 22px; }
+.shark-dash { display: flex; flex-direction: column; gap: 14px; }
 .shark-dash-head {
   display: grid;
   grid-template-columns: minmax(200px, 280px) 1fr auto;
   align-items: start;
   gap: 20px;
 }
+.shark-dash-head--greet-only {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: -2px;
+}
+.shark-fat-pill--topbar {
+  flex-shrink: 0;
+}
+.topbar--dash .shark-fat-pill--topbar::before,
+.topbar--dash .shark-fat-pill--topbar::after {
+  display: none !important;
+  content: none !important;
+}
 @media (max-width: 900px) {
   .shark-dash-head { grid-template-columns: 1fr; text-align: center; }
+  .topbar--dash .shark-fat-pill--topbar { max-width: 100%; }
 }
 .shark-greeting {
   text-align: center;
@@ -1509,9 +1524,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px;
+  gap: 16px;
+  flex-wrap: nowrap;
+  padding: 12px 14px;
   border-radius: 12px;
 }
 .shark-period-card {
@@ -1541,16 +1556,24 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   .shark-period-label { display: flex; }
 }
 .shark-period-tabs-wrap {
-  flex: 1;
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: auto;
   background: rgba(0, 0, 0, 0.4);
   padding: 4px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
-.shark-period-tabs { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; }
+.shark-period-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  width: auto;
+  justify-content: flex-end;
+}
 .shark-period-tab {
-  flex: 1;
-  padding: 9px 10px;
+  flex: 0 0 auto;
+  padding: 9px 14px;
   border-radius: 8px;
   border: none;
   background: transparent;
@@ -1561,8 +1584,21 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   min-height: 36px;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
+@media (max-width: 900px) {
+  .shark-period-bar { flex-wrap: wrap; }
+  .shark-period-tabs-wrap {
+    margin-left: 0;
+    width: 100%;
+  }
+  .shark-period-tabs {
+    flex-wrap: wrap;
+    justify-content: stretch;
+    width: 100%;
+  }
+  .shark-period-tab { flex: 1; min-width: 0; }
+}
 @media (min-width: 640px) {
-  .shark-period-tab { flex: none; font-size: 0.8125rem; padding: 9px 16px; }
+  .shark-period-tab { font-size: 0.8125rem; padding: 9px 16px; }
 }
 .shark-period-tab:hover {
   color: #fff;

@@ -407,6 +407,19 @@ button, input, textarea, select { font-family: inherit; }
   background: var(--bg);
   position: sticky; top: 0; z-index: 30;
 }
+.topbar--dash .topbar-left {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.topbar--dash {
+  height: auto;
+  min-height: 64px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.content:has(.shark-dash) {
+  padding-top: 12px;
+}
 .topbar-left h1 {
   font-family: var(--font-display);
   font-size: 1.35rem; font-weight: 800;

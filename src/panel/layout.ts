@@ -121,11 +121,16 @@ export function appLayout(
   partial = false,
   userName = "Usuario",
   subtitle = "",
-  userAvatar = ""
+  userAvatar = "",
+  topbarLeftHtml = ""
 ) {
   if (partial) return body;
 
   const is = (id: NavId) => active === id;
+  const topbarCls = topbarLeftHtml ? " topbar--dash" : "";
+  const topbarLeft = topbarLeftHtml
+    ? topbarLeftHtml
+    : `<h1>${escapeHtml(title)}</h1>${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}`;
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -174,10 +179,9 @@ export function appLayout(
       </form>
     </aside>
     <div class="main-wrap">
-      <header class="topbar">
+      <header class="topbar${topbarCls}">
         <div class="topbar-left">
-          <h1>${escapeHtml(title)}</h1>
-          ${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+          ${topbarLeft}
         </div>
         <div class="topbar-right">
           <div class="bell-wrap">
