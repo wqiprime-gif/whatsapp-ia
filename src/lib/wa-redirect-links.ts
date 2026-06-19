@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
 
+import { normalizeWaPhone } from "./wa-links.js";
+
 export type WaRedirectLink = {
   id: string;
   userId: string;
@@ -11,6 +13,8 @@ export type WaRedirectLink = {
   slug: string;
   initialMessage: string;
   botIds: string[];
+  /** Número manual por instância (botId → dígitos E.164). */
+  phones: Record<string, string>;
   clickCounts: Record<string, number>;
   createdAt: string;
   updatedAt: string;
@@ -24,7 +28,12 @@ async function loadFile(): Promise<FileStore> {
   try {
     const raw = await fs.readFile(filePath, "utf8");
     const data = JSON.parse(raw) as FileStore;
-    return { links: data.links ?? [] };
+    return {
+      links: (data.links ?? []).map((l) => ({
+        ...l,
+        phones: l.phones && typeof l.phones === "object" ? l.phones : {}
+      }))
+    };
   } catch {
     return { links: [] };
   }
@@ -54,11 +63,14 @@ function rowToLink(row: {
   slug: string;
   initial_message: string | null;
   bot_ids: string[] | string;
+  phones?: Record<string, string> | string | null;
   click_counts: Record<string, number> | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }): WaRedirectLink {
   const botIds = typeof row.bot_ids === "string" ? JSON.parse(row.bot_ids) : row.bot_ids ?? [];
+  const phonesRaw =
+    typeof row.phones === "string" ? JSON.parse(row.phones) : row.phones ?? {};
   const clickCounts =
     typeof row.click_counts === "string"
       ? JSON.parse(row.click_counts)
@@ -70,6 +82,7 @@ function rowToLink(row: {
     slug: row.slug,
     initialMessage: row.initial_message ?? "",
     botIds: Array.isArray(botIds) ? botIds : [],
+    phones: phonesRaw && typeof phonesRaw === "object" ? (phonesRaw as Record<string, string>) : {},
     clickCounts: clickCounts && typeof clickCounts === "object" ? clickCounts : {},
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
@@ -91,6 +104,7 @@ export async function initWaRedirectLinksSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS wa_redirect_links_user_idx ON wa_redirect_links (user_id);
+    ALTER TABLE wa_redirect_links ADD COLUMN IF NOT EXISTS phones JSONB NOT NULL DEFAULT '{}';
   `);
 }
 
@@ -145,17 +159,37 @@ async function slugTaken(slug: string, excludeId?: string): Promise<boolean> {
   return store.links.some((l) => l.slug === slug && l.id !== excludeId);
 }
 
+export function sanitizeLinkPhones(botIds: string[], phones: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const id of botIds) {
+    const digits = normalizeWaPhone(phones[id] ?? "");
+    if (digits) out[id] = digits;
+  }
+  return out;
+}
+
+export function validateLinkTargets(botIds: string[], phones: Record<string, string>) {
+  if (botIds.length === 0) throw new Error("Selecione pelo menos uma instância no rodízio.");
+  const clean = sanitizeLinkPhones(botIds, phones);
+  if (Object.keys(clean).length === 0) {
+    throw new Error("Informe o número WhatsApp (com DDI) de pelo menos uma instância marcada.");
+  }
+  return clean;
+}
+
 export async function createWaRedirectLink(input: {
   userId: string;
   name: string;
   slug: string;
   initialMessage?: string;
   botIds: string[];
+  phones: Record<string, string>;
 }): Promise<WaRedirectLink> {
   const slug = normalizeLinkSlug(input.slug || input.name);
   if (!slug) throw new Error("Slug inválido.");
   if (await slugTaken(slug)) throw new Error("Este slug já está em uso. Escolha outro.");
-  if (input.botIds.length === 0) throw new Error("Selecione pelo menos uma instância no rodízio.");
+  const botIds = [...new Set(input.botIds)];
+  const phones = validateLinkTargets(botIds, input.phones);
 
   const now = new Date().toISOString();
   const link: WaRedirectLink = {
@@ -164,7 +198,8 @@ export async function createWaRedirectLink(input: {
     name: input.name.trim() || slug,
     slug,
     initialMessage: (input.initialMessage ?? "").trim(),
-    botIds: [...new Set(input.botIds)],
+    botIds,
+    phones,
     clickCounts: {},
     createdAt: now,
     updatedAt: now
@@ -172,8 +207,8 @@ export async function createWaRedirectLink(input: {
 
   if (useDatabase()) {
     await getPool().query(
-      `INSERT INTO wa_redirect_links (id, user_id, name, slug, initial_message, bot_ids, click_counts, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9)`,
+      `INSERT INTO wa_redirect_links (id, user_id, name, slug, initial_message, bot_ids, phones, click_counts, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10)`,
       [
         link.id,
         link.userId,
@@ -181,6 +216,7 @@ export async function createWaRedirectLink(input: {
         link.slug,
         link.initialMessage,
         JSON.stringify(link.botIds),
+        JSON.stringify(link.phones),
         JSON.stringify(link.clickCounts),
         link.createdAt,
         link.updatedAt
@@ -198,32 +234,35 @@ export async function createWaRedirectLink(input: {
 export async function updateWaRedirectLink(
   id: string,
   userId: string,
-  input: { name: string; slug: string; initialMessage?: string; botIds: string[] }
+  input: { name: string; slug: string; initialMessage?: string; botIds: string[]; phones: Record<string, string> }
 ): Promise<WaRedirectLink> {
   const existing = await getWaRedirectLinkById(id, userId);
   if (!existing) throw new Error("Link não encontrado.");
   const slug = normalizeLinkSlug(input.slug || input.name);
   if (!slug) throw new Error("Slug inválido.");
   if (await slugTaken(slug, id)) throw new Error("Este slug já está em uso.");
-  if (input.botIds.length === 0) throw new Error("Selecione pelo menos uma instância.");
+  const botIds = [...new Set(input.botIds)];
+  const phones = validateLinkTargets(botIds, input.phones);
 
   const updated: WaRedirectLink = {
     ...existing,
     name: input.name.trim() || slug,
     slug,
     initialMessage: (input.initialMessage ?? "").trim(),
-    botIds: [...new Set(input.botIds)],
+    botIds,
+    phones,
     updatedAt: new Date().toISOString()
   };
 
   if (useDatabase()) {
     await getPool().query(
-      `UPDATE wa_redirect_links SET name=$1, slug=$2, initial_message=$3, bot_ids=$4::jsonb, updated_at=$5 WHERE id=$6 AND user_id=$7`,
+      `UPDATE wa_redirect_links SET name=$1, slug=$2, initial_message=$3, bot_ids=$4::jsonb, phones=$5::jsonb, updated_at=$6 WHERE id=$7 AND user_id=$8`,
       [
         updated.name,
         updated.slug,
         updated.initialMessage,
         JSON.stringify(updated.botIds),
+        JSON.stringify(updated.phones),
         updated.updatedAt,
         id,
         userId
@@ -269,9 +308,9 @@ export async function resetWaRedirectLinkCounts(id: string, userId: string) {
   }
 }
 
-/** Escolhe a instância com menos cliques entre as online. */
-export function pickBotForRedirect(link: WaRedirectLink, onlineBotIds: string[]): string | null {
-  const eligible = link.botIds.filter((id) => onlineBotIds.includes(id));
+/** Escolhe o número com menos cliques (rodízio justo). */
+export function pickBotForRedirect(link: WaRedirectLink): string | null {
+  const eligible = link.botIds.filter((id) => Boolean(normalizeWaPhone(link.phones[id] ?? "")));
   if (eligible.length === 0) return null;
   let pick = eligible[0]!;
   let min = link.clickCounts[pick] ?? 0;
@@ -283,6 +322,11 @@ export function pickBotForRedirect(link: WaRedirectLink, onlineBotIds: string[])
     }
   }
   return pick;
+}
+
+export function phoneForBotInLink(link: WaRedirectLink, botId: string): string | null {
+  const digits = normalizeWaPhone(link.phones[botId] ?? "");
+  return digits || null;
 }
 
 export async function recordRedirectClick(linkId: string, botId: string) {

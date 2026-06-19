@@ -87,6 +87,7 @@ import {
   getWaRedirectLinkBySlug,
   listWaRedirectLinks,
   pickBotForRedirect,
+  phoneForBotInLink,
   recordRedirectClick,
   resetWaRedirectLinkCounts,
   updateWaRedirectLink
@@ -307,6 +308,22 @@ function parseFormBotIds(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
   if (typeof raw === "string" && raw.trim()) return [raw.trim()];
   return [];
+}
+
+function parseFormPhones(body: Record<string, unknown>, botIds: string[]): Record<string, string> {
+  const phones: Record<string, string> = {};
+  for (const [key, val] of Object.entries(body)) {
+    if (!key.startsWith("phone_")) continue;
+    const id = key.slice("phone_".length);
+    if (id) phones[id] = String(val ?? "").trim();
+  }
+  for (const id of botIds) {
+    if (!phones[id]) {
+      const direct = body[`phone_${id}`];
+      if (direct != null) phones[id] = String(direct).trim();
+    }
+  }
+  return phones;
 }
 
 function errorMessage(error: unknown) {
@@ -1223,8 +1240,9 @@ export async function registerPanelRoutes(
     const slug = String(body.slug ?? "").trim();
     const initialMessage = String(body.initialMessage ?? "").trim();
     const botIds = parseFormBotIds(body.botIds);
+    const phones = parseFormPhones(body, botIds);
     try {
-      await createWaRedirectLink({ userId: user.id, name, slug, initialMessage, botIds });
+      await createWaRedirectLink({ userId: user.id, name, slug, initialMessage, botIds, phones });
       return reply.redirect(flashRedirect("/links", "Link criado!"));
     } catch (error) {
       return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
@@ -1237,11 +1255,13 @@ export async function registerPanelRoutes(
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = request.body as Record<string, unknown>;
     try {
+      const botIds = parseFormBotIds(body.botIds);
       await updateWaRedirectLink(id, user.id, {
         name: String(body.name ?? "").trim(),
         slug: String(body.slug ?? "").trim(),
         initialMessage: String(body.initialMessage ?? "").trim(),
-        botIds: parseFormBotIds(body.botIds)
+        botIds,
+        phones: parseFormPhones(body, botIds)
       });
       return reply.redirect(flashRedirect("/links", "Link salvo!"));
     } catch (error) {
@@ -1281,24 +1301,18 @@ export async function registerPanelRoutes(
         "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Link não encontrado</h1></body></html>"
       );
     }
-    const bots = await loadBots(link.userId);
-    const phonesMap = await getWaPhonesForBots(bots);
-    const statuses = await getWaLiveStatuses(bots);
-    const onlineBotIds = bots
-      .filter((b) => {
-        if (!link.botIds.includes(b.id)) return false;
-        const st = statuses[b.id];
-        const phone = phonesMap[b.id]?.trim();
-        return phone && (st === "connected" || st === "meta_ready");
-      })
-      .map((b) => b.id);
-    const pickId = pickBotForRedirect(link, onlineBotIds);
+    const pickId = pickBotForRedirect(link);
     if (!pickId) {
       return reply.code(503).type("text/html").send(
-        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum WhatsApp online neste rodízio. Tente novamente em instantes.</p></body></html>"
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum número configurado neste rodízio. Edite o link no painel.</p></body></html>"
       );
     }
-    const phone = phonesMap[pickId]!;
+    const phone = phoneForBotInLink(link, pickId);
+    if (!phone) {
+      return reply.code(503).type("text/html").send(
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Número inválido no rodízio.</p></body></html>"
+      );
+    }
     void recordRedirectClick(link.id, pickId);
     const url = buildWaMeUrl(phone, link.initialMessage);
     return reply.redirect(url);

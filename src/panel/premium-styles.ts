@@ -2128,9 +2128,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .wa-rand-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 640px) { .wa-rand-grid-2 { grid-template-columns: 1fr; } }
 .wa-rand-instances { display: flex; flex-direction: column; gap: 10px; }
-.wa-inst-pick-list { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); max-height: 220px; overflow-y: auto; }
-.wa-inst-pick { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.84rem; color: var(--text); padding: 4px 0; }
-.wa-inst-pick input { width: 16px; height: 16px; accent-color: #22C55E; flex-shrink: 0; }
+.wa-inst-pick-list { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); max-height: 280px; overflow-y: auto; }
+.wa-inst-pick { display: flex; align-items: center; gap: 10px; font-size: 0.84rem; color: var(--text); padding: 4px 0; }
+.wa-inst-pick--row { flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; }
+.wa-inst-pick-check { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 140px; }
+.wa-inst-phone {
+  flex: 1; min-width: 160px; max-width: 220px;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.4); color: var(--text); font-size: 0.82rem; font-family: var(--font-mono);
+}
+.wa-inst-pick input[type="checkbox"] { width: 16px; height: 16px; accent-color: #22C55E; flex-shrink: 0; }
 .wa-inst-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .wa-inst-dot--on { background: #22C55E; box-shadow: 0 0 8px rgba(34,197,94,0.6); }
 .wa-inst-dot--off { background: #ef4444; opacity: 0.85; }

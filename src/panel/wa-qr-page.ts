@@ -61,8 +61,19 @@ export function waQrPage(bot: BotConfig, partial = false, userName = "Usuario") 
         }
       }
       document.getElementById("wa-qr-refresh")?.addEventListener("click", loadQr);
-      loadQr();
-      setInterval(loadQr, 5000);
+      var pollMs = 1500;
+      var fastTicks = 40;
+      async function pollLoop() {
+        await loadQr();
+        if (fastTicks > 0) {
+          fastTicks--;
+          pollMs = 1500;
+        } else {
+          pollMs = 4000;
+        }
+        setTimeout(pollLoop, pollMs);
+      }
+      pollLoop();
     </script>`;
 
   return partial ? body : appLayout(`QR ${bot.name}`, "instances", body, false, userName);

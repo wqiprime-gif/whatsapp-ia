@@ -45,6 +45,7 @@ type WaProcess = {
 };
 
 const processes = new Map<string, WaProcess>();
+const forceQrOnSpawn = new Set<string>();
 const metaBots = new Map<string, BotConfig>();
 const lastExitCodes = new Map<string, number | null>();
 
@@ -60,6 +61,47 @@ export function waPortForBot(botId: string, index = 0) {
 /** ID único por instância — evita colisão de sessão WhatsApp ao recriar bots. */
 export function waClientIdForBot(botId: string) {
   return `wa_${botId.replace(/-/g, "")}`;
+}
+
+export function markWaForceQr(botId: string) {
+  forceQrOnSpawn.add(botId);
+}
+
+async function purgeAllWaSessionDirs(botId: string) {
+  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  const compact = botId.replace(/-/g, "");
+  const clientId = waClientIdForBot(botId);
+  const targets = new Set<string>([
+    path.join(authDir, `session-${clientId}`),
+    path.join(authDir, `session-wa-${compact.slice(0, 8)}`),
+    path.join(authDir, `session-${compact.slice(0, 8)}`)
+  ]);
+  try {
+    const entries = await fs.readdir(authDir);
+    for (const name of entries) {
+      if (!name.startsWith("session-")) continue;
+      const sid = name.slice("session-".length);
+      if (sid.includes(compact) || compact.includes(sid.replace(/^wa[-_]?/, ""))) {
+        targets.add(path.join(authDir, name));
+      }
+    }
+  } catch {
+    // auth dir may not exist yet
+  }
+  for (const dir of targets) {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function requestWaLogout(botId: string, port: number) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    await fetch(`http://127.0.0.1:${port}/api/logout`, { method: "POST", signal: ctrl.signal });
+    clearTimeout(timer);
+  } catch {
+    // process may already be down
+  }
 }
 
 function chatIdFromWaJid(jid: string) {
@@ -173,6 +215,10 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
+  if (forceQrOnSpawn.has(bot.id)) {
+    childEnv.WA_FORCE_QR = "1";
+    forceQrOnSpawn.delete(bot.id);
+  }
 
   const args = [
     path.join(hotbotDir, "bot-instance.js"),
@@ -217,16 +263,16 @@ async function spawnWebBot(bot: BotConfig, port: number) {
 
 /** Remove processo, pasta da instância e sessão WhatsApp salva (QR novo na próxima conexão). */
 export async function purgeWaInstanceData(botId: string) {
+  const proc = processes.get(botId);
+  if (proc) await requestWaLogout(botId, proc.port);
   await killWebBot(botId);
   metaBots.delete(botId);
-  const clientId = waClientIdForBot(botId);
-  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
-  const sessionDir = path.join(authDir, `session-${clientId}`);
+  await purgeAllWaSessionDirs(botId);
   const instDir = instanceDataDir(botId);
   const promptFile = path.join(hotbotDir, "prompts", `${botId}-prompt.json`);
   await fs.rm(instDir, { recursive: true, force: true }).catch(() => {});
-  await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
   await fs.rm(promptFile, { force: true }).catch(() => {});
+  markWaForceQr(botId);
   console.log(`[wa-web] Instância ${botId} removida (dados + sessão WhatsApp)`);
 }
 

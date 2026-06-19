@@ -591,6 +591,13 @@ const puppeteerArgs = [
   '--disable-gpu',
   '--disable-web-security',
   '--no-first-run',
+  '--disable-extensions',
+  '--disable-background-networking',
+  '--disable-default-apps',
+  '--disable-sync',
+  '--disable-translate',
+  '--mute-audio',
+  '--no-default-browser-check',
   '--autoplay-policy=no-user-gesture-required',
   ...puppeteerProxyArgs(proxyUrl),
 ];
@@ -609,6 +616,23 @@ function hasPersistedWaSession() {
     fs.existsSync(path.join(sessionDir, 'Default')) ||
     fs.readdirSync(sessionDir).some((name) => name && name !== 'DevToolsActivePort')
   );
+}
+
+function purgeSessionDir() {
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  try {
+    if (fs.existsSync(sessionDir)) {
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      console.log(`🗑️ Sessão removida: ${sessionDir}`);
+    }
+  } catch (e) {
+    console.warn('⚠️ Falha ao apagar sessão:', e?.message || e);
+  }
+}
+
+if (process.env.WA_FORCE_QR === '1') {
+  console.log('🔄 WA_FORCE_QR ativo — sessão antiga será ignorada; aguardando QR novo');
+  purgeSessionDir();
 }
 
 console.log(`🔐 Auth: ${authDataPath} · clientId=${clientId} · sessão salva=${hasPersistedWaSession() ? 'sim' : 'não'}`);
@@ -2107,6 +2131,32 @@ app.get('/api/phone', (_req, res) => {
   });
 });
 
+app.post('/api/logout', async (_req, res) => {
+  try {
+    lastQrUrl = null;
+    cachedWhatsappNumber = '';
+    try {
+      if (fs.existsSync(qrFilePath)) fs.unlinkSync(qrFilePath);
+    } catch (_) {}
+    purgeSessionDir();
+    writeConnectionStatus('starting', '', '');
+    try {
+      await client.logout();
+    } catch (_) {}
+    try {
+      await client.destroy();
+    } catch (_) {}
+    client.initialize().catch((error) => {
+      const message = error?.message || String(error);
+      console.error('❌ Falha ao reinicializar após logout:', message);
+      writeConnectionStatus('error', message);
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error?.message || String(error) });
+  }
+});
+
 // Envio externo (remarketing do painel) — whatsapp-web.js client.sendMessage
 app.post('/api/send', async (req, res) => {
   const to = req.body?.to;
@@ -2146,12 +2196,6 @@ let lastQrUrl = null;
 
 // Único listener de QR — envia para o site via socket
 client.on('qr', (qr) => {
-  if (hasPersistedWaSession()) {
-    console.log('📱 QR ignorado — sessão salva no disco, reconectando...');
-    writeConnectionStatus('authenticated', '', cachedWhatsappNumber);
-    return;
-  }
-
   console.log(`📱 QR Code gerado — acesse http://localhost:${port} para escanear`);
   writeConnectionStatus('qr_pending');
 
