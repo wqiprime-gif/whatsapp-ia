@@ -321,7 +321,7 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="shark-period-bar dash-glow-card" style="${glowStyle(0)}">
+    <div class="shark-period-bar shark-period-card">
       <span class="shark-period-label">${sharkIconBox(icons.calendar)} Período</span>
       <div class="shark-period-tabs" data-period-tabs>
         <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>

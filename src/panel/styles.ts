@@ -512,13 +512,9 @@ button, input, textarea, select { font-family: inherit; }
   width: 100%;
   height: 100%;
 }
-.user-avatar-slot .user-avatar-img:not([hidden]) {
-  display: block !important;
-}
-.user-avatar-slot .user-avatar-img[hidden] {
-  display: none !important;
-}
-.user-avatar-fallback--hidden { display: none !important; }
+.user-avatar-slot .user-avatar-img { display: block; }
+.user-avatar-slot.has-avatar .user-avatar-fallback { display: none; }
+.user-avatar-slot:not(.has-avatar) .user-avatar-img { display: none; }
 .user-avatar-img {
   width: 100%; height: 100%; border-radius: 50%;
   object-fit: cover;

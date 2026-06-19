@@ -88,11 +88,30 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
   return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
-export function userAvatarHtml(avatarUrl: string, label: string, large = false, _cacheBust = "") {
+export function userAvatarHtml(avatarUrl: string, label: string, large = false, cacheBust = "") {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
   const lg = large ? " user-avatar--lg" : "";
   const imgLg = large ? " user-avatar-img--lg" : "";
-  return `<span class="user-avatar-slot" data-avatar-api="1"><img class="user-avatar-img${imgLg}" src="/api/panel/avatar" alt="" decoding="async" hidden /><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
+  const raw = avatarUrl?.trim() ?? "";
+
+  if (!raw) {
+    return `<span class="user-avatar-slot"><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
+  }
+
+  let finalSrc = "";
+  if (raw.startsWith("data:")) {
+    finalSrc = raw;
+  } else if (raw.startsWith("/uploads/") || raw.startsWith("http")) {
+    const bust = cacheBust || String(Date.now());
+    const sep = raw.includes("?") ? "&" : "?";
+    finalSrc = `${raw}${sep}v=${bust}`;
+  }
+
+  if (!finalSrc) {
+    return `<span class="user-avatar-slot"><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
+  }
+
+  return `<span class="user-avatar-slot has-avatar"><img class="user-avatar-img${imgLg}" src="${escapeHtml(finalSrc)}" alt="" onerror="this.parentElement.classList.remove('has-avatar');this.remove();" /><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
 }
 
 export function appLayout(

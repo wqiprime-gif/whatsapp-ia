@@ -1386,11 +1386,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-dash-head {
   display: grid;
   grid-template-columns: minmax(200px, 280px) 1fr auto;
-  align-items: center;
+  align-items: start;
   gap: 20px;
 }
 @media (max-width: 900px) {
   .shark-dash-head { grid-template-columns: 1fr; text-align: center; }
+}
+.shark-greeting {
+  text-align: center;
+  padding-top: 4px;
+  align-self: start;
 }
 .shark-fat-pill {
   display: flex;
@@ -1432,25 +1437,26 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: inherit;
 }
 .shark-fat-meta { font-size: 0.72rem; color: var(--muted); }
-.shark-greeting { text-align: center; }
 .shark-greeting-title {
   font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: clamp(1rem, 1.6vw, 1.3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 4px;
+  margin: 0 0 4px;
+  line-height: 1.2;
 }
 .shark-greeting-name {
   color: var(--green-bright);
-  text-shadow: 0 0 24px rgba(37, 211, 102, 0.45);
+  text-shadow: 0 0 18px rgba(37, 211, 102, 0.35);
 }
 .shark-greeting-date {
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+  margin: 0;
 }
 .shark-head-right { text-align: right; }
 .shark-head-stat { font-size: 0.82rem; color: var(--muted); }
@@ -1465,6 +1471,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 14px 18px;
   border-radius: 14px;
 }
+.shark-period-card {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.shark-period-card::before,
+.shark-period-card::after { display: none !important; content: none !important; }
 .shark-period-label {
   display: flex;
   align-items: center;
