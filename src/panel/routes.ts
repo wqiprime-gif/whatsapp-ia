@@ -62,7 +62,8 @@ import {
 import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
-import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { AI_PROVIDERS } from "../lib/ai-providers.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
@@ -1202,9 +1203,16 @@ export async function registerPanelRoutes(
     const links = await listWaRedirectLinks(user.id);
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
+    const provider = await getAIProvider(user.id);
+    const model = await getOpenAIModel(user.id);
+    const aiInfo = {
+      provider: provider,
+      providerLabel: AI_PROVIDERS[provider].label,
+      model
+    };
     return reply
       .type("text/html")
-      .send(waLinksPage(rows, links, base, isPartial(request), panelUserLabel(user), flash));
+      .send(waLinksPage(rows, links, base, aiInfo, isPartial(request), panelUserLabel(user), flash));
   });
 
   app.post("/links", async (request, reply) => {
@@ -1275,8 +1283,14 @@ export async function registerPanelRoutes(
     }
     const bots = await loadBots(link.userId);
     const phonesMap = await getWaPhonesForBots(bots);
+    const statuses = await getWaLiveStatuses(bots);
     const onlineBotIds = bots
-      .filter((b) => link.botIds.includes(b.id) && phonesMap[b.id]?.trim())
+      .filter((b) => {
+        if (!link.botIds.includes(b.id)) return false;
+        const st = statuses[b.id];
+        const phone = phonesMap[b.id]?.trim();
+        return phone && (st === "connected" || st === "meta_ready");
+      })
       .map((b) => b.id);
     const pickId = pickBotForRedirect(link, onlineBotIds);
     if (!pickId) {
@@ -1586,16 +1600,30 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/instances/:id/reset-wa-session", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(id, user.id);
+    if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    await purgeWaInstanceData(bot.id);
+    hooks.restartBots();
+    return reply.redirect(
+      flashRedirect(`/instances/${bot.id}/qr`, "Sessão WhatsApp apagada. Escaneie o QR Code novamente.")
+    );
+  });
+
   app.post("/bots/:id/delete", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      await purgeWaInstanceData(params.id);
       await deleteBot(params.id, user.id);
       hooks.restartBots();
-      return reply.redirect(flashRedirect("/", "Bot removido."));
+      return reply.redirect(flashRedirect("/instances", "Instância removida com sessão WhatsApp apagada."));
     } catch (error) {
-      return reply.redirect(flashRedirect("/", `Erro: ${errorMessage(error)}`, "err"));
+      return reply.redirect(flashRedirect("/instances", `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 

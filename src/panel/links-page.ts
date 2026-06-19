@@ -14,7 +14,13 @@ export type WaLinkBotRow = {
   waUrl: string;
 };
 
-function instancePickList(rows: WaLinkBotRow[], selectedIds: string[], fieldName: string) {
+export type WaLinkAiInfo = {
+  provider: string;
+  providerLabel: string;
+  model: string;
+};
+
+function instancePickList(rows: WaLinkBotRow[], selectedIds: string[], fieldName: string, aiInfo?: WaLinkAiInfo) {
   if (rows.length === 0) {
     return `<p class="form-hint">Nenhuma instância cadastrada. <a href="/instances/new" style="color:var(--green-bright)">Criar instância</a></p>`;
   }
@@ -25,17 +31,24 @@ function instancePickList(rows: WaLinkBotRow[], selectedIds: string[], fieldName
       const online = on && hasPhone;
       const checked = selectedIds.includes(row.bot.id) ? "checked" : "";
       const dotCls = online ? "wa-inst-dot--on" : "wa-inst-dot--off";
-      const meta = online ? row.phoneDisplay : on ? "sem número" : "offline";
+      const meta = online ? row.phoneDisplay : on ? "sem número — reinicie ou limpe sessão" : "offline";
+      const aiTag =
+        online && aiInfo
+          ? `<span class="wa-inst-ai">${escapeHtml(aiInfo.providerLabel)} · ${escapeHtml(aiInfo.model)}</span>`
+          : "";
       return `<label class="wa-inst-pick">
-        <input type="checkbox" name="${fieldName}" value="${escapeHtml(row.bot.id)}" ${checked} />
+        <input type="checkbox" name="${fieldName}" value="${escapeHtml(row.bot.id)}" ${checked} ${!online ? "" : ""} />
         <span class="wa-inst-dot ${dotCls}" aria-hidden="true"></span>
-        <span class="wa-inst-pick-label">${escapeHtml(row.bot.name)} <em>(${escapeHtml(meta)})</em></span>
+        <span class="wa-inst-pick-label">
+          ${escapeHtml(row.bot.name)} <em>(${escapeHtml(meta)})</em>
+          ${aiTag}
+        </span>
       </label>`;
     })
     .join("");
 }
 
-function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string) {
+function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string, aiInfo?: WaLinkAiInfo) {
   const url = redirectUrl(baseUrl, link.slug);
   const totalClicks = Object.values(link.clickCounts).reduce((s, n) => s + n, 0);
   return `<article class="wa-rand-card dash-glow-card shark-card" id="link-${escapeHtml(link.id)}">
@@ -64,8 +77,8 @@ function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string) {
       </label>
       <div class="wa-rand-instances">
         <span class="field-label">Instâncias no rodízio</span>
-        <div class="wa-inst-pick-list">${instancePickList(rows, link.botIds, "botIds")}</div>
-        <span class="form-hint">Números offline são ignorados no redirect — só entram os conectados.</span>
+        <div class="wa-inst-pick-list">${instancePickList(rows, link.botIds, "botIds", aiInfo)}</div>
+        <span class="form-hint">Instâncias offline ou sem número são <strong>ignoradas no redirect</strong> — o lead só vai para WhatsApp online.</span>
       </div>
       <div class="wa-rand-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -80,6 +93,7 @@ export function waLinksPage(
   rows: WaLinkBotRow[],
   links: WaRedirectLink[],
   baseUrl: string,
+  aiInfo: WaLinkAiInfo,
   partial = false,
   userName = "Usuario",
   flash?: { message: string; ok: boolean }
@@ -91,7 +105,7 @@ export function waLinksPage(
   const savedLinks =
     links.length === 0
       ? `<div class="empty wa-rand-empty">Nenhum link criado ainda. Use o formulário acima para gerar seu primeiro randomizador.</div>`
-      : links.map((l) => linkCard(l, rows, baseUrl)).join("");
+      : links.map((l) => linkCard(l, rows, baseUrl, aiInfo)).join("");
 
   const body = `
     <div class="wa-rand-page page-shell">
@@ -99,9 +113,16 @@ export function waLinksPage(
 
       <p class="wa-rand-intro">
         <strong>Randomizador</strong> — crie links que distribuem tráfego entre seus WhatsApps conectados.
-        Cada clique manda o lead para a próxima instância online (rodízio justo por contador).
-        ${onlineCount > 0 ? `<span class="wa-rand-online">${onlineCount} instância(s) online agora.</span>` : `<span class="wa-rand-warn">Conecte uma instância para ativar os redirects.</span>`}
+        Cada clique manda o lead para a próxima instância <strong>online</strong> (rodízio justo por contador).
+        ${onlineCount > 0 ? `<span class="wa-rand-online">${onlineCount} instância(s) pronta(s) agora.</span>` : `<span class="wa-rand-warn">Nenhuma instância com número online — conecte o WhatsApp e configure a IA em Configurações.</span>`}
       </p>
+
+      <div class="wa-rand-ai-banner">
+        <span class="wa-rand-ai-label">IA configurada no painel</span>
+        <strong>${escapeHtml(aiInfo.providerLabel)}</strong>
+        <code>${escapeHtml(aiInfo.model)}</code>
+        <a href="/settings" class="wa-rand-ai-link">Alterar em Configurações →</a>
+      </div>
 
       <section class="wa-rand-create dash-glow-card shark-card">
         <h3 class="wa-rand-section-title">${icons.link} Novo link de redirecionamento</h3>
@@ -123,7 +144,7 @@ export function waLinksPage(
           </label>
           <div class="wa-rand-instances">
             <span class="field-label">Instâncias no rodízio</span>
-            <div class="wa-inst-pick-list">${instancePickList(rows, rows.filter((r) => r.phone && (r.status === "connected" || r.status === "meta_ready")).map((r) => r.bot.id), "botIds")}</div>
+            <div class="wa-inst-pick-list">${instancePickList(rows, rows.filter((r) => r.phone && (r.status === "connected" || r.status === "meta_ready")).map((r) => r.bot.id), "botIds", aiInfo)}</div>
           </div>
           <div class="wa-rand-create-foot">
             <button type="submit" class="btn btn-primary btn-lg wa-rand-create-btn">${icons.sparkles} Criar link</button>

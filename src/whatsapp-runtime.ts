@@ -57,6 +57,11 @@ export function waPortForBot(botId: string, index = 0) {
   return stablePort(botId, index);
 }
 
+/** ID único por instância — evita colisão de sessão WhatsApp ao recriar bots. */
+export function waClientIdForBot(botId: string) {
+  return `wa_${botId.replace(/-/g, "")}`;
+}
+
 function chatIdFromWaJid(jid: string) {
   const digits = jid.replace(/@.*/, "").replace(/\D/g, "");
   const n = Number(digits);
@@ -174,7 +179,7 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     "--port",
     String(port),
     "--clientId",
-    `wa-${bot.id.slice(0, 8)}`,
+    waClientIdForBot(bot.id),
     "--modelName",
     bot.name,
     "--sessionId",
@@ -205,9 +210,24 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   processes.set(bot.id, { child, port, botId: bot.id });
   const proxyNote = bot.proxyEnabled ? " · proxy isolado" : "";
   const authDir = childEnv.WA_AUTH_DIR;
-  const clientId = `wa-${bot.id.slice(0, 8)}`;
+  const clientId = waClientIdForBot(bot.id);
   console.log(`[wa-web] ${bot.name} iniciado na porta ${port}${proxyNote}`);
   console.log(`[wa-web] Sessão: clientId=${clientId} · auth em ${authDir}`);
+}
+
+/** Remove processo, pasta da instância e sessão WhatsApp salva (QR novo na próxima conexão). */
+export async function purgeWaInstanceData(botId: string) {
+  await killWebBot(botId);
+  metaBots.delete(botId);
+  const clientId = waClientIdForBot(botId);
+  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  const sessionDir = path.join(authDir, `session-${clientId}`);
+  const instDir = instanceDataDir(botId);
+  const promptFile = path.join(hotbotDir, "prompts", `${botId}-prompt.json`);
+  await fs.rm(instDir, { recursive: true, force: true }).catch(() => {});
+  await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
+  await fs.rm(promptFile, { force: true }).catch(() => {});
+  console.log(`[wa-web] Instância ${botId} removida (dados + sessão WhatsApp)`);
 }
 
 /** Sincroniza arquivos de config/prompt sem matar o processo WhatsApp (evita desconectar). */
@@ -507,6 +527,22 @@ export async function getWaPhoneForBot(bot: BotConfig): Promise<string | null> {
   if (isMetaBot(bot)) return null;
   const runtime = await fetchWebBotState(bot.id);
   if (runtime.whatsappNumber?.trim()) return runtime.whatsappNumber.trim();
+
+  const proc = processes.get(bot.id);
+  if (proc && runtime.connected) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${proc.port}/api/phone`, {
+        signal: AbortSignal.timeout(8000)
+      });
+      if (response.ok) {
+        const data = (await response.json()) as { whatsappNumber?: string };
+        if (data.whatsappNumber?.trim()) return data.whatsappNumber.trim();
+      }
+    } catch {
+      // fallback abaixo
+    }
+  }
+
   const fileStatus = await readStatusFile(bot.id);
   return fileStatus.whatsappNumber?.trim() || null;
 }

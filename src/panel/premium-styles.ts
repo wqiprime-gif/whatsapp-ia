@@ -2112,6 +2112,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .wa-rand-intro { font-size: 0.88rem; color: var(--text-2); line-height: 1.6; margin: 0; }
 .wa-rand-online { color: #22C55E; font-weight: 600; }
 .wa-rand-warn { color: #EAB308; font-weight: 600; }
+.wa-rand-ai-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  padding: 12px 16px; border-radius: 12px;
+  background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.18);
+  font-size: 0.82rem;
+}
+.wa-rand-ai-label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; width: 100%; }
+.wa-rand-ai-banner code { font-size: 0.78rem; color: #93c5fd; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
+.wa-rand-ai-link { color: var(--green-bright); font-size: 0.78rem; margin-left: auto; }
+.wa-inst-ai { display: block; font-size: 0.72rem; color: #93c5fd; margin-top: 2px; }
 .wa-rand-section-title { margin: 0 0 16px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .wa-rand-create { padding: 22px 24px; }
 .wa-rand-form { display: flex; flex-direction: column; gap: 14px; }

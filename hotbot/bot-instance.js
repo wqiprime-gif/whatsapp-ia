@@ -2082,6 +2082,7 @@ function schedulePersistWhatsappNumber() {
 
 app.get('/api/status', (_req, res) => {
   const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  if (connected && !cachedWhatsappNumber) persistWhatsappNumber();
   return res.json({
     ok: true,
     state: connectionState,
@@ -2090,7 +2091,19 @@ app.get('/api/status', (_req, res) => {
     qrAvailable: connectionState === 'qr_pending' && Boolean(lastQrUrl),
     error: lastErrorMessage || undefined,
     chromium: chromiumPath || null,
-    instanceDir: instancesDataDir
+    instanceDir: instancesDataDir,
+    aiModel: process.env.AI_MODEL || undefined,
+    aiProvider: process.env.AI_PROVIDER || undefined
+  });
+});
+
+app.get('/api/phone', (_req, res) => {
+  const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  if (connected) persistWhatsappNumber();
+  return res.json({
+    ok: true,
+    connected,
+    whatsappNumber: cachedWhatsappNumber || null
   });
 });
 

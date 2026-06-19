@@ -10,6 +10,9 @@ export function waQrPage(bot: BotConfig, partial = false, userName = "Usuario") 
         <p class="hero-sub">Escaneie com o WhatsApp do celular para conectar a instância.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <form method="post" action="/instances/${bot.id}/reset-wa-session" style="display:inline" onsubmit="return confirm('Apagar sessão WhatsApp salva e gerar QR novo?')">
+          <button type="submit" class="btn btn-danger">Nova sessão (QR)</button>
+        </form>
         <form method="post" action="/restart" style="display:inline">
           <button type="submit" class="btn btn-secondary">Reiniciar motor</button>
         </form>
