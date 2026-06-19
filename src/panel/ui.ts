@@ -424,6 +424,10 @@ export function profilePage(
   const salesReais = (stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const shortId = user.id.slice(0, 8);
 
+  const avatarSrc = user.avatarUrl?.trim()
+    ? `${escapeHtml(user.avatarUrl)}${user.avatarUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
+    : "";
+
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
     <div class="profile-shell">
@@ -438,10 +442,11 @@ export function profilePage(
           <div class="card-body profile-identity">
             <form method="post" action="/perfil" enctype="multipart/form-data" class="profile-form">
               <div class="profile-form-top">
-              <label class="profile-avatar-upload" title="Alterar foto">
-                ${user.avatarUrl?.trim() ? `<img class="profile-avatar-img" src="${escapeHtml(user.avatarUrl)}" alt="" />` : `<span class="profile-avatar-placeholder">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>`}
+              <label class="profile-avatar-upload" title="Clique para alterar foto">
+                <img id="profile-avatar-preview" class="profile-avatar-img" src="${avatarSrc}" alt="" style="${avatarSrc ? "" : "display:none"}" />
+                <span class="profile-avatar-placeholder" style="${avatarSrc ? "display:none" : ""}">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>
                 <span class="profile-avatar-camera">${icons.image}</span>
-                <input type="file" name="avatarFile" accept="image/*" />
+                <input type="file" name="avatarFile" accept="image/jpeg,image/png,image/webp" />
               </label>
               <div class="profile-identity-info">
                 <label class="field">Nome completo<input name="name" value="${escapeHtml(user.name)}" required /></label>
@@ -477,7 +482,26 @@ export function profilePage(
           </div>
         </div>
       </div>
-    </div>`;
+    </div>
+    <script>
+    (function(){
+      var inp = document.querySelector('.profile-avatar-upload input[type=file]');
+      var img = document.getElementById('profile-avatar-preview');
+      var ph = document.querySelector('.profile-avatar-placeholder');
+      if (!inp || !img) return;
+      inp.addEventListener('change', function(){
+        var f = inp.files && inp.files[0];
+        if (!f) return;
+        var r = new FileReader();
+        r.onload = function(){
+          img.src = r.result;
+          img.style.display = 'block';
+          if (ph) ph.style.display = 'none';
+        };
+        r.readAsDataURL(f);
+      });
+    })();
+    </script>`;
 
   return appLayout("Minha conta", "profile", body, partial, userLabel || user.email, "Perfil e preferências", user.avatarUrl ?? "");
 }

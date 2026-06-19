@@ -276,9 +276,11 @@ export const panelClientScript = `
     }
     const feed = document.querySelector("[data-live=activity-feed]");
     if (feed && data.activityHtml) {
-      feed.innerHTML = data.activityHtml;
-      feed.classList.add("activity-feed-flash");
-      setTimeout(() => feed.classList.remove("activity-feed-flash"), 600);
+      const prev = feed.getAttribute("data-feed-sig") || "";
+      if (prev !== data.activityHtml) {
+        feed.innerHTML = data.activityHtml;
+        feed.setAttribute("data-feed-sig", data.activityHtml);
+      }
     }
     const top = document.querySelector("[data-live=top-bots]");
     if (top && data.topBotsHtml) top.innerHTML = data.topBotsHtml;

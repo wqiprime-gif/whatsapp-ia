@@ -3,9 +3,9 @@ export const designSystem = {
   colors: {
     bgBase: "#000000",
     bgElevated: "#050505",
-    bgSidebar: "rgba(4, 4, 4, 0.96)",
-    bgCard: "rgba(8, 10, 8, 0.92)",
-    bgCardSolid: "rgba(6, 8, 6, 0.98)",
+    bgSidebar: "#050505",
+    bgCard: "#0a0a0a",
+    bgCardSolid: "#080808",
     bgCardHover: "rgba(12, 16, 12, 0.95)",
     border: "rgba(255, 255, 255, 0.06)",
     borderHighlight: "rgba(37, 211, 102, 0.35)",

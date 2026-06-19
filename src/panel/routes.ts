@@ -951,11 +951,15 @@ export async function registerPanelRoutes(
     try {
       const { fields, avatarUrl } = await parseProfileMultipart(request);
       const full = await getUserById(user.id);
-      await updateUserProfile(user.id, {
-        name: fields.name,
-        avatarUrl: avatarUrl || full?.avatarUrl || ""
-      });
-      return reply.redirect(flashRedirect("/perfil", "Perfil atualizado!"));
+      const patch: { name?: string; avatarUrl?: string } = {};
+      if (fields.name?.trim()) patch.name = fields.name.trim();
+      if (avatarUrl) patch.avatarUrl = avatarUrl;
+      if (Object.keys(patch).length === 0) {
+        return reply.redirect(flashRedirect("/perfil", "Nada para salvar.", "err"));
+      }
+      await updateUserProfile(user.id, patch);
+      const msg = avatarUrl ? "Perfil e foto atualizados!" : "Perfil atualizado!";
+      return reply.redirect(flashRedirect("/perfil", msg));
     } catch (error) {
       return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));
     }

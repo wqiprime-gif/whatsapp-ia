@@ -19,74 +19,98 @@ function cleanName(raw: string) {
     .slice(0, 80);
 }
 
-function extractPacotesSection(text: string) {
-  const match = text.match(
-    /pacotes?\s*:?\s*\r?\n([\s\S]*?)(?=\r?\n\s*(?:CHAMADA|M[IÍ]NIMOS|USE |\[\[|PR[EÉ]VIAS|FLUXO|COMPROVANTE|SE O LEAD|M[IÍ]DIAS|$))/i
+function parseProductLine(trimmed: string): ParsedPromptProduct | null {
+  if (!trimmed || !/R\$\s*\d/i.test(trimmed)) return null;
+  if (/m[ií]nimo|negoci|exemplo:/i.test(trimmed)) return null;
+
+  const colonPrice = trimmed.match(
+    /^(?:[-•*]\s*)?([^:\n]+?)\s*:[^R$\n]*R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i
   );
-  return match?.[1]?.trim() || text;
+  if (colonPrice) {
+    const name = cleanName(colonPrice[1]);
+    const priceCents = parsePriceCents(colonPrice[2], colonPrice[3]);
+    if (name.length >= 2 && priceCents >= 100) return { name, priceCents };
+  }
+
+  const dashPrice = trimmed.match(
+    /^(?:[-•*]\s*)?(.+?)\s+[-–—]\s*R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i
+  );
+  if (dashPrice) {
+    const name = cleanName(dashPrice[1]);
+    const priceCents = parsePriceCents(dashPrice[2], dashPrice[3]);
+    if (name.length >= 2 && priceCents >= 100) return { name, priceCents };
+  }
+
+  const inlinePrice = trimmed.match(/^(?:[-•*]\s*)?(.+?)\s+R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i);
+  if (inlinePrice) {
+    const name = cleanName(inlinePrice[1]);
+    const priceCents = parsePriceCents(inlinePrice[2], inlinePrice[3]);
+    if (name.length >= 2 && priceCents >= 100) return { name, priceCents };
+  }
+
+  return null;
 }
 
-function parseLines(text: string, results: ParsedPromptProduct[], seen: Set<string>) {
-  for (const line of text.split("\n")) {
+/** Lê linhas com bullet abaixo de "Pacotes:" até próxima seção. */
+function parsePacotesBullets(text: string): ParsedPromptProduct[] {
+  const lines = text.split(/\r?\n/);
+  let inPacotes = false;
+  const results: ParsedPromptProduct[] = [];
+  const seen = new Set<string>();
+
+  for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("USE ") || /\[\[/.test(trimmed)) continue;
-    if (/m[ií]nimo|negoci|exemplo:/i.test(trimmed)) continue;
+    if (/^pacotes?\s*:?\s*$/i.test(trimmed)) {
+      inPacotes = true;
+      continue;
+    }
+    if (!inPacotes) continue;
+    if (!trimmed) continue;
 
-    const colonPrice = trimmed.match(
-      /^(?:[-•*]\s*)?([^:\n]+?)\s*:[^R$\n]*R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i
-    );
-    if (colonPrice) {
-      const name = cleanName(colonPrice[1]);
-      const priceCents = parsePriceCents(colonPrice[2], colonPrice[3]);
-      if (name.length >= 2 && priceCents >= 100) {
-        const key = `${name.toLowerCase()}:${priceCents}`;
+    if (/^[-•*]\s/.test(trimmed)) {
+      const item = parseProductLine(trimmed);
+      if (item) {
+        const key = item.name.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
-          results.push({ name, priceCents });
+          results.push(item);
         }
       }
       continue;
     }
 
-    const dashPrice = trimmed.match(
-      /^(?:[-•*]\s*)?(.+?)\s+[-–—]\s*R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i
-    );
-    if (dashPrice) {
-      const name = cleanName(dashPrice[1]);
-      const priceCents = parsePriceCents(dashPrice[2], dashPrice[3]);
-      if (name.length >= 2 && priceCents >= 100) {
-        const key = `${name.toLowerCase()}:${priceCents}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          results.push({ name, priceCents });
-        }
-      }
-      continue;
+    if (/^(?:CHAMADA|M[IÍ]NIMOS|USE |\[\[|FLUXO|PR[EÉ]VIAS|COMPROVANTE|SE O LEAD)/i.test(trimmed)) {
+      break;
     }
-
-    const inlinePrice = trimmed.match(/^(?:[-•*]\s*)?(.+?)\s+R\$\s*(\d{1,4})(?:[,.](\d{2}))?/i);
-    if (inlinePrice) {
-      const name = cleanName(inlinePrice[1]);
-      const priceCents = parsePriceCents(inlinePrice[2], inlinePrice[3]);
-      if (name.length >= 2 && priceCents >= 100) {
-        const key = `${name.toLowerCase()}:${priceCents}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          results.push({ name, priceCents });
-        }
-      }
+    if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{2,}:?\s*$/.test(trimmed) && !/R\$/i.test(trimmed)) {
+      break;
     }
+    if (results.length > 0) break;
   }
+
+  return results;
+}
+
+function parseAllBulletPrices(text: string): ParsedPromptProduct[] {
+  const results: ParsedPromptProduct[] = [];
+  const seen = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!/^[-•*]\s/.test(trimmed)) continue;
+    const item = parseProductLine(trimmed);
+    if (!item) continue;
+    const key = item.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(item);
+  }
+  return results;
 }
 
 export function parseProductsFromPrompt(prompt: string): ParsedPromptProduct[] {
-  const results: ParsedPromptProduct[] = [];
-  const seen = new Set<string>();
   const text = String(prompt || "");
-  const pacotesBlock = extractPacotesSection(text);
-
-  parseLines(pacotesBlock, results, seen);
-  if (results.length === 0) parseLines(text, results, seen);
+  let results = parsePacotesBullets(text);
+  if (results.length === 0) results = parseAllBulletPrices(text);
 
   if (results.length > 0) {
     const byName = new Map<string, ParsedPromptProduct>();
@@ -97,21 +121,23 @@ export function parseProductsFromPrompt(prompt: string): ParsedPromptProduct[] {
     return [...byName.values()];
   }
 
-  const section = pacotesBlock || (text.match(/pacotes?[\s\S]{0,1200}/i)?.[0] ?? text);
+  const section = text.match(/pacotes?[\s\S]{0,1500}/i)?.[0] ?? text;
   const priceRe = /R\$\s*(\d{1,4})[,.](\d{2})/gi;
   const fallbackNames = ["Pacote Básico", "Chamada Vídeo", "Pacote Completo", "VIP"];
+  const seen = new Set<string>();
   let i = 0;
   let pm: RegExpExecArray | null;
+  const fallback: ParsedPromptProduct[] = [];
   while ((pm = priceRe.exec(section)) !== null && i < 8) {
     const priceCents = parsePriceCents(pm[1], pm[2]);
     const name = fallbackNames[i] ?? `Pacote ${i + 1}`;
     const key = `${name}:${priceCents}`;
     if (!seen.has(key) && priceCents >= 100) {
       seen.add(key);
-      results.push({ name, priceCents });
+      fallback.push({ name, priceCents });
       i++;
     }
   }
 
-  return results;
+  return fallback;
 }

@@ -68,7 +68,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Ambiente: grid neon + glow */
+/* Ambiente: grid sutil preto puro */
 .ambient {
   position: fixed;
   inset: 0;
@@ -76,20 +76,11 @@ body {
   z-index: 0;
   background-color: #000;
   background-image:
-    linear-gradient(rgba(37, 211, 102, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 211, 102, 0.025) 1px, transparent 1px),
-    radial-gradient(ellipse 55% 45% at 10% 0%, rgba(37, 211, 102, 0.1), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 95% 15%, rgba(37, 211, 102, 0.06), transparent 50%),
-    radial-gradient(ellipse 40% 35% at 50% 100%, rgba(37, 211, 102, 0.05), transparent 50%);
-  background-size: 48px 48px, 48px 48px, auto, auto;
+    linear-gradient(rgba(37, 211, 102, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 211, 102, 0.015) 1px, transparent 1px);
+  background-size: 56px 56px, 56px 56px;
 }
-.ambient::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+.ambient::after { display: none; }
 .brand-mark { display: flex; align-items: center; gap: 12px; }
 .brand-mark--wa {
   flex-direction: column;
@@ -176,28 +167,25 @@ button, input, textarea, select { font-family: inherit; }
 .content > *:nth-child(3) { animation-delay: 0.16s; }
 .content > *:nth-child(4) { animation-delay: 0.22s; }
 
-/* Sidebar */
-/* Sidebar — colapsa, expande no hover */
+/* Sidebar — colapsa, expande no hover (overlay, sem empurrar layout) */
 .sidebar {
   width: 72px;
-  background: var(--sidebar);
-  backdrop-filter: blur(var(--glass-blur)) saturate(${ds.glass.saturate});
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(${ds.glass.saturate});
-  border-right: 1px solid var(--border);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+  background: #050505;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   padding: 22px 12px;
   position: fixed;
   top: 0; left: 0; bottom: 0;
-  z-index: 40;
+  z-index: 50;
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.38s;
+  transition: width 0.22s ease, box-shadow 0.22s ease;
+  contain: layout style;
 }
 .sidebar:hover {
   width: 280px;
-  box-shadow: 12px 0 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.85);
 }
 .sidebar:not(:hover) .nav-text,
 .sidebar:not(:hover) .brand-copy,
@@ -361,18 +349,17 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar-plan a {
   display: block; margin-top: 12px; text-align: center;
   padding: 9px; border-radius: 10px; font-size: 0.78rem; font-weight: 600;
-  background: rgba(61, 200, 255, 0.1); color: var(--primary);
-  border: 1px solid rgba(61, 200, 255, 0.2);
+  background: rgba(37, 211, 102, 0.1); color: var(--primary);
+  border: 1px solid rgba(37, 211, 102, 0.2);
 }
-.sidebar-plan a:hover { background: rgba(61, 200, 255, 0.18); }
+.sidebar-plan a:hover { background: rgba(37, 211, 102, 0.18); }
 
-/* Main */
+/* Main — margem fixa; sidebar expande por cima sem travar */
 .main-wrap {
   flex: 1; margin-left: 72px;
-  transition: margin-left 0.38s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; min-height: 100vh;
+  background: #000;
 }
-.app:has(.sidebar:hover) .main-wrap { margin-left: 280px; }
 .topbar {
   height: 68px; border-bottom: 1px solid var(--border);
   display: grid;
@@ -380,10 +367,7 @@ button, input, textarea, select { font-family: inherit; }
   align-items: center;
   gap: 16px;
   padding: 0 24px;
-  background: rgba(8, 16, 28, 0.65);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: #000;
   position: sticky; top: 0; z-index: 30;
 }
 .topbar-left h1 {

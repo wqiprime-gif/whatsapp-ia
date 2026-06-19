@@ -711,11 +711,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.15), 0 0 24px rgba(37, 211, 102, 0.1);
 }
 .card-premium {
-  border-color: rgba(37, 211, 102, 0.15) !important;
-  background: rgba(6, 12, 10, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: #0a0a0a !important;
 }
 .card-premium .card-head {
-  background: rgba(0, 0, 0, 0.2);
+  background: #050505;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 /* —— KPI STRIP + LIVE FEED —— */
@@ -733,16 +734,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .kpi-card-pro {
   padding: 18px 18px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(165deg, rgba(6, 12, 10, 0.95), rgba(0, 0, 0, 0.5));
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  transition: transform 0.25s, border-color 0.25s;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #0a0a0a;
+  box-shadow: none;
+  transition: border-color 0.2s;
   animation: rise-in 0.5s var(--ease) both;
 }
 .kpi-card-pro:hover {
-  transform: translateY(-3px);
-  border-color: rgba(37, 211, 102, 0.28);
+  border-color: rgba(37, 211, 102, 0.22);
 }
 .kpi-card-top {
   display: flex;
@@ -818,11 +818,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   align-items: center;
 }
 .activity-feed-live { max-height: 420px; overflow-y: auto; }
-.activity-feed-flash { animation: feed-flash 0.6s ease; }
-@keyframes feed-flash {
-  from { background: rgba(37, 211, 102, 0.08); }
-  to { background: transparent; }
-}
 
 .dash-charts-hero--3 {
   grid-template-columns: 1.6fr 1fr 1fr !important;
@@ -894,8 +889,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 /* Efeito Shark — listra verde circulando na borda, aparece devagar e aleatório */
 .dash-glow-card {
   position: relative;
-  border-radius: 16px;
-  background: rgba(6, 8, 6, 0.94);
+  border-radius: 14px;
+  background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.04);
   overflow: hidden;
   isolation: isolate;

@@ -44,8 +44,10 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
 export function userAvatarHtml(avatarUrl: string, label: string, large = false) {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
   const cls = large ? "user-avatar user-avatar--lg" : "user-avatar";
-  if (avatarUrl?.trim()) {
-    return `<img class="${cls} user-avatar-img" src="${escapeHtml(avatarUrl)}" alt="" />`;
+  const src = avatarUrl?.trim();
+  if (src) {
+    const bust = src.includes("?") ? "&" : "?";
+    return `<img class="${cls} user-avatar-img" src="${escapeHtml(src + bust + "t=1")}" alt="" />`;
   }
   return `<div class="${cls}">${initials}</div>`;
 }
