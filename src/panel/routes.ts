@@ -611,6 +611,44 @@ export async function registerPanelRoutes(
     return reply.type("text/html").send(html);
   });
 
+  app.get("/api/panel/avatar", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const full = await getUserById(user.id);
+    const url = full?.avatarUrl?.trim() ?? "";
+    if (!url) return reply.code(404).send();
+
+    if (url.startsWith("data:")) {
+      const match = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return reply.code(404).send();
+      const buf = Buffer.from(match[2]!, "base64");
+      return reply
+        .type(match[1]!)
+        .header("Cache-Control", "private, max-age=300")
+        .send(buf);
+    }
+
+    if (url.startsWith("/uploads/")) {
+      const fileName = path.basename(url.split("?")[0]!);
+      const filePath = path.join(uploadsDir, fileName);
+      try {
+        await fs.access(filePath);
+      } catch {
+        return reply.code(404).send();
+      }
+      return reply
+        .type(mimeTypeFromPath(filePath))
+        .header("Cache-Control", "private, max-age=300")
+        .send(fsSync.createReadStream(filePath));
+    }
+
+    if (url.startsWith("http")) {
+      return reply.redirect(url);
+    }
+
+    return reply.code(404).send();
+  });
+
   app.get("/api/panel/me", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;

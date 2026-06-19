@@ -166,9 +166,10 @@ export const panelClientScript = `
     }
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
     const cached = localStorage.getItem(LS_AVATAR) || "";
-    const dataSrc = img.getAttribute("data-avatar-src") || "";
     const cachedData = cached.indexOf("data:") === 0 ? cached : "";
-    const trySrc = preview || cachedData || src || dataSrc || cached || "";
+    const apiAvatar = slot.getAttribute("data-avatar-api") === "1";
+    const dataSrc = img.getAttribute("data-avatar-src") || "";
+    let trySrc = preview || cachedData || (apiAvatar ? "/api/panel/avatar" : "") || src || dataSrc || cached || "";
     if (!trySrc) {
       img.hidden = true;
       fb.classList.remove("user-avatar-fallback--hidden");
@@ -183,14 +184,21 @@ export const panelClientScript = `
     img.onerror = function () {
       img.hidden = true;
       fb.classList.remove("user-avatar-fallback--hidden");
-      if (preview && img.src !== preview && trySrc !== preview) {
+      if (preview && img.src !== preview) {
         img.src = preview;
+        return;
+      }
+      if (apiAvatar && img.src.indexOf("/api/panel/avatar") >= 0 && cachedData) {
+        img.src = cachedData;
       }
     };
-    img.src =
-      trySrc.indexOf("data:") === 0
-        ? trySrc
-        : trySrc.split("?")[0] + "?v=" + Date.now();
+    if (trySrc.indexOf("data:") === 0) {
+      img.src = trySrc;
+    } else if (trySrc.indexOf("/api/panel/avatar") === 0) {
+      img.src = trySrc.split("?")[0] + "?v=" + Date.now();
+    } else {
+      img.src = trySrc.split("?")[0] + "?v=" + Date.now();
+    }
   }
 
   function syncTopbarFromProfilePreview() {
@@ -327,6 +335,10 @@ export const panelClientScript = `
         pill.insertBefore(slot, infoWrap);
       }
       hydrateAvatarSlot(slot, avatarSrc, initials);
+      const apiImg = slot.querySelector(".user-avatar-img");
+      if (apiImg && slot.getAttribute("data-avatar-api") === "1") {
+        apiImg.src = "/api/panel/avatar?v=" + Date.now();
+      }
     } catch (_) {}
   }
 

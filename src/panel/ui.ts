@@ -40,6 +40,11 @@ function glowStyle(i: number) {
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
 }
 
+function sharkIconBox(icon: string, large = false) {
+  const cls = large ? " shark-icon-box--lg" : "";
+  return `<span class="shark-icon-box${cls}" aria-hidden="true">${icon}</span>`;
+}
+
 export function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -297,7 +302,7 @@ export function dashboardPage(
 
     <div class="shark-dash-head">
       <div class="shark-fat-pill dash-glow-card" style="${glowStyle(0)}">
-        <div class="shark-fat-icon">${icons.card}</div>
+        ${sharkIconBox(icons.dollar, true)}
         <div class="shark-fat-body">
           <span class="shark-fat-label">Faturamento</span>
           <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
@@ -316,8 +321,8 @@ export function dashboardPage(
       </div>
     </div>
 
-    <div class="shark-period-bar">
-      <span class="shark-period-label">${icons.layers} Período</span>
+    <div class="shark-period-bar dash-glow-card" style="${glowStyle(0)}">
+      <span class="shark-period-label">${sharkIconBox(icons.calendar)} Período</span>
       <div class="shark-period-tabs" data-period-tabs>
         <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>
         <button type="button" class="shark-period-tab" data-period="ontem">Ontem</button>
@@ -330,7 +335,7 @@ export function dashboardPage(
     <div class="shark-main-grid">
       <div class="shark-kpi-grid">
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(1)}">
-          <div class="shark-kpi-icon">${icons.card}</div>
+          ${sharkIconBox(icons.dollar)}
           <span class="shark-kpi-label">Vendas aprovadas</span>
           <div class="shark-kpi-value" data-live-stat="salesValue">R$ ${salesReais}</div>
           <div class="shark-kpi-foot">
@@ -339,18 +344,18 @@ export function dashboardPage(
           </div>
         </div>
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(2)}">
-          <div class="shark-kpi-icon">${icons.sparkles}</div>
+          ${sharkIconBox(icons.trending)}
           <span class="shark-kpi-label">Taxa de conversão</span>
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(3)}">
-          <div class="shark-kpi-icon">${icons.users}</div>
+          ${sharkIconBox(icons.bolt)}
           <span class="shark-kpi-label">Total starts</span>
           <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
           <span class="shark-kpi-sub">leads iniciaram conversa</span>
         </div>
         <div class="shark-kpi-card dash-glow-card" style="${glowStyle(4)}">
-          <div class="shark-kpi-icon">${icons.card}</div>
+          ${sharkIconBox(icons.ticket)}
           <span class="shark-kpi-label">Ticket médio</span>
           <div class="shark-kpi-value">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
@@ -358,9 +363,12 @@ export function dashboardPage(
       </div>
       <div class="shark-chart-card dash-glow-card" style="${glowStyle(5)}">
         <div class="card-head shark-chart-head">
-          <div>
-            <h3>${icons.layers} Seu desempenho</h3>
-            <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
+          <div class="shark-card-head-row">
+            ${sharkIconBox(icons.pulse)}
+            <div>
+              <h3>Seu desempenho</h3>
+              <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
+            </div>
           </div>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
         </div>
@@ -373,9 +381,12 @@ export function dashboardPage(
     <div class="shark-bottom-grid">
       <div class="dash-glow-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
         <div class="card-head">
-          <div>
-            <h3><span class="live-pulse" aria-hidden="true"></span> Log de atividades</h3>
-            <span class="shark-card-sub">Tempo real</span>
+          <div class="shark-card-head-row">
+            ${sharkIconBox(icons.pulse)}
+            <div>
+              <h3><span class="live-pulse" aria-hidden="true"></span> Log de atividades</h3>
+              <span class="shark-card-sub">Tempo real</span>
+            </div>
           </div>
           <span class="live-badge">Ao vivo</span>
         </div>
@@ -383,9 +394,12 @@ export function dashboardPage(
       </div>
       <div class="dash-glow-card card card-premium shark-award-card" style="${glowStyle(1)}">
         <div class="card-head">
-          <div>
-            <h3>${icons.trophy} Premiações</h3>
-            <span class="shark-card-sub">Conquiste novas placas</span>
+          <div class="shark-card-head-row">
+            ${sharkIconBox(icons.trophy)}
+            <div>
+              <h3>Premiações</h3>
+              <span class="shark-card-sub">Conquiste novas placas</span>
+            </div>
           </div>
         </div>
         <div class="card-body shark-award-body">
@@ -398,9 +412,12 @@ export function dashboardPage(
       </div>
       <div class="dash-glow-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">
-          <div>
-            <h3>${icons.trophy} Top 5 Players</h3>
-            <span class="shark-card-sub">Corrida de faturamento</span>
+          <div class="shark-card-head-row">
+            ${sharkIconBox(icons.crown)}
+            <div>
+              <h3>Top 5 Players</h3>
+              <span class="shark-card-sub">Corrida de faturamento</span>
+            </div>
           </div>
         </div>
         <div class="card-body">

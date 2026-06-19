@@ -88,21 +88,11 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
   return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
-export function userAvatarHtml(avatarUrl: string, label: string, large = false, cacheBust = "") {
+export function userAvatarHtml(avatarUrl: string, label: string, large = false, _cacheBust = "") {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
   const lg = large ? " user-avatar--lg" : "";
   const imgLg = large ? " user-avatar-img--lg" : "";
-  const src = avatarUrl?.trim();
-  if (src?.startsWith("data:")) {
-    return `<span class="user-avatar-slot" data-avatar-deferred="1"><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
-  }
-  let imgTag = "";
-  if (src && (src.startsWith("/uploads/") || src.startsWith("http"))) {
-    const bust = cacheBust || String(Date.now());
-    const sep = src.includes("?") ? "&" : "?";
-    imgTag = `<img class="user-avatar-img${imgLg}" data-avatar-src="${escapeHtml(src + sep + "v=" + bust)}" alt="" decoding="async" hidden />`;
-  }
-  return `<span class="user-avatar-slot">${imgTag}<div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
+  return `<span class="user-avatar-slot" data-avatar-api="1"><img class="user-avatar-img${imgLg}" src="/api/panel/avatar" alt="" decoding="async" hidden /><div class="user-avatar user-avatar-fallback${lg}">${initials}</div></span>`;
 }
 
 export function appLayout(

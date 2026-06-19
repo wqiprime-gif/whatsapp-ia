@@ -183,24 +183,40 @@ button, input, textarea, select { font-family: inherit; }
   transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   contain: layout style;
 }
+.sidebar::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 2px;
+  height: 72px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(37, 211, 102, 0.25) 20%,
+    #25D366 45%,
+    #3de07a 55%,
+    #25D366 75%,
+    rgba(37, 211, 102, 0.25) 90%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 4;
+  animation: shark-sidebar-beam 3.2s linear infinite;
+}
+@keyframes shark-sidebar-beam {
+  0% { top: -72px; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
 .sidebar::after {
   content: "";
   position: absolute;
   top: 0; right: 0; bottom: 0;
   width: 1px;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(37, 211, 102, 0.15) 15%,
-    #25D366 35%,
-    #3de07a 50%,
-    #25D366 65%,
-    rgba(37, 211, 102, 0.15) 85%,
-    transparent 100%
-  );
+  background: rgba(37, 211, 102, 0.08);
   pointer-events: none;
   z-index: 3;
-  animation: shark-edge-pulse 3s ease-in-out infinite;
 }
 .sidebar:hover {
   width: 280px;
