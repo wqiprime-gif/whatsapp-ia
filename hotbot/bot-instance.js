@@ -89,12 +89,22 @@ function writeConnectionStatus(state, errorMessage = '', whatsappNumber = null) 
   connectionState = state;
   if (errorMessage) lastErrorMessage = errorMessage;
   try {
+    let existingNumber = cachedWhatsappNumber || null;
+    if (!existingNumber && fs.existsSync(statusFilePath)) {
+      try {
+        const prev = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
+        existingNumber = prev.whatsappNumber?.trim() || null;
+      } catch (_) {}
+    }
+    const numberToSave = whatsappNumber || existingNumber || null;
+    if (numberToSave) cachedWhatsappNumber = numberToSave;
+
     const payload = {
       state,
       error: lastErrorMessage || undefined,
       updatedAt: new Date().toISOString()
     };
-    if (whatsappNumber) payload.whatsappNumber = whatsappNumber;
+    if (numberToSave) payload.whatsappNumber = numberToSave;
     fs.writeFileSync(statusFilePath, JSON.stringify(payload));
     if (errorMessage) {
       fs.writeFileSync(errorFilePath, String(errorMessage));
@@ -1546,6 +1556,10 @@ async function processGlobalQueue() {
   if (isGlobalProcessing || globalQueue.length === 0) return;
   isGlobalProcessing = true;
   const task = globalQueue.shift();
+  const waiting = globalQueue.length;
+  if (waiting > 0) {
+    console.log(`📋 [FILA] ${waiting} lead(s) aguardando — respondendo um por vez`);
+  }
   try {
     await task();
     leadsRespondidos++;
@@ -1560,7 +1574,7 @@ async function processGlobalQueue() {
       await new Promise(resolve => setTimeout(resolve, breakDelay));
     } else {
       const delay = getInterLeadDelay();
-      console.log(`⏳ [FILA] Próximo lead em ${Math.round(delay / 1000)}s... (${leadsRespondidos} respondidos)`);
+      console.log(`⏳ [FILA] Próximo lead em ${Math.round(delay / 1000)}s... (${leadsRespondidos} respondidos, ${globalQueue.length} na fila)`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -2037,6 +2051,12 @@ app.post('/api/prompt', (req, res) => {
 });
 
 let cachedWhatsappNumber = null;
+try {
+  if (fs.existsSync(statusFilePath)) {
+    const prev = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
+    if (prev.whatsappNumber) cachedWhatsappNumber = prev.whatsappNumber.trim();
+  }
+} catch (_) {}
 
 function persistWhatsappNumber() {
   try {
@@ -2044,10 +2064,20 @@ function persistWhatsappNumber() {
       cachedWhatsappNumber = client.info.wid._serialized || String(client.info.wid);
       writeConnectionStatus(connectionState, lastErrorMessage, cachedWhatsappNumber);
       console.log(`📱 Número conectado: ${cachedWhatsappNumber}`);
+      return true;
     }
   } catch (error) {
     console.error(`⚠️ Erro ao salvar WhatsApp number: ${error.message}`);
   }
+  return false;
+}
+
+function schedulePersistWhatsappNumber() {
+  [0, 1500, 4000, 8000].forEach((ms) => {
+    setTimeout(() => {
+      if (!cachedWhatsappNumber) persistWhatsappNumber();
+    }, ms);
+  });
 }
 
 app.get('/api/status', (_req, res) => {
@@ -2105,7 +2135,7 @@ let lastQrUrl = null;
 client.on('qr', (qr) => {
   if (hasPersistedWaSession()) {
     console.log('📱 QR ignorado — sessão salva no disco, reconectando...');
-    writeConnectionStatus('authenticated');
+    writeConnectionStatus('authenticated', '', cachedWhatsappNumber);
     return;
   }
 
@@ -2143,8 +2173,9 @@ io.on('connection', function(socket) {
 });
 
 client.on('ready', () => {
-  writeConnectionStatus('ready');
+  writeConnectionStatus('ready', '', cachedWhatsappNumber);
   persistWhatsappNumber();
+  schedulePersistWhatsappNumber();
   Object.values(clientSockets).forEach(socket => {
     socket.emit('ready', 'Dispositivo pronto!');
     socket.emit('message', 'Dispositivo pronto!');
@@ -2164,7 +2195,8 @@ client.on('ready', () => {
 });
 
 client.on('authenticated', () => {
-  writeConnectionStatus('authenticated');
+  writeConnectionStatus('authenticated', '', cachedWhatsappNumber);
+  schedulePersistWhatsappNumber();
   Object.values(clientSockets).forEach(socket => {
     socket.emit('authenticated', 'Autenticado!');
     socket.emit('message', 'Autenticado!');

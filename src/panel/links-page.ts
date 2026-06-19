@@ -19,7 +19,7 @@ export function waLinksPage(
   partial = false,
   userName = "Usuario"
 ) {
-  const connected = rows.filter((r) => r.status === "connected" || r.status === "meta_ready");
+  const connected = rows.filter((r) => (r.status === "connected" || r.status === "meta_ready") && r.phone);
   const distWithMsg = defaultMessage.trim()
     ? `${distUrl}${distUrl.includes("?") ? "&" : "?"}text=${encodeURIComponent(defaultMessage.trim())}`
     : distUrl;
@@ -30,8 +30,9 @@ export function waLinksPage(
       : rows
           .map((row) => {
             const on = row.status === "connected" || row.status === "meta_ready";
-            const pillCls = on ? "wa-link-pill--on" : "wa-link-pill--off";
-            const pillLabel = on ? "Conectado" : "Offline";
+            const hasPhone = Boolean(row.phone);
+            const pillCls = on && hasPhone ? "wa-link-pill--on" : on ? "wa-link-pill--warn" : "wa-link-pill--off";
+            const pillLabel = on && hasPhone ? "Conectado" : on ? "Sem número" : "Offline";
             const url = row.waUrl || "";
             const disabled = !on || !url;
             return `<div class="wa-link-card">

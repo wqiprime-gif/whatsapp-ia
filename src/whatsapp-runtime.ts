@@ -506,7 +506,9 @@ export async function getWaPhoneForBot(bot: BotConfig): Promise<string | null> {
   if (status !== "connected" && status !== "meta_ready") return null;
   if (isMetaBot(bot)) return null;
   const runtime = await fetchWebBotState(bot.id);
-  return runtime.whatsappNumber;
+  if (runtime.whatsappNumber?.trim()) return runtime.whatsappNumber.trim();
+  const fileStatus = await readStatusFile(bot.id);
+  return fileStatus.whatsappNumber?.trim() || null;
 }
 
 export async function getWaPhonesForBots(bots: BotConfig[]): Promise<Record<string, string | null>> {

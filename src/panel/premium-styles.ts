@@ -1673,7 +1673,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 @media (max-width: 1100px) {
   .shark-main-grid { grid-template-columns: 1fr; }
@@ -1691,7 +1691,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 132px;
+  min-height: 148px;
 }
 .shark-kpi-head {
   display: flex;
@@ -1793,7 +1793,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .conv-gauge-svg { width: 100%; max-width: 140px; height: auto; display: block; }
 .conv-gauge-sub { font-size: 0.68rem; color: var(--muted); text-align: center; }
 
-.shark-chart-card { display: flex; flex-direction: column; }
+.shark-chart-card { display: flex; flex-direction: column; height: 100%; }
 .shark-chart-head h3 { margin-bottom: 2px; }
 .shark-chart-sub {
   display: block;
@@ -1805,7 +1805,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-chart-card--pro .card-body,
 .shark-chart-card--pro .shark-chart-wrap {
-  flex: 0 0 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 0 16px 14px !important;
@@ -1813,6 +1813,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-chart-header {
   padding: 14px 16px 0;
+  flex-shrink: 0;
 }
 .shark-chart-card--pro .shark-chart-sub {
   color: rgba(59, 130, 246, 0.75);
@@ -1879,7 +1880,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 
 /* Gráfico Seu Desempenho — estilo Shark */
-.shark-perf-chart { width: 100%; display: flex; flex-direction: column; }
+.shark-perf-chart { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .shark-chart-legend {
   display: flex; align-items: center; gap: 8px;
   font-size: 0.78rem; color: #a1a1aa;
@@ -1904,13 +1905,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  height: 120px;
-  flex-shrink: 0;
-  overflow: visible;
+  flex: 1;
+  min-height: 200px;
 }
 .shark-chart-svg {
   width: 100%;
-  height: 120px;
+  height: 100%;
+  min-height: 200px;
   display: block;
   overflow: visible;
 }
@@ -2065,6 +2066,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   letter-spacing: 0.06em;
 }
 .wa-link-pill--on { background: rgba(34, 197, 94, 0.12); color: #22C55E; border: 1px solid rgba(34, 197, 94, 0.25); }
+.wa-link-pill--warn { background: rgba(234, 179, 8, 0.12); color: #EAB308; border: 1px solid rgba(234, 179, 8, 0.25); }
 .wa-link-pill--off { background: rgba(255, 255, 255, 0.04); color: var(--muted); border: 1px solid rgba(255, 255, 255, 0.06); }
 .wa-link-field {
   display: flex;
