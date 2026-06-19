@@ -297,7 +297,7 @@ export function sharkPerformanceChartHtml(
   const dots = coords
     .map(
       (c, i) =>
-        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#0A0A0A" stroke-width="2" pointer-events="none"/>`
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#050505" stroke-width="2" pointer-events="none"/>`
     )
     .join("");
   const hitW = chartW / Math.max(dayCount - 1, 1) * 0.85;

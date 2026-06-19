@@ -232,7 +232,7 @@ export const panelClientScript = `
     if (!src) return;
     const pill = document.getElementById("panel-user-pill");
     if (!pill) return;
-    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const label = (pill && pill.dataset.userLabel) || (document.getElementById("panel-user-name") || {}).textContent || "KA";
     const slot = pill.querySelector(".user-avatar-slot");
     hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
   }
@@ -330,9 +330,8 @@ export const panelClientScript = `
       const me = await res.json();
       const pill = document.getElementById("panel-user-pill");
       if (!pill) return;
-      const nameEl = document.getElementById("panel-user-name");
       const label = me.label || me.email || "Conta";
-      if (nameEl) nameEl.textContent = label;
+      pill.dataset.userLabel = label;
       const prev = localStorage.getItem(LS_AVATAR) || "";
       const next = me.avatarUrl || "";
       if (next !== prev) {
@@ -352,9 +351,7 @@ export const panelClientScript = `
         slot = document.createElement("span");
         slot.className = "user-avatar-slot";
         slot.setAttribute("data-avatar-api", "1");
-        const info = pill.querySelector(".name");
-        const infoWrap = info ? info.parentElement : null;
-        pill.insertBefore(slot, infoWrap);
+        pill.insertBefore(slot, pill.firstChild);
       }
       hydrateAvatarSlot(slot, avatarSrc, initials);
     } catch (_) {}
@@ -448,7 +445,7 @@ export const panelClientScript = `
     if (!src) return;
     const pill = document.getElementById("panel-user-pill");
     if (!pill) return;
-    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const label = (pill && pill.dataset.userLabel) || (document.getElementById("panel-user-name") || {}).textContent || "KA";
     const slot = pill.querySelector(".user-avatar-slot");
     if (src.indexOf("data:") === 0) {
       sessionStorage.setItem(LS_AVATAR_PREVIEW, src);
@@ -461,7 +458,7 @@ export const panelClientScript = `
   document.querySelectorAll(".user-avatar-slot").forEach((slot) => {
     const pill = slot.closest(".user-pill");
     const img = slot.querySelector(".user-avatar-img");
-    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const label = (pill && pill.dataset.userLabel) || (document.getElementById("panel-user-name") || {}).textContent || "KA";
     const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
     const cached = localStorage.getItem(LS_AVATAR) || "";
     const serverSrc =
@@ -475,9 +472,12 @@ export const panelClientScript = `
   refreshUserPill().then(() => syncTopbarFromProfilePreview());
 
   const toastRoot = document.getElementById("panel-toasts");
+  const salePopupRoot = document.getElementById("sale-popup-root");
   const bellBtn = document.querySelector(".icon-btn.bell-btn");
   const bellBadge = document.querySelector(".bell-badge");
   const bellMenu = document.getElementById("bell-menu");
+
+  const SALE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
 
   function showToast(title, body) {
     if (!toastRoot) return;
@@ -488,9 +488,70 @@ export const panelClientScript = `
     el.querySelector("button").addEventListener("click", () => el.remove());
     setTimeout(() => el.classList.add("show"), 10);
     setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 8000);
+  }
+
+  function dismissSalePopup(el) {
+    if (!el) return;
+    el.classList.remove("show");
+    el.classList.add("leaving");
+    setTimeout(() => el.remove(), 450);
+  }
+
+  function showSalePopup(sale) {
+    if (!salePopupRoot || !sale) return;
+    const amount = sale.amountCents != null
+      ? money(Number(sale.amountCents))
+      : (sale.amount || "");
+    const subtitle = sale.subtitle || sale.productName || "Nova venda confirmada";
+    const el = document.createElement("div");
+    el.className = "sale-popup";
+    el.innerHTML =
+      '<div class="sale-popup-glow" aria-hidden="true"></div>' +
+      '<div class="sale-popup-icon" aria-hidden="true">' + SALE_ICON + '</div>' +
+      '<div class="sale-popup-body">' +
+        '<div class="sale-popup-title">Venda confirmada!</div>' +
+        '<div class="sale-popup-amount">' + amount + '</div>' +
+        '<div class="sale-popup-sub">' + subtitle + '</div>' +
+      '</div>' +
+      '<button type="button" class="sale-popup-close" aria-label="Fechar">×</button>';
+    salePopupRoot.querySelectorAll(".sale-popup").forEach((p) => dismissSalePopup(p));
+    salePopupRoot.appendChild(el);
+    el.querySelector(".sale-popup-close").addEventListener("click", () => dismissSalePopup(el));
+    setTimeout(() => el.classList.add("show"), 16);
+    setTimeout(() => dismissSalePopup(el), 7000);
+    showToast("Venda confirmada!", subtitle);
     if (Notification && Notification.permission === "granted") {
-      try { new Notification(title, { body }); } catch (_) {}
+      try { new Notification("Venda confirmada!", { body: amount + " · " + subtitle }); } catch (_) {}
     }
+  }
+
+  function handleLatestSale(latest) {
+    if (!latest || !latest.id) return;
+    const prev = localStorage.getItem(LS_LAST_SALE);
+    if (prev !== latest.id) {
+      if (prev) {
+        showSalePopup(latest);
+        if (bellBadge) {
+          bellBadge.style.display = "flex";
+          bellBadge.textContent = "!";
+        }
+      }
+      localStorage.setItem(LS_LAST_SALE, latest.id);
+    }
+  }
+
+  async function checkNewSales() {
+    try {
+      const res = await fetch("/api/panel/sale-ping", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      handleLatestSale(data.latestSale);
+      const bellSeen = Number(sessionStorage.getItem(LS_BELL_SEEN) || 0);
+      if (data.latestSaleAt && new Date(data.latestSaleAt).getTime() > bellSeen && bellBadge) {
+        bellBadge.style.display = "flex";
+        bellBadge.textContent = "!";
+      }
+    } catch (_) {}
   }
 
   if (bellBtn && bellMenu) {
@@ -567,25 +628,6 @@ export const panelClientScript = `
     const sparkMessages = document.querySelector("[data-live=spark-messages]");
     if (sparkMessages && data.sparkMessagesHtml) sparkMessages.innerHTML = data.sparkMessagesHtml;
     if (data.bellSales) updateBellMenu(data.bellSales);
-
-    const latest = data.latestSale;
-    if (latest && latest.id) {
-      const prev = localStorage.getItem(LS_LAST_SALE);
-      if (prev && prev !== latest.id) {
-        showToast("Venda confirmada!", latest.subtitle);
-        if (bellBadge) {
-          bellBadge.style.display = "flex";
-          bellBadge.textContent = "!";
-        }
-      }
-      localStorage.setItem(LS_LAST_SALE, latest.id);
-    }
-
-    const bellSeen = Number(sessionStorage.getItem(LS_BELL_SEEN) || 0);
-    if (data.latestSaleAt && new Date(data.latestSaleAt).getTime() > bellSeen && bellBadge) {
-      bellBadge.style.display = "flex";
-      bellBadge.textContent = "!";
-    }
   }
 
   async function refreshLive(silent) {
@@ -607,10 +649,13 @@ export const panelClientScript = `
     bindSharkCharts(document);
     refreshLive(true);
   }
+  checkNewSales();
   setInterval(() => {
-    if (document.hidden || location.pathname !== "/") return;
+    if (document.hidden) return;
+    checkNewSales();
+    if (location.pathname !== "/") return;
     refreshLive(true);
-  }, 8000);
+  }, 5000);
 
   function findNavRoute(q) {
     const query = q.trim().toLowerCase();

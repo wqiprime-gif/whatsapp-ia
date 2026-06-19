@@ -184,9 +184,8 @@ export function appLayout(
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>
             <div id="bell-menu" class="bell-menu"></div>
           </div>
-          <a href="/perfil" class="user-pill" id="panel-user-pill" title="Minha conta" data-avatar="${escapeHtml(userAvatar)}">
+          <a href="/perfil" class="user-pill user-pill--avatar-only" id="panel-user-pill" title="Minha conta" data-user-label="${escapeHtml(userName)}" data-avatar="${escapeHtml(userAvatar)}">
             ${userAvatarHtml(userAvatar, userName)}
-            <div><div class="name" id="panel-user-name">${escapeHtml(userName)}</div><div class="role">Conta ativa</div></div>
           </a>
         </div>
       </header>
@@ -195,6 +194,7 @@ export function appLayout(
     </div>
   </div>
   <div id="panel-toasts" class="panel-toasts"></div>
+  <div id="sale-popup-root" class="sale-popup-root" aria-live="polite"></div>
 ${panelClientScript}
   <script>${panelSceneScript("app")}</script>
 </body>

@@ -662,6 +662,23 @@ export async function registerPanelRoutes(
     });
   });
 
+  app.get("/api/panel/sale-ping", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const latestSale = await getLatestSale(user.id);
+    return reply.send({
+      latestSale: latestSale
+        ? {
+            id: latestSale.id,
+            subtitle: latestSale.subtitle,
+            amountCents: latestSale.amountCents,
+            productName: latestSale.productName
+          }
+        : null,
+      latestSaleAt: latestSale?.at ?? null
+    });
+  });
+
   app.get("/api/panel/live", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
@@ -725,7 +742,12 @@ export async function registerPanelRoutes(
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),
       sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#34d399"),
       latestSale: latestSale
-        ? { id: latestSale.id, subtitle: latestSale.subtitle }
+        ? {
+            id: latestSale.id,
+            subtitle: latestSale.subtitle,
+            amountCents: latestSale.amountCents,
+            productName: latestSale.productName
+          }
         : null,
       latestSaleAt: latestSale?.at ?? null,
       bellSales

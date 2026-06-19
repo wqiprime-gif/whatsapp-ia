@@ -60,11 +60,11 @@ body:not(.auth-body) .light-rays,
 body:not(.auth-body) .mesh-blob--app { display: none !important; }
 body:not(.auth-body) #panel-scene-canvas { opacity: 0; }
 body:not(.auth-body) .ambient {
-  background-color: #0A0A0A;
+  background-color: #050505;
   background-image: none;
 }
 
-.auth-body { overflow-x: hidden; overflow-y: auto; min-height: 100vh; background: #0A0A0A; }
+.auth-body { overflow-x: hidden; overflow-y: auto; min-height: 100vh; background: #050505; }
 .auth-body .ambient { display: none; }
 
 /* —— LOGIN —— */
@@ -528,7 +528,7 @@ body:not(.auth-body) .ambient {
 }
 
 .sidebar {
-  background: #0A0A0A !important;
+  background: #050505 !important;
   border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: none !important;
 }
@@ -544,7 +544,7 @@ body:not(.auth-body) .ambient {
   box-shadow: 0 0 24px rgba(37, 211, 102, 0.1) !important;
 }
 .topbar {
-  background: #0A0A0A !important;
+  background: #050505 !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 .brand-accent { color: var(--green-bright) !important; text-shadow: 0 0 32px var(--green-glow) !important; }
@@ -719,12 +719,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .card-premium {
   border-color: rgba(255, 255, 255, 0.06) !important;
-  background: #0f0f0f !important;
+  background: #0a0a0a !important;
   border-radius: 14px;
 }
 .card-premium > * { position: relative; z-index: 1; }
 .card-premium .card-head {
-  background: #0f0f0f;
+  background: #0a0a0a;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
@@ -745,7 +745,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 18px 18px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background: #0f0f0f;
+  background: #0a0a0a;
   box-shadow: none;
   transition: border-color 0.2s;
   animation: rise-in 0.5s var(--ease) both;
@@ -962,7 +962,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 .dash-glow-card {
   border-radius: 14px;
-  background: #0f0f0f;
+  background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 .shark-card {
@@ -1804,7 +1804,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   min-width: 140px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #0f0f0f;
+  background: #0a0a0a;
   border: 1px solid rgba(37, 211, 102, 0.2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
   pointer-events: none;
