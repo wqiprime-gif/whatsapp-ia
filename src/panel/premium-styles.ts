@@ -1671,9 +1671,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 .shark-main-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.12fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 @media (max-width: 1100px) {
   .shark-main-grid { grid-template-columns: 1fr; }
@@ -1691,7 +1691,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 148px;
+  min-height: 132px;
 }
 .shark-kpi-head {
   display: flex;
@@ -1793,7 +1793,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .conv-gauge-svg { width: 100%; max-width: 140px; height: auto; display: block; }
 .conv-gauge-sub { font-size: 0.68rem; color: var(--muted); text-align: center; }
 
-.shark-chart-card { display: flex; flex-direction: column; min-height: 100%; }
+.shark-chart-card { display: flex; flex-direction: column; }
 .shark-chart-head h3 { margin-bottom: 2px; }
 .shark-chart-sub {
   display: block;
@@ -1803,10 +1803,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: var(--muted);
   font-weight: 600;
 }
-.shark-chart-card--pro .card-body { flex: 1; display: flex; flex-direction: column; padding: 0 16px 14px !important; min-height: 0; }
-.shark-chart-card--pro .chart-wrap--hero { flex: 1; min-height: 0; padding: 0; display: flex; flex-direction: column; }
+.shark-chart-card--pro .card-body,
+.shark-chart-card--pro .shark-chart-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 14px !important;
+  min-height: 0 !important;
+}
 .shark-chart-header {
-  padding: 14px 16px 10px;
+  padding: 14px 16px 0;
 }
 .shark-chart-card--pro .shark-chart-sub {
   color: rgba(59, 130, 246, 0.75);
@@ -1873,11 +1879,11 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 
 /* Gráfico Seu Desempenho — estilo Shark */
-.shark-perf-chart { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.shark-perf-chart { width: 100%; display: flex; flex-direction: column; }
 .shark-chart-legend {
   display: flex; align-items: center; gap: 8px;
   font-size: 0.78rem; color: #a1a1aa;
-  margin: 0 0 10px;
+  margin: 0;
   padding-left: 2px;
   flex-shrink: 0;
 }
@@ -1890,22 +1896,26 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-divider {
   height: 1px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0 0 14px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 10px 0 12px;
   flex-shrink: 0;
   display: block;
 }
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 140px;
+  height: 120px;
+  flex-shrink: 0;
+  overflow: visible;
 }
 .shark-chart-svg {
   width: 100%;
-  height: 100%;
-  min-height: 140px;
+  height: 120px;
   display: block;
+  overflow: visible;
+}
+.shark-chart-curve {
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.45));
 }
 .shark-chart-dot {
   cursor: pointer;

@@ -293,12 +293,12 @@ export function sharkPerformanceChartHtml(
   const days = buildChartDays(dayCount, endOffset);
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
-  const w = 880;
-  const h = 160;
+  const w = 879;
+  const h = 150;
   const padL = 10;
   const padR = 10;
-  const padT = 8;
-  const padB = 22;
+  const padT = 10;
+  const padB = 24;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -310,7 +310,12 @@ export function sharkPerformanceChartHtml(
   const curve = smoothChartPath(coords, 0.42);
   const area = `${curve} L ${coords[coords.length - 1].x} ${baseY} L ${coords[0].x} ${baseY} Z`;
   const gid = `sg${Math.random().toString(36).slice(2, 9)}`;
-  const glowId = `gl${Math.random().toString(36).slice(2, 9)}`;
+  const gridLines = [0.25, 0.5, 0.75]
+    .map((frac) => {
+      const gy = padT + chartH * (1 - frac);
+      return `<line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 6" pointer-events="none"/>`;
+    })
+    .join("");
   const dots = coords
     .map(
       (c, i) =>
@@ -353,14 +358,11 @@ export function sharkPerformanceChartHtml(
             <stop offset="55%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.12"/>
             <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
-          <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
         </defs>
         <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.7)" stroke-width="1" opacity="0"/>
+        ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
-        <path d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#${glowId})" pointer-events="none"/>
+        <path class="shark-chart-curve" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
         ${dots}
         ${labels}
         ${hits}

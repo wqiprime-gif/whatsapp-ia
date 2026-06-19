@@ -420,7 +420,7 @@ export function dashboardPage(
             </div>
           </div>
         </div>
-        <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
+        <div class="card-body shark-chart-wrap" data-live="sales-chart">
           ${sharkPerformanceChartHtml(data.chart, { dayCount: 7, endOffset: 0 })}
         </div>
       </div>
