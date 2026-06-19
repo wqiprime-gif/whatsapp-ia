@@ -34,10 +34,32 @@ export function greetingDisplayName(name: string, email: string) {
   return (email.split("@")[0] || "user").toLowerCase();
 }
 
-export function timeGreeting(hour = new Date().getHours()) {
-  if (hour >= 0 && hour < 6) return "Boa madrugada";
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
+const TZ_SAO_PAULO = "America/Sao_Paulo";
+
+export function saoPauloNowParts(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ_SAO_PAULO,
+    hour: "numeric",
+    hour12: false,
+    day: "numeric",
+    month: "numeric",
+    year: "numeric"
+  });
+  const parts = fmt.formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  return {
+    hour: Number(get("hour")),
+    day: Number(get("day")),
+    month: Number(get("month")) - 1,
+    year: Number(get("year"))
+  };
+}
+
+export function timeGreeting(hour?: number) {
+  const h = hour ?? saoPauloNowParts().hour;
+  if (h >= 0 && h < 6) return "Boa madrugada";
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
   return "Boa noite";
 }
 
@@ -47,7 +69,8 @@ const MONTHS_PT = [
 ];
 
 export function dashboardDateLabel(date = new Date()) {
-  return `${date.getDate()} DE ${MONTHS_PT[date.getMonth()]} DE ${date.getFullYear()}`;
+  const { day, month, year } = saoPauloNowParts(date);
+  return `${day} DE ${MONTHS_PT[month]} DE ${year}`;
 }
 
 export function escapeHtml(value: string) {

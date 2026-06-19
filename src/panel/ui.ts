@@ -308,8 +308,8 @@ export function dashboardPage(
         </div>
       </div>
       <div class="shark-greeting">
-        <h2 class="shark-greeting-title">${greet}, ${greetingName}</h2>
-        <p class="shark-greeting-date">${dateStr}</p>
+        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, ${greetingName}</h2>
+        <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
       </div>
       <div class="shark-head-right">
         <span class="shark-head-stat"><strong>${connected}</strong>/${bots.length} online</span>
@@ -412,7 +412,42 @@ export function dashboardPage(
         </div>
       </div>
     </div>
-    </div>`;
+    </div>
+    <script>
+    (function(){
+      var title = document.querySelector(".shark-greeting-title");
+      var dateEl = document.getElementById("shark-greeting-date");
+      if (!title) return;
+      var name = title.getAttribute("data-greeting-name") || "";
+      var months = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
+      function spParts() {
+        var fmt = new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          hour: "numeric", hour12: false,
+          day: "numeric", month: "numeric", year: "numeric"
+        });
+        var parts = fmt.formatToParts(new Date());
+        var get = function(t) {
+          var p = parts.find(function(x) { return x.type === t; });
+          return p ? Number(p.value) : 0;
+        };
+        return { hour: get("hour"), day: get("day"), month: get("month"), year: get("year") };
+      }
+      function greet(h) {
+        if (h >= 0 && h < 6) return "Boa madrugada";
+        if (h < 12) return "Bom dia";
+        if (h < 18) return "Boa tarde";
+        return "Boa noite";
+      }
+      function tick() {
+        var p = spParts();
+        title.textContent = greet(p.hour) + ", " + name;
+        if (dateEl) dateEl.textContent = p.day + " DE " + months[p.month - 1] + " DE " + p.year;
+      }
+      tick();
+      setInterval(tick, 60000);
+    })();
+    </script>`;
 
   return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar);
 }
@@ -446,11 +481,11 @@ export function profilePage(
       <div class="profile-grid">
         <div class="dash-glow-card card card-premium profile-card-main" style="${glowStyle(0)}">
           <div class="card-body profile-identity">
-            <form method="post" action="/perfil" enctype="multipart/form-data" class="profile-form">
+            <form method="post" action="/perfil" enctype="multipart/form-data" class="profile-form" id="profile-form">
               <div class="profile-form-top">
               <label class="profile-avatar-upload" title="Clique para alterar foto">
                 <img id="profile-avatar-preview" class="profile-avatar-img" src="${avatarSrc}" alt="" style="${avatarSrc ? "" : "display:none"}" />
-                <span class="profile-avatar-placeholder" style="${avatarSrc ? "display:none" : ""}">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>
+                <span class="profile-avatar-placeholder" id="profile-avatar-ph" style="${avatarSrc ? "display:none" : ""}">${escapeHtml(user.name.slice(0, 1).toUpperCase())}</span>
                 <span class="profile-avatar-camera">${icons.image}</span>
                 <input type="file" name="avatarFile" accept="image/jpeg,image/png,image/webp" />
               </label>
@@ -493,19 +528,50 @@ export function profilePage(
     (function(){
       var inp = document.querySelector('.profile-avatar-upload input[type=file]');
       var img = document.getElementById('profile-avatar-preview');
-      var ph = document.querySelector('.profile-avatar-placeholder');
-      if (!inp || !img) return;
-      inp.addEventListener('change', function(){
-        var f = inp.files && inp.files[0];
-        if (!f) return;
-        var r = new FileReader();
-        r.onload = function(){
-          img.src = r.result;
-          img.style.display = 'block';
-          if (ph) ph.style.display = 'none';
+      var ph = document.getElementById('profile-avatar-ph');
+      var form = document.getElementById('profile-form');
+      var LS_PREVIEW = 'panelAvatarPreview';
+      function showPh() {
+        if (img) img.style.display = 'none';
+        if (ph) ph.style.display = 'grid';
+      }
+      function showImg(src) {
+        if (!img) return;
+        img.src = src;
+        img.style.display = 'block';
+        if (ph) ph.style.display = 'none';
+      }
+      if (img) {
+        img.onerror = function() {
+          var cached = sessionStorage.getItem(LS_PREVIEW);
+          if (cached && cached !== img.src) showImg(cached);
+          else showPh();
         };
-        r.readAsDataURL(f);
-      });
+        var cached = sessionStorage.getItem(LS_PREVIEW);
+        if (cached && (!img.getAttribute('src') || img.naturalWidth === 0)) showImg(cached);
+      }
+      if (inp && img) {
+        inp.addEventListener('change', function(){
+          var f = inp.files && inp.files[0];
+          if (!f) return;
+          var r = new FileReader();
+          r.onload = function(){
+            showImg(r.result);
+            sessionStorage.setItem(LS_PREVIEW, r.result);
+          };
+          r.readAsDataURL(f);
+        });
+      }
+      if (form) {
+        form.addEventListener('submit', function(){
+          if (img && img.src && img.src.indexOf('data:') === 0) {
+            sessionStorage.setItem(LS_PREVIEW, img.src);
+          }
+        });
+      }
+      if (img && img.src && img.src.indexOf('/uploads/') !== -1 && img.complete && img.naturalWidth > 0) {
+        sessionStorage.removeItem(LS_PREVIEW);
+      }
     })();
     </script>`;
 

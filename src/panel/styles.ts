@@ -317,11 +317,9 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar-plan {
   margin-top: auto;
   padding: 16px;
-  background: var(--card);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border-hi);
+  background: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius);
-  box-shadow: var(--glass-shadow);
 }
 .sidebar-plan strong {
   display: block; font-family: var(--font-display);
@@ -468,7 +466,8 @@ button, input, textarea, select { font-family: inherit; }
 .user-pill .name { font-weight: 700; font-size: 0.84rem; }
 .user-pill .role { font-size: 0.7rem; color: var(--muted); }
 
-.content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); }
+.content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: #000; }
+.page-shell { background: #000; min-height: 100%; }
 .content:has(.page-form-shell),
 .content:has(.dash-shell) { padding: 20px 24px 40px; }
 

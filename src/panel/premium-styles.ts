@@ -528,9 +528,9 @@ body:not(.auth-body) .ambient {
 }
 
 .sidebar {
-  background: rgba(2, 5, 12, 0.94) !important;
-  border-right: 1px solid rgba(37, 211, 102, 0.2) !important;
-  box-shadow: 8px 0 48px rgba(0, 0, 0, 0.4) !important;
+  background: #000 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
 }
 .btn-new {
   background: linear-gradient(135deg, #25D366, #3de07a) !important;
@@ -544,8 +544,8 @@ body:not(.auth-body) .ambient {
   box-shadow: 0 0 24px rgba(37, 211, 102, 0.1) !important;
 }
 .topbar {
-  background: rgba(3, 6, 12, 0.8) !important;
-  border-bottom: 1px solid rgba(37, 211, 102, 0.15) !important;
+  background: #000 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 .brand-accent { color: var(--green-bright) !important; text-shadow: 0 0 32px var(--green-glow) !important; }
 
@@ -1299,11 +1299,26 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   box-shadow: 0 0 32px rgba(37, 211, 102, 0.15);
 }
 .profile-avatar-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.profile-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.profile-avatar-img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
 .profile-avatar-placeholder {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
   font-size: 2.2rem; font-weight: 800; color: #6ee7b7;
 }
 .profile-avatar-camera {
+  z-index: 2;
   position: absolute; inset: 0;
   display: grid; place-items: center;
   background: rgba(0,0,0,0.45);

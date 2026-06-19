@@ -3,7 +3,7 @@ export const designSystem = {
   colors: {
     bgBase: "#000000",
     bgElevated: "#050505",
-    bgSidebar: "#050505",
+    bgSidebar: "#000000",
     bgCard: "#050505",
     bgCardSolid: "#050505",
     bgCardHover: "rgba(12, 16, 12, 0.95)",

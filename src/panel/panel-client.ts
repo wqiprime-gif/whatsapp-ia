@@ -22,6 +22,7 @@ export const panelClientScript = `
   const LS_LAST_SALE = "panelLastSaleId";
   const LS_BELL_SEEN = "panelBellSeenAt";
   const LS_AVATAR = "panelAvatarUrl";
+  const LS_AVATAR_PREVIEW = "panelAvatarPreview";
   const pageCache = new Map();
   let navigating = false;
   let fetchCtrl = null;
@@ -94,11 +95,21 @@ export const panelClientScript = `
     return hit ? hit[1] : "ZapManager";
   }
 
+  function normPath(p) {
+    const s = (p || "/").split("?")[0];
+    if (!s || s === "/") return "/";
+    return s.replace(/\/$/, "") || "/";
+  }
+
   function setActiveNav(path) {
+    const current = normPath(path);
     document.querySelectorAll(".sidebar .nav a[data-nav]").forEach((a) => {
-      const href = a.getAttribute("href") || "";
-      let active = href === path;
-      if (!active && path.startsWith("/instances") && href === "/instances" && path !== "/instances/new") {
+      const href = normPath(a.getAttribute("href") || "");
+      let active = href === current;
+      if (!active && current.startsWith("/instances") && href === "/instances" && current !== "/instances/new") {
+        active = true;
+      }
+      if (!active && current === "/perfil" && href === "/perfil") {
         active = true;
       }
       a.classList.toggle("active", active);
@@ -152,16 +163,24 @@ export const panelClientScript = `
       const infoWrap = info ? info.parentElement : null;
       pill.querySelectorAll(".user-avatar, .user-avatar-img").forEach((el) => el.remove());
       const initials = label.slice(0, 2).toUpperCase();
-      if (next) {
+      const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+      const avatarSrc = next || preview;
+      if (avatarSrc) {
         const img = document.createElement("img");
         img.className = "user-avatar user-avatar-img";
-        img.src = next + (next.includes("?") ? "&" : "?") + "v=" + Date.now();
+        img.src = avatarSrc.indexOf("data:") === 0
+          ? avatarSrc
+          : avatarSrc + (avatarSrc.includes("?") ? "&" : "?") + "v=" + Date.now();
         img.alt = "";
         const fallback = document.createElement("div");
         fallback.className = "user-avatar";
         fallback.style.display = "none";
         fallback.textContent = initials;
         img.onerror = function () {
+          if (preview && img.src !== preview) {
+            img.src = preview;
+            return;
+          }
           img.style.display = "none";
           fallback.style.display = "flex";
         };
@@ -387,9 +406,24 @@ export const panelClientScript = `
     refreshLive(true);
   }, 8000);
 
+  function findNavRoute(q) {
+    const query = q.trim().toLowerCase();
+    if (!query) return null;
+    const exact = NAV_PATHS.find(([path, label]) =>
+      label.toLowerCase() === query || path === "/" + query || path.slice(1) === query
+    );
+    if (exact) return exact[0];
+    if (query.length < 3) return null;
+    const hit = NAV_PATHS.find(([, label]) => label.toLowerCase().startsWith(query));
+    return hit ? hit[0] : null;
+  }
+
   function bindGlobalSearch() {
     const input = document.getElementById("panel-global-search");
     if (!input) return;
+    main.addEventListener("pointerdown", () => {
+      if (document.activeElement === input) input.blur();
+    });
     document.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -399,12 +433,16 @@ export const panelClientScript = `
     });
     input.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
+      if (document.activeElement !== input) return;
       const q = input.value.trim().toLowerCase();
       if (!q) return;
       e.preventDefault();
-      const navHit = NAV_PATHS.find(([, label]) => label.toLowerCase().includes(q));
-      if (navHit) {
-        loadPage(navHit[0]);
+      e.stopPropagation();
+      const route = findNavRoute(q);
+      if (route) {
+        input.value = "";
+        input.blur();
+        loadPage(route);
         return;
       }
       if (/^\\d|@|lead/.test(q)) loadPage("/leads?q=" + encodeURIComponent(input.value.trim()));
