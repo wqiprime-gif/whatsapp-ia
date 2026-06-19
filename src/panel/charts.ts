@@ -293,12 +293,12 @@ export function sharkPerformanceChartHtml(
   const days = buildChartDays(dayCount, endOffset);
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
-  const w = 720;
-  const h = 240;
-  const padL = 12;
-  const padR = 12;
-  const padT = 6;
-  const padB = 26;
+  const w = 880;
+  const h = 160;
+  const padL = 10;
+  const padR = 10;
+  const padT = 8;
+  const padB = 22;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -327,7 +327,7 @@ export function sharkPerformanceChartHtml(
   const labels = coords
     .map(
       (c) =>
-        `<text x="${c.x}" y="${h - 6}" text-anchor="middle" fill="#71717a" font-size="10" font-family="JetBrains Mono, ui-monospace, monospace" pointer-events="none">${chartDayLabel(c.day)}</text>`
+        `<text x="${c.x}" y="${h - 4}" text-anchor="middle" fill="#71717a" font-size="11" font-family="JetBrains Mono, ui-monospace, monospace" pointer-events="none">${chartDayLabel(c.day)}</text>`
     )
     .join("");
   const dataJson = JSON.stringify(
@@ -346,7 +346,7 @@ export function sharkPerformanceChartHtml(
     </div>
     <div class="shark-chart-divider" aria-hidden="true"></div>
     <div class="shark-chart-stage">
-      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.35"/>

@@ -1803,10 +1803,10 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: var(--muted);
   font-weight: 600;
 }
-.shark-chart-card--pro .card-body { flex: 1; display: flex; flex-direction: column; padding: 0 16px 12px !important; min-height: 0; }
-.shark-chart-card--pro .chart-wrap--hero { flex: 0 0 auto; min-height: 0; padding: 0; display: flex; flex-direction: column; }
+.shark-chart-card--pro .card-body { flex: 1; display: flex; flex-direction: column; padding: 0 16px 14px !important; min-height: 0; }
+.shark-chart-card--pro .chart-wrap--hero { flex: 1; min-height: 0; padding: 0; display: flex; flex-direction: column; }
 .shark-chart-header {
-  padding: 14px 16px 12px;
+  padding: 14px 16px 10px;
 }
 .shark-chart-card--pro .shark-chart-sub {
   color: rgba(59, 130, 246, 0.75);
@@ -1879,6 +1879,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   font-size: 0.78rem; color: #a1a1aa;
   margin: 0 0 10px;
   padding-left: 2px;
+  flex-shrink: 0;
 }
 .shark-chart-legend-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -1897,14 +1898,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-stage {
   position: relative;
   width: 100%;
-  height: 190px;
-  min-height: 190px;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 140px;
 }
 .shark-chart-svg {
   width: 100%;
-  height: 190px;
-  min-height: 190px;
+  height: 100%;
+  min-height: 140px;
   display: block;
 }
 .shark-chart-dot {
