@@ -183,6 +183,25 @@ button, input, textarea, select { font-family: inherit; }
   transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   contain: layout style;
 }
+.sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(37, 211, 102, 0.15) 15%,
+    #25D366 35%,
+    #3de07a 50%,
+    #25D366 65%,
+    rgba(37, 211, 102, 0.15) 85%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 3;
+  animation: shark-edge-pulse 3s ease-in-out infinite;
+}
 .sidebar:hover {
   width: 280px;
 }
@@ -459,10 +478,17 @@ button, input, textarea, select { font-family: inherit; }
   display: grid; place-items: center;
   font-size: 0.68rem; font-weight: 800; color: #041018;
   flex-shrink: 0;
-  object-fit: cover;
 }
 .user-avatar--lg { width: 96px; height: 96px; font-size: 1.5rem; }
-.user-avatar-img { border: 2px solid rgba(37, 211, 102, 0.35); }
+.user-avatar-img {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: block !important;
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 2px solid rgba(37, 211, 102, 0.35);
+  background: transparent;
+}
+.user-avatar-img--lg { width: 96px; height: 96px; }
 .user-pill .name { font-weight: 700; font-size: 0.84rem; }
 .user-pill .role { font-size: 0.7rem; color: var(--muted); }
 

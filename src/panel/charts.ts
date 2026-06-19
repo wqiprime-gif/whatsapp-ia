@@ -1,8 +1,24 @@
 const WEEKDAY_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const WEEKDAY_FULL = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function chartDayLabel(iso: string) {
   const d = new Date(iso + "T12:00:00");
   return WEEKDAY_PT[d.getDay()] ?? iso.slice(5);
+}
+
+export function chartDayLabelFull(iso: string) {
+  const d = new Date(iso + "T12:00:00");
+  return WEEKDAY_FULL[d.getDay()] ?? iso;
+}
+
+export function buildChartDays(count = 7, endOffset = 0) {
+  const days: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i - endOffset);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
 }
 
 export function chartDayValues<T extends { day: string }>(
@@ -244,5 +260,89 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
       <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="800">${clamped.toFixed(0)}%</text>
     </svg>
     <span class="conv-gauge-sub">${subtitle}</span>
+  </div>`;
+}
+
+export function sharkPerformanceChartHtml(
+  points: { day: string; totalCents: number }[],
+  opts?: { dayCount?: number; endOffset?: number }
+) {
+  const dayCount = opts?.dayCount ?? 7;
+  const endOffset = opts?.endOffset ?? 0;
+  const days = buildChartDays(dayCount, endOffset);
+  const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
+  const max = Math.max(...values, 1);
+  const w = 560;
+  const h = 220;
+  const padL = 28;
+  const padR = 20;
+  const padT = 36;
+  const padB = 32;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+  const coords = values.map((v, i) => {
+    const x = padL + (i / Math.max(dayCount - 1, 1)) * chartW;
+    const y = padT + chartH - (v / max) * chartH;
+    return { x, y, v, day: days[i]! };
+  });
+  const line = coords.map((c) => `${c.x},${c.y}`).join(" ");
+  const area = `M${coords[0].x},${padT + chartH} ${coords.map((c) => `L${c.x},${c.y}`).join(" ")} L${coords[coords.length - 1].x},${padT + chartH} Z`;
+  const gid = `sg${Math.random().toString(36).slice(2, 9)}`;
+  const grid = [0.25, 0.5, 0.75]
+    .map((g) => {
+      const y = padT + chartH - g * chartH;
+      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    })
+    .join("");
+  const dots = coords
+    .map(
+      (c, i) =>
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="5" fill="#25D366" stroke="#0a0a0a" stroke-width="2"/>`
+    )
+    .join("");
+  const labels = coords
+    .map(
+      (c) =>
+        `<text x="${c.x}" y="${h - 8}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10">${chartDayLabel(c.day)}</text>`
+    )
+    .join("");
+  const dataJson = JSON.stringify(
+    coords.map((c) => ({
+      day: c.day,
+      label: chartDayLabelFull(c.day),
+      short: chartDayLabel(c.day),
+      cents: c.v
+    }))
+  ).replace(/'/g, "&#39;");
+
+  return `<div class="shark-perf-chart" data-chart-points='${dataJson}'>
+    <div class="shark-chart-legend">
+      <span class="shark-chart-legend-dot"></span>
+      <span>Receita</span>
+    </div>
+    <div class="shark-chart-stage">
+      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(37,211,102,0.35)"/>
+            <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
+          </linearGradient>
+        </defs>
+        ${grid}
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${padT + chartH}" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="4 3" style="display:none"/>
+        <path d="${area}" fill="url(#${gid})"/>
+        <polyline points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
+        ${labels}
+      </svg>
+      <div class="shark-chart-tooltip" style="display:none">
+        <span class="shark-chart-tooltip-day"></span>
+        <div class="shark-chart-tooltip-row">
+          <span class="shark-chart-legend-dot"></span>
+          <span>Receita</span>
+          <strong class="shark-chart-tooltip-val"></strong>
+        </div>
+      </div>
+    </div>
   </div>`;
 }

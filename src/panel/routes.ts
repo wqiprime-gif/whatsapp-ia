@@ -9,6 +9,10 @@ import { env, rootDir } from "../config.js";
 import { useDatabase } from "../db/index.js";
 import {
   dashboardStats,
+  dashboardStatsForPeriod,
+  salesByPeriod,
+  chartOptionsForPeriod,
+  normalizeDashboardPeriod,
   getLatestSale,
   listLeads,
   listProducts,
@@ -55,7 +59,7 @@ import {
   remarketingPage,
   salesChartSvgFromData
 } from "./pages.js";
-import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg } from "./charts.js";
+import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
@@ -563,11 +567,12 @@ export async function registerPanelRoutes(
     const partial = isPartial(request);
     const meta = await panelUserMeta(user.id, user.email);
     const full = await getUserById(user.id);
+    const period = normalizeDashboardPeriod("hoje");
     const html = dashboardPage(
       bots,
       {
-        stats: await dashboardStats(user.id),
-        chart: await salesByDay(7, user.id),
+        stats: await dashboardStatsForPeriod(period, user.id),
+        chart: await salesByPeriod(period, user.id),
         messagesChart: await messagesByDay(7, user.id),
         activities: await listRecentActivity(8, user.id),
         topBots: await salesRankingByBot(5, user.id),
@@ -602,9 +607,12 @@ export async function registerPanelRoutes(
   app.get("/api/panel/live", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    const query = z.object({ period: z.string().optional() }).parse(request.query);
+    const period = normalizeDashboardPeriod(query.period);
     const bots = await loadBots(user.id);
-    const stats = await dashboardStats(user.id);
-    const chart = await salesByDay(7, user.id);
+    const stats = await dashboardStatsForPeriod(period, user.id);
+    const chart = await salesByPeriod(period, user.id);
+    const chartOpts = chartOptionsForPeriod(period);
     const messagesChart = await messagesByDay(7, user.id);
     const activities = await listRecentActivity(8, user.id);
     const topBots = await salesRankingByBot(5, user.id);
@@ -628,7 +636,17 @@ export async function registerPanelRoutes(
 
     const convPct = stats.leads > 0 ? (stats.salesCount / stats.leads) * 100 : 0;
 
+    const periodLabels: Record<string, string> = {
+      hoje: "Hoje",
+      ontem: "Ontem",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias",
+      total: "Total"
+    };
+
     return reply.send({
+      period,
+      periodLabel: periodLabels[period] ?? "Hoje",
       stats: {
         leads: stats.leads,
         salesTotalCents: stats.salesTotalCents,
@@ -643,7 +661,7 @@ export async function registerPanelRoutes(
       activityHtml: activityFeedHtml(activities),
       topBotsHtml: topBotsRankingHtml(topBots),
       topPlayersHtml: topPlayersRankingHtml(topPlayers, user.id),
-      chartSvg: salesChartSvgFromData(chart, { tall: true }),
+      chartSvg: sharkPerformanceChartHtml(chart, chartOpts),
       convGaugeHtml: conversionGaugeSvg(convPct, `${stats.salesCount} pagos de ${stats.leads} leads`),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),

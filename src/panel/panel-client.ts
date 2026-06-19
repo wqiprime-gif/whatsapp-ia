@@ -23,6 +23,8 @@ export const panelClientScript = `
   const LS_BELL_SEEN = "panelBellSeenAt";
   const LS_AVATAR = "panelAvatarUrl";
   const LS_AVATAR_PREVIEW = "panelAvatarPreview";
+  const LS_DASH_PERIOD = "dashPeriod";
+  let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
   let navigating = false;
   let fetchCtrl = null;
@@ -139,6 +141,113 @@ export const panelClientScript = `
     setActiveNav(path);
     bindForms(main);
     if (path === "/perfil" || path.startsWith("/perfil")) pageCache.delete("/perfil");
+    if (path === "/") {
+      bindPeriodTabs(main);
+      bindSharkCharts(main);
+    }
+    syncTopbarFromProfilePreview();
+  }
+
+  function syncTopbarFromProfilePreview() {
+    const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
+    const profileImg = document.getElementById("profile-avatar-preview");
+    const src =
+      profileImg && profileImg.style.display !== "none" && profileImg.src
+        ? profileImg.src
+        : preview;
+    if (!src) return;
+    const pill = document.getElementById("panel-user-pill");
+    if (!pill) return;
+    let img = pill.querySelector(".user-avatar-img");
+    const info = pill.querySelector(".name");
+    const infoWrap = info ? info.parentElement : null;
+    const label = (document.getElementById("panel-user-name") || {}).textContent || "KA";
+    const initials = label.slice(0, 2).toUpperCase();
+    if (!img) {
+      pill.querySelectorAll(".user-avatar, .user-avatar-img").forEach((el) => el.remove());
+      img = document.createElement("img");
+      img.className = "user-avatar-img";
+      const fallback = document.createElement("div");
+      fallback.className = "user-avatar";
+      fallback.style.display = "none";
+      fallback.textContent = initials;
+      pill.insertBefore(img, infoWrap);
+      pill.insertBefore(fallback, infoWrap);
+    }
+    img.src = src.indexOf("data:") === 0 ? src : src.split("?")[0] + "?v=" + Date.now();
+    img.style.display = "block";
+    const fb = img.nextElementSibling;
+    if (fb && fb.classList.contains("user-avatar")) fb.style.display = "none";
+  }
+
+  function bindPeriodTabs(root) {
+    const scope = root || document;
+    scope.querySelectorAll("[data-period-tabs] .shark-period-tab").forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = "1";
+      const p = btn.getAttribute("data-period");
+      if (p === dashPeriod) {
+        btn.classList.add("shark-period-tab--active");
+      }
+      btn.addEventListener("click", () => {
+        const period = btn.getAttribute("data-period");
+        if (!period) return;
+        dashPeriod = period;
+        localStorage.setItem(LS_DASH_PERIOD, period);
+        scope.querySelectorAll("[data-period-tabs] .shark-period-tab").forEach((t) => {
+          t.classList.toggle("shark-period-tab--active", t === btn);
+        });
+        refreshLive(true);
+      });
+    });
+  }
+
+  function bindSharkCharts(root) {
+    const scope = root || document;
+    scope.querySelectorAll(".shark-perf-chart").forEach((chart) => {
+      if (chart.dataset.bound) return;
+      chart.dataset.bound = "1";
+      let points = [];
+      try {
+        points = JSON.parse(chart.getAttribute("data-chart-points") || "[]");
+      } catch (_) {}
+      const stage = chart.querySelector(".shark-chart-stage");
+      const svg = chart.querySelector(".shark-chart-svg");
+      const tooltip = chart.querySelector(".shark-chart-tooltip");
+      const cursor = chart.querySelector(".shark-chart-cursor");
+      if (!stage || !svg || !tooltip) return;
+
+      function showTip(i, clientX) {
+        const p = points[i];
+        if (!p) return;
+        const dayEl = tooltip.querySelector(".shark-chart-tooltip-day");
+        const valEl = tooltip.querySelector(".shark-chart-tooltip-val");
+        if (dayEl) dayEl.textContent = p.label;
+        if (valEl) valEl.textContent = money(p.cents);
+        tooltip.style.display = "block";
+        const rect = stage.getBoundingClientRect();
+        const x = clientX - rect.left;
+        tooltip.style.left = Math.min(Math.max(x - 70, 8), rect.width - 150) + "px";
+        if (cursor) {
+          const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
+          if (dot) {
+            cursor.setAttribute("x1", dot.getAttribute("cx"));
+            cursor.setAttribute("x2", dot.getAttribute("cx"));
+            cursor.style.display = "";
+          }
+        }
+      }
+      function hideTip() {
+        tooltip.style.display = "none";
+        if (cursor) cursor.style.display = "none";
+      }
+      svg.querySelectorAll(".shark-chart-dot").forEach((dot) => {
+        dot.addEventListener("mouseenter", (e) => showTip(Number(dot.getAttribute("data-idx")), e.clientX));
+        dot.addEventListener("mousemove", (e) => showTip(Number(dot.getAttribute("data-idx")), e.clientX));
+        dot.addEventListener("mouseleave", hideTip);
+      });
+      stage.addEventListener("mouseleave", hideTip);
+    });
   }
 
   async function refreshUserPill() {
@@ -167,7 +276,7 @@ export const panelClientScript = `
       const avatarSrc = next || preview;
       if (avatarSrc) {
         const img = document.createElement("img");
-        img.className = "user-avatar user-avatar-img";
+        img.className = "user-avatar-img";
         img.src = avatarSrc.indexOf("data:") === 0
           ? avatarSrc
           : avatarSrc + (avatarSrc.includes("?") ? "&" : "?") + "v=" + Date.now();
@@ -182,8 +291,19 @@ export const panelClientScript = `
             return;
           }
           img.style.display = "none";
-          fallback.style.display = "flex";
+          fallback.style.display = "grid";
         };
+        pill.insertBefore(img, infoWrap);
+        pill.insertBefore(fallback, infoWrap);
+      } else if (preview) {
+        const img = document.createElement("img");
+        img.className = "user-avatar-img";
+        img.src = preview;
+        img.alt = "";
+        const fallback = document.createElement("div");
+        fallback.className = "user-avatar";
+        fallback.style.display = "none";
+        fallback.textContent = initials;
         pill.insertBefore(img, infoWrap);
         pill.insertBefore(fallback, infoWrap);
       } else {
@@ -279,7 +399,7 @@ export const panelClientScript = `
   });
 
   bindForms(document);
-  refreshUserPill();
+  refreshUserPill().then(() => syncTopbarFromProfilePreview());
 
   const toastRoot = document.getElementById("panel-toasts");
   const bellBtn = document.querySelector(".icon-btn.bell-btn");
@@ -357,7 +477,14 @@ export const panelClientScript = `
     const topPlayers = document.querySelector("[data-live=top-players]");
     if (topPlayers && data.topPlayersHtml) topPlayers.innerHTML = data.topPlayersHtml;
     const chart = document.querySelector("[data-live=sales-chart]");
-    if (chart && data.chartSvg) chart.innerHTML = data.chartSvg;
+    if (chart && data.chartSvg) {
+      chart.innerHTML = data.chartSvg;
+      bindSharkCharts(chart);
+    }
+    const periodLbl = document.querySelector("[data-live=chart-period-label]");
+    if (periodLbl && data.periodLabel) {
+      periodLbl.textContent = "Receita · " + String(data.periodLabel).toLowerCase();
+    }
     const convGauge = document.querySelector("[data-live=conv-gauge]");
     if (convGauge && data.convGaugeHtml) convGauge.innerHTML = data.convGaugeHtml;
     const msgChart = document.querySelector("[data-live=messages-chart]");
@@ -391,7 +518,9 @@ export const panelClientScript = `
   async function refreshLive(silent) {
     if (location.pathname !== "/") return;
     try {
-      const res = await fetch("/api/panel/live", { credentials: "same-origin" });
+      const res = await fetch("/api/panel/live?period=" + encodeURIComponent(dashPeriod), {
+        credentials: "same-origin"
+      });
       if (!res.ok) return;
       const data = await res.json();
       applyLive(data);
@@ -400,7 +529,11 @@ export const panelClientScript = `
     }
   }
 
-  if (location.pathname === "/") refreshLive(true);
+  if (location.pathname === "/") {
+    bindPeriodTabs(document);
+    bindSharkCharts(document);
+    refreshLive(true);
+  }
   setInterval(() => {
     if (document.hidden || location.pathname !== "/") return;
     refreshLive(true);

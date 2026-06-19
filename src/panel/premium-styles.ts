@@ -720,7 +720,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .card-premium {
   border-color: rgba(255, 255, 255, 0.06) !important;
   background: #050505 !important;
+  border-radius: 14px;
 }
+.card-premium > * { position: relative; z-index: 1; }
 .card-premium .card-head {
   background: #050505;
   border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -893,58 +895,79 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .chart-svg--bars { width: 100%; height: auto; max-height: 200px; display: block; }
 
-/* Efeito Shark — listra verde circulando na borda, aparece devagar e aleatório */
-.dash-glow-card {
+/* Efeito Shark — listras verdes topo/rodapé em TODOS os cards ao mesmo tempo */
+@keyframes shark-edge-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@keyframes shark-line-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.dash-glow-card,
+.card-premium,
+.shark-kpi-card,
+.shark-fat-pill {
   position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.dash-glow-card::before,
+.card-premium::before,
+.shark-kpi-card::before,
+.shark-fat-pill::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(37, 211, 102, 0.2) 20%,
+    #25D366 40%,
+    #3de07a 50%,
+    #25D366 60%,
+    rgba(37, 211, 102, 0.2) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shark-line-sweep 4s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
+}
+.dash-glow-card::after,
+.card-premium::after,
+.shark-kpi-card::after,
+.shark-fat-pill::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(37, 211, 102, 0.2) 20%,
+    #25D366 40%,
+    #3de07a 50%,
+    #25D366 60%,
+    rgba(37, 211, 102, 0.2) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shark-line-sweep 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
+}
+
+.dash-glow-card {
   border-radius: 14px;
   background: #050505;
   border: 1px solid rgba(255, 255, 255, 0.04);
-  overflow: hidden;
-  isolation: isolate;
-  --glow-delay: 0s;
-  --glow-cycle: 7s;
-}
-.dash-glow-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--border-angle, 0deg),
-    transparent 0deg,
-    transparent 235deg,
-    rgba(37, 211, 102, 0.2) 275deg,
-    #25D366 305deg,
-    #3de07a 325deg,
-    #25D366 345deg,
-    transparent 360deg
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation:
-    border-spin var(--glow-cycle) linear infinite,
-    border-glow-fade var(--glow-cycle) ease-in-out infinite;
-  animation-delay: var(--glow-delay), var(--glow-delay);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-@keyframes border-glow-fade {
-  0%, 38% { opacity: 0; }
-  48%, 62% { opacity: 1; }
-  72%, 100% { opacity: 0; }
 }
 .dash-glow-card > * {
   position: relative;
   z-index: 1;
-}
-@keyframes border-spin { to { --border-angle: 360deg; } }
-@property --border-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
 }
 
 .card-premium > *, .kpi-card-pro > * { position: relative; z-index: 1; }
@@ -1417,6 +1440,10 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: #fff;
   margin-bottom: 4px;
 }
+.shark-greeting-name {
+  color: var(--green-bright);
+  text-shadow: 0 0 24px rgba(37, 211, 102, 0.45);
+}
 .shark-greeting-date {
   font-size: 0.72rem;
   font-weight: 600;
@@ -1592,5 +1619,64 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: var(--green-bright) !important;
   border-color: rgba(37, 211, 102, 0.35) !important;
   background: rgba(37, 211, 102, 0.1) !important;
+}
+
+/* Gráfico Seu Desempenho — estilo Shark */
+.shark-perf-chart { width: 100%; }
+.shark-chart-legend {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.78rem; color: var(--muted);
+  margin-bottom: 10px;
+}
+.shark-chart-legend-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #25D366;
+  box-shadow: 0 0 8px rgba(37, 211, 102, 0.6);
+  flex-shrink: 0;
+}
+.shark-chart-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+}
+.shark-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.shark-chart-dot {
+  cursor: pointer;
+  transition: r 0.15s;
+}
+.shark-chart-dot:hover { r: 7; }
+.shark-chart-tooltip {
+  position: absolute;
+  top: 8px;
+  min-width: 130px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0a0a0a;
+  border: 1px solid rgba(37, 211, 102, 0.25);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 5;
+}
+.shark-chart-tooltip-day {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.shark-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+.shark-chart-tooltip-val {
+  margin-left: auto;
+  color: #fff;
+  font-weight: 800;
 }
 `;

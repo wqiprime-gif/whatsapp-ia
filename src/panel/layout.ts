@@ -90,14 +90,14 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
 
 export function userAvatarHtml(avatarUrl: string, label: string, large = false, cacheBust = "") {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
-  const cls = large ? "user-avatar user-avatar--lg" : "user-avatar";
+  const sizeCls = large ? " user-avatar-img--lg" : "";
   const src = avatarUrl?.trim();
   if (src) {
     const bust = cacheBust || String(Date.now());
     const sep = src.includes("?") ? "&" : "?";
-    return `<img class="${cls} user-avatar-img" src="${escapeHtml(src + sep + "v=" + bust)}" alt="" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')" /><div class="${cls}" style="display:none">${initials}</div>`;
+    return `<img class="user-avatar-img${sizeCls}" src="${escapeHtml(src + sep + "v=" + bust)}" alt="" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')" /><div class="user-avatar${large ? " user-avatar--lg" : ""}" style="display:none">${initials}</div>`;
   }
-  return `<div class="${cls}">${initials}</div>`;
+  return `<div class="user-avatar${large ? " user-avatar--lg" : ""}">${initials}</div>`;
 }
 
 export function appLayout(

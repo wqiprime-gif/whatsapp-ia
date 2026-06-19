@@ -1038,6 +1038,143 @@ async function botIdsForUser(userId?: string) {
   return (await loadBots(userId)).map((b) => b.id);
 }
 
+export type DashboardPeriod = "hoje" | "ontem" | "7d" | "30d" | "total";
+
+export function normalizeDashboardPeriod(raw?: string): DashboardPeriod {
+  const map: Record<string, DashboardPeriod> = {
+    hoje: "hoje",
+    ontem: "ontem",
+    "7d": "7d",
+    "7": "7d",
+    "30d": "30d",
+    "30": "30d",
+    total: "total"
+  };
+  return map[(raw ?? "").toLowerCase()] ?? "hoje";
+}
+
+function spDateString(offsetDays = 0) {
+  const d = new Date();
+  if (offsetDays) d.setTime(d.getTime() - offsetDays * 86400000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+}
+
+export function chartOptionsForPeriod(period: DashboardPeriod) {
+  if (period === "ontem") return { dayCount: 7, endOffset: 1 };
+  if (period === "30d") return { dayCount: 30, endOffset: 0 };
+  if (period === "total") return { dayCount: 30, endOffset: 0 };
+  return { dayCount: 7, endOffset: 0 };
+}
+
+export async function salesByPeriod(period: DashboardPeriod, userId?: string) {
+  const days =
+    period === "30d" ? 30 : period === "total" ? 365 : period === "ontem" ? 14 : 7;
+  return salesByDay(days, userId);
+}
+
+export async function dashboardStatsForPeriod(period: DashboardPeriod, userId?: string) {
+  const botIds = await botIdsForUser(userId);
+  if (userId && botIds && botIds.length === 0) {
+    return { leads: 0, salesTotalCents: 0, salesCount: 0, receiptsApproved: 0, messagesToday: 0 };
+  }
+
+  const today = spDateString(0);
+  const yesterday = spDateString(1);
+
+  if (useDatabase()) {
+    const db = getPool();
+    const scopeWhere = botIds ? " WHERE bot_id = ANY($1::uuid[])" : "";
+    const scopeAnd = botIds ? " AND bot_id = ANY($1::uuid[])" : "";
+
+    let salesWhere = scopeWhere;
+    let leadsWhere = scopeWhere;
+    let msgsWhere = ` WHERE created_at >= NOW() - interval '1 day'${scopeAnd}`;
+    const params: unknown[] = botIds ? [botIds] : [];
+    const salesParams: unknown[] = [...params];
+    const leadsParams: unknown[] = [...params];
+
+    if (period === "hoje") {
+      salesWhere += `${scopeWhere ? " AND" : " WHERE"} (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${salesParams.length + 1}::date`;
+      leadsWhere += `${scopeWhere ? " AND" : " WHERE"} (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${leadsParams.length + 1}::date`;
+      salesParams.push(today);
+      leadsParams.push(today);
+      msgsWhere = ` WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${params.length + 1}::date${scopeAnd}`;
+    } else if (period === "ontem") {
+      salesWhere += `${scopeWhere ? " AND" : " WHERE"} (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${salesParams.length + 1}::date`;
+      leadsWhere += `${scopeWhere ? " AND" : " WHERE"} (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${leadsParams.length + 1}::date`;
+      salesParams.push(yesterday);
+      leadsParams.push(yesterday);
+      msgsWhere = ` WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date = $${params.length + 1}::date${scopeAnd}`;
+    } else if (period === "7d") {
+      salesWhere += `${scopeWhere ? " AND" : " WHERE"} created_at >= NOW() - interval '7 days'`;
+      leadsWhere += `${scopeWhere ? " AND" : " WHERE"} created_at >= NOW() - interval '7 days'`;
+      msgsWhere = ` WHERE created_at >= NOW() - interval '7 days'${scopeAnd}`;
+    } else if (period === "30d") {
+      salesWhere += `${scopeWhere ? " AND" : " WHERE"} created_at >= NOW() - interval '30 days'`;
+      leadsWhere += `${scopeWhere ? " AND" : " WHERE"} created_at >= NOW() - interval '30 days'`;
+      msgsWhere = ` WHERE created_at >= NOW() - interval '30 days'${scopeAnd}`;
+    }
+
+    const msgParams = period === "hoje" ? [...params, today] : period === "ontem" ? [...params, yesterday] : params;
+
+    const [leads, sales, receipts, messages] = await Promise.all([
+      db.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM leads${leadsWhere}`, leadsParams),
+      db.query<{ total: string; count: string }>(
+        `SELECT COALESCE(SUM(amount_cents),0)::text AS total, COUNT(*)::text AS count FROM sales${salesWhere}`,
+        salesParams
+      ),
+      db.query<{ c: string }>(
+        `SELECT COUNT(*)::text AS c FROM receipts WHERE paid = true${scopeAnd}`,
+        params
+      ),
+      db.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM conversation_messages${msgsWhere}`, msgParams)
+    ]);
+    return {
+      leads: Number(leads.rows[0]?.c ?? 0),
+      salesTotalCents: Number(sales.rows[0]?.total ?? 0),
+      salesCount: Number(sales.rows[0]?.count ?? 0),
+      receiptsApproved: Number(receipts.rows[0]?.c ?? 0),
+      messagesToday: Number(messages.rows[0]?.c ?? 0)
+    };
+  }
+
+  const store = await loadFileStore();
+  const inScope = <T extends { botId: string; createdAt: string }>(rows: T[]) =>
+    botIds ? rows.filter((r) => botIds.includes(r.botId)) : rows;
+
+  const dayOf = (iso: string) => {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    return fmt.format(new Date(iso));
+  };
+
+  const inPeriod = (iso: string) => {
+    const d = dayOf(iso);
+    if (period === "hoje") return d === today;
+    if (period === "ontem") return d === yesterday;
+    if (period === "7d") return Date.now() - new Date(iso).getTime() <= 7 * 86400000;
+    if (period === "30d") return Date.now() - new Date(iso).getTime() <= 30 * 86400000;
+    return true;
+  };
+
+  const leads = inScope(store.leads).filter((l) => inPeriod(l.createdAt));
+  const sales = inScope(store.sales).filter((s) => inPeriod(s.createdAt));
+  const receipts = inScope(store.receipts);
+  const messages = inScope(store.messages).filter((m) => inPeriod(m.createdAt));
+
+  return {
+    leads: leads.length,
+    salesTotalCents: sales.reduce((s, x) => s + x.amountCents, 0),
+    salesCount: sales.length,
+    receiptsApproved: receipts.filter((r) => r.paid).length,
+    messagesToday: messages.length
+  };
+}
+
 export async function dashboardStats(userId?: string) {
   const botIds = await botIdsForUser(userId);
   if (userId && botIds && botIds.length === 0) {

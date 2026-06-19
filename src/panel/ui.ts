@@ -6,7 +6,7 @@ import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-f
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
-import { salesChartSvgFromData, conversionGaugeSvg } from "./charts.js";
+import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
@@ -308,7 +308,7 @@ export function dashboardPage(
         </div>
       </div>
       <div class="shark-greeting">
-        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, ${greetingName}</h2>
+        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
         <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
       </div>
       <div class="shark-head-right">
@@ -317,13 +317,13 @@ export function dashboardPage(
     </div>
 
     <div class="shark-period-bar">
-      <span class="shark-period-label">Período</span>
-      <div class="shark-period-tabs">
-        <button type="button" class="shark-period-tab shark-period-tab--active">Hoje</button>
-        <button type="button" class="shark-period-tab">Ontem</button>
-        <button type="button" class="shark-period-tab">7 dias</button>
-        <button type="button" class="shark-period-tab">30 dias</button>
-        <button type="button" class="shark-period-tab">Total</button>
+      <span class="shark-period-label">${icons.layers} Período</span>
+      <div class="shark-period-tabs" data-period-tabs>
+        <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>
+        <button type="button" class="shark-period-tab" data-period="ontem">Ontem</button>
+        <button type="button" class="shark-period-tab" data-period="7d">7 dias</button>
+        <button type="button" class="shark-period-tab" data-period="30d">30 dias</button>
+        <button type="button" class="shark-period-tab" data-period="total">Total</button>
       </div>
     </div>
 
@@ -360,12 +360,12 @@ export function dashboardPage(
         <div class="card-head shark-chart-head">
           <div>
             <h3>${icons.layers} Seu desempenho</h3>
-            <span class="shark-chart-sub">Receita · últimos 7 dias</span>
+            <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
           </div>
           <span class="chart-badge" data-live-stat="salesValue">R$ ${salesReais}</span>
         </div>
         <div class="card-body chart-wrap chart-wrap--hero" data-live="sales-chart">
-          ${salesChartSvgFromData(data.chart, { tall: true })}
+          ${sharkPerformanceChartHtml(data.chart, { dayCount: 7, endOffset: 0 })}
         </div>
       </div>
     </div>
@@ -441,7 +441,7 @@ export function dashboardPage(
       }
       function tick() {
         var p = spParts();
-        title.textContent = greet(p.hour) + ", " + name;
+        title.innerHTML = greet(p.hour) + ", <span class=\"shark-greeting-name\">" + name + "</span>";
         if (dateEl) dateEl.textContent = p.day + " DE " + months[p.month - 1] + " DE " + p.year;
       }
       tick();
