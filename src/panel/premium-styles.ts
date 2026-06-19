@@ -1806,14 +1806,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-card--pro .card-body { flex: 1; display: flex; flex-direction: column; padding: 0 16px 12px !important; min-height: 0; }
 .shark-chart-card--pro .chart-wrap--hero { flex: 0 0 auto; min-height: 0; padding: 0; display: flex; flex-direction: column; }
 .shark-chart-header {
-  padding: 14px 16px 0;
-}
-.shark-chart-header .shark-chart-legend {
-  margin-top: 10px;
-}
-.shark-chart-card--pro .shark-chart-divider--head {
-  margin: 10px 16px 0;
-  width: auto;
+  padding: 14px 16px 12px;
 }
 .shark-chart-card--pro .shark-chart-sub {
   color: rgba(59, 130, 246, 0.75);
@@ -1884,7 +1877,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-legend {
   display: flex; align-items: center; gap: 8px;
   font-size: 0.78rem; color: #a1a1aa;
-  margin-bottom: 0;
+  margin: 0 0 10px;
   padding-left: 2px;
 }
 .shark-chart-legend-dot {
@@ -1897,7 +1890,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   height: 1px;
   width: 100%;
   background: rgba(255, 255, 255, 0.1);
-  margin: 10px 0 8px;
+  margin: 0 0 14px;
   flex-shrink: 0;
   display: block;
 }

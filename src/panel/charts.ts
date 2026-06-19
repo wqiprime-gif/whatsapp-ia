@@ -340,6 +340,11 @@ export function sharkPerformanceChartHtml(
   ).replace(/'/g, "&#39;");
 
   return `<div class="shark-perf-chart" data-chart-points='${dataJson}' data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
+    <div class="shark-chart-legend">
+      <span class="shark-chart-legend-dot"></span>
+      <span>Receita</span>
+    </div>
+    <div class="shark-chart-divider" aria-hidden="true"></div>
     <div class="shark-chart-stage">
       <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
         <defs>

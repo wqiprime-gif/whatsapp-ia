@@ -410,7 +410,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 .topbar--dash {
   display: grid;
-  grid-template-columns: minmax(200px, auto) 1fr auto;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   height: auto;
   min-height: 72px;
@@ -421,11 +421,15 @@ button, input, textarea, select { font-family: inherit; }
   flex: 0 0 auto;
   min-width: 0;
   justify-self: start;
+  display: flex;
+  align-items: center;
 }
 .topbar--dash .topbar-center {
   display: flex;
   justify-content: center;
+  align-items: center;
   min-width: 0;
+  justify-self: center;
 }
 .topbar--dash .topbar-right {
   justify-self: end;
