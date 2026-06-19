@@ -158,6 +158,9 @@ export async function initDatabase() {
     const { initScheduledCampaignsSchema } = await import("../lib/scheduled-campaigns.js");
     await initScheduledCampaignsSchema();
 
+    const { initWaRedirectLinksSchema } = await import("../lib/wa-redirect-links.js");
+    await initWaRedirectLinksSchema();
+
     await migrateFromJsonFiles(db);
 
     console.log("[db] PostgreSQL conectado e schema pronto.");

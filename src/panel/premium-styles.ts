@@ -2106,4 +2106,40 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .wa-dist-card h3 { margin: 0 0 8px; font-size: 1rem; }
 .wa-dist-card p { margin: 0 0 14px; font-size: 0.82rem; color: var(--text-2); line-height: 1.5; }
+
+/* Randomizador de links */
+.wa-rand-page { display: flex; flex-direction: column; gap: 22px; max-width: 920px; }
+.wa-rand-intro { font-size: 0.88rem; color: var(--text-2); line-height: 1.6; margin: 0; }
+.wa-rand-online { color: #22C55E; font-weight: 600; }
+.wa-rand-warn { color: #EAB308; font-weight: 600; }
+.wa-rand-section-title { margin: 0 0 16px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.wa-rand-create { padding: 22px 24px; }
+.wa-rand-form { display: flex; flex-direction: column; gap: 14px; }
+.wa-rand-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .wa-rand-grid-2 { grid-template-columns: 1fr; } }
+.wa-rand-instances { display: flex; flex-direction: column; gap: 10px; }
+.wa-inst-pick-list { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); max-height: 220px; overflow-y: auto; }
+.wa-inst-pick { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.84rem; color: var(--text); padding: 4px 0; }
+.wa-inst-pick input { width: 16px; height: 16px; accent-color: #22C55E; flex-shrink: 0; }
+.wa-inst-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.wa-inst-dot--on { background: #22C55E; box-shadow: 0 0 8px rgba(34,197,94,0.6); }
+.wa-inst-dot--off { background: #ef4444; opacity: 0.85; }
+.wa-inst-pick-label em { color: var(--muted); font-style: normal; font-size: 0.78rem; }
+.wa-rand-create-foot { display: flex; justify-content: flex-end; padding-top: 4px; }
+.wa-rand-create-btn { min-width: 180px; }
+.wa-rand-list { display: flex; flex-direction: column; gap: 16px; }
+.wa-rand-card { padding: 20px 22px; }
+.wa-rand-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.wa-rand-card-head h3 { margin: 0; font-size: 1.05rem; }
+.wa-rand-clicks { font-size: 0.72rem; color: var(--muted); font-family: var(--font-mono); }
+.wa-rand-url { margin-bottom: 16px; }
+.wa-rand-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 6px; }
+.wa-rand-empty { padding: 28px 16px; text-align: center; }
+.wa-rand-direct { padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
+.wa-rand-direct summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+.btn-danger {
+  padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.35);
+  background: rgba(239,68,68,0.1); color: #f87171; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.18); }
 `;

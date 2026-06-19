@@ -80,6 +80,16 @@ import {
   topPlayersRankingHtml
 } from "./ui.js";
 import { buildWaLinkRows, waLinksPage } from "./links-page.js";
+import {
+  createWaRedirectLink,
+  deleteWaRedirectLink,
+  getWaRedirectLinkBySlug,
+  listWaRedirectLinks,
+  pickBotForRedirect,
+  recordRedirectClick,
+  resetWaRedirectLinkCounts,
+  updateWaRedirectLink
+} from "../lib/wa-redirect-links.js";
 import { panelUserLabel } from "./layout.js";
 
 async function rowsForUser<T extends Record<string, unknown>>(rows: T[], userId: string) {
@@ -290,6 +300,12 @@ function mimeTypeFromPath(filePath: string) {
 
 function flashRedirect(path: string, message: string, type: "ok" | "err" = "ok") {
   return `${path}?${new URLSearchParams({ msg: message, t: type }).toString()}`;
+}
+
+function parseFormBotIds(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+  return [];
 }
 
 function errorMessage(error: unknown) {
@@ -1178,15 +1194,100 @@ export async function registerPanelRoutes(
   app.get("/links", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     const bots = await loadBots(user.id);
     const statuses = await getWaLiveStatuses(bots);
     const phones = await getWaPhonesForBots(bots);
     const rows = buildWaLinkRows(bots, statuses, phones);
+    const links = await listWaRedirectLinks(user.id);
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
-    const distUrl = `${base}/wa/${user.id}`;
+    const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
     return reply
       .type("text/html")
-      .send(waLinksPage(rows, distUrl, "", isPartial(request), panelUserLabel(user)));
+      .send(waLinksPage(rows, links, base, isPartial(request), panelUserLabel(user), flash));
+  });
+
+  app.post("/links", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const body = request.body as Record<string, unknown>;
+    const name = String(body.name ?? "").trim();
+    const slug = String(body.slug ?? "").trim();
+    const initialMessage = String(body.initialMessage ?? "").trim();
+    const botIds = parseFormBotIds(body.botIds);
+    try {
+      await createWaRedirectLink({ userId: user.id, name, slug, initialMessage, botIds });
+      return reply.redirect(flashRedirect("/links", "Link criado!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
+    }
+  });
+
+  app.post("/links/:id", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = request.body as Record<string, unknown>;
+    try {
+      await updateWaRedirectLink(id, user.id, {
+        name: String(body.name ?? "").trim(),
+        slug: String(body.slug ?? "").trim(),
+        initialMessage: String(body.initialMessage ?? "").trim(),
+        botIds: parseFormBotIds(body.botIds)
+      });
+      return reply.redirect(flashRedirect("/links", "Link salvo!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
+    }
+  });
+
+  app.post("/links/:id/delete", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    try {
+      await deleteWaRedirectLink(id, user.id);
+      return reply.redirect(flashRedirect("/links", "Link excluído."));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
+    }
+  });
+
+  app.post("/links/:id/reset", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    try {
+      await resetWaRedirectLinkCounts(id, user.id);
+      return reply.redirect(flashRedirect("/links", "Contadores zerados!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
+    }
+  });
+
+  app.get("/r/:slug", async (request, reply) => {
+    const { slug } = z.object({ slug: z.string().min(1) }).parse(request.params);
+    const link = await getWaRedirectLinkBySlug(slug);
+    if (!link) {
+      return reply.code(404).type("text/html").send(
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Link não encontrado</h1></body></html>"
+      );
+    }
+    const bots = await loadBots(link.userId);
+    const phonesMap = await getWaPhonesForBots(bots);
+    const onlineBotIds = bots
+      .filter((b) => link.botIds.includes(b.id) && phonesMap[b.id]?.trim())
+      .map((b) => b.id);
+    const pickId = pickBotForRedirect(link, onlineBotIds);
+    if (!pickId) {
+      return reply.code(503).type("text/html").send(
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum WhatsApp online neste rodízio. Tente novamente em instantes.</p></body></html>"
+      );
+    }
+    const phone = phonesMap[pickId]!;
+    void recordRedirectClick(link.id, pickId);
+    const url = buildWaMeUrl(phone, link.initialMessage);
+    return reply.redirect(url);
   });
 
   app.get("/wa/:userId", async (request, reply) => {
