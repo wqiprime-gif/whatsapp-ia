@@ -40,9 +40,10 @@ function glowStyle(i: number) {
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
 }
 
-function sharkIconBox(icon: string, large = false, circle = false) {
+function sharkIconBox(icon: string, large = false, circle = false, blue = false) {
   const cls = large ? " shark-icon-box--lg" : circle ? " shark-icon-box--circle" : "";
-  return `<span class="shark-icon-box${cls}" aria-hidden="true">${icon}</span>`;
+  const tone = blue ? " shark-icon-box--blue" : "";
+  return `<span class="shark-icon-box${cls}${tone}" aria-hidden="true">${icon}</span>`;
 }
 
 export function formatRelativeTime(iso: string) {
@@ -349,16 +350,15 @@ export function dashboardPage(
         </div>
       </div>`;
 
+  const topbarGreeting = `
+      <div class="shark-greeting shark-greeting--topbar">
+        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
+        <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
+      </div>`;
+
   const body = `
     <div class="dash-shell shark-dash">
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
-
-    <div class="shark-dash-head shark-dash-head--greet-only">
-      <div class="shark-greeting">
-        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
-        <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
-      </div>
-    </div>
 
     <div class="shark-period-bar shark-period-card">
       <span class="shark-period-label">${icons.calendar} Período</span>
@@ -377,7 +377,7 @@ export function dashboardPage(
       <div class="shark-kpi-grid">
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(1)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.dollar)}
+            ${sharkIconBox(icons.dollar, false, false, true)}
             <h3 class="shark-kpi-title">Vendas aprovadas</h3>
           </div>
           <div class="shark-kpi-value" data-live-stat="salesValue">R$ ${salesReais}</div>
@@ -388,14 +388,14 @@ export function dashboardPage(
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(2)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.trending)}
+            ${sharkIconBox(icons.trending, false, false, true)}
             <h3 class="shark-kpi-title">Taxa de conversão</h3>
           </div>
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(3)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.zap)}
+            ${sharkIconBox(icons.zap, false, false, true)}
             <h3 class="shark-kpi-title">Total starts</h3>
           </div>
           <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
@@ -403,20 +403,20 @@ export function dashboardPage(
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(4)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.receipt)}
+            ${sharkIconBox(icons.receipt, false, false, true)}
             <h3 class="shark-kpi-title">Ticket médio</h3>
           </div>
           <div class="shark-kpi-value">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
         </div>
       </div>
-      <div class="shark-chart-card shark-card dash-glow-card" style="${glowStyle(5)}">
-        <div class="card-head shark-chart-head">
+      <div class="shark-chart-card shark-card dash-glow-card shark-chart-card--pro" style="${glowStyle(5)}">
+        <div class="shark-chart-header">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.activity)}
+            ${sharkIconBox(icons.activity, false, false, true)}
             <div>
               <h3>Seu desempenho</h3>
-              <span class="shark-chart-sub" data-live="chart-period-label">Receita · últimos 7 dias</span>
+              <span class="shark-chart-sub" data-live="chart-period-label">Últimos 7 dias</span>
             </div>
           </div>
         </div>
@@ -508,7 +508,7 @@ export function dashboardPage(
     })();
     </script>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill, topbarGreeting);
 }
 
 export function profilePage(

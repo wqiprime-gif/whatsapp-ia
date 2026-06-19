@@ -398,7 +398,8 @@ button, input, textarea, select { font-family: inherit; }
   margin-left: 248px;
 }
 .topbar {
-  height: 68px; border-bottom: 1px solid var(--border);
+  height: 68px;
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -407,18 +408,30 @@ button, input, textarea, select { font-family: inherit; }
   background: var(--bg);
   position: sticky; top: 0; z-index: 30;
 }
+.topbar--dash {
+  display: grid;
+  grid-template-columns: minmax(200px, auto) 1fr auto;
+  align-items: center;
+  height: auto;
+  min-height: 72px;
+  padding: 14px 24px;
+  border-bottom: none !important;
+}
 .topbar--dash .topbar-left {
   flex: 0 0 auto;
   min-width: 0;
+  justify-self: start;
 }
-.topbar--dash {
-  height: auto;
-  min-height: 64px;
-  padding-top: 10px;
-  padding-bottom: 10px;
+.topbar--dash .topbar-center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+.topbar--dash .topbar-right {
+  justify-self: end;
 }
 .content:has(.shark-dash) {
-  padding-top: 12px;
+  padding-top: 8px;
 }
 .topbar-left h1 {
   font-family: var(--font-display);

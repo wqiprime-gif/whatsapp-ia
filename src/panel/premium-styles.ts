@@ -545,7 +545,7 @@ body:not(.auth-body) .ambient {
 }
 .topbar {
   background: #050505 !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: none !important;
 }
 .brand-accent { color: var(--green-bright) !important; text-shadow: 0 0 32px var(--green-glow) !important; }
 
@@ -1398,32 +1398,85 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-security-form { display: grid; gap: 12px; }
 
 /* —— SHARK DASHBOARD —— */
-.shark-dash { display: flex; flex-direction: column; gap: 14px; }
-.shark-dash-head {
-  display: grid;
-  grid-template-columns: minmax(200px, 280px) 1fr auto;
-  align-items: start;
-  gap: 20px;
+.shark-dash { display: flex; flex-direction: column; gap: 16px; }
+.shark-dash .dash-glow-card::before,
+.shark-dash .dash-glow-card::after {
+  display: none !important;
+  content: none !important;
 }
-.shark-dash-head--greet-only {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: -2px;
+.shark-dash .dash-glow-card {
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #0a0a0a;
+}
+.shark-dash .shark-kpi-card {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(59, 130, 246, 0.14), transparent 65%),
+    #0a0a0a;
+}
+.shark-dash .shark-chart-card--pro {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(59, 130, 246, 0.1), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.06), transparent 60%),
+    #0a0a0a;
+  min-height: 420px;
+}
+.shark-icon-box--blue {
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+.shark-card:hover .shark-icon-box--blue {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.32);
 }
 .shark-fat-pill--topbar {
   flex-shrink: 0;
+  background:
+    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(34, 197, 94, 0.08), transparent 70%),
+    rgba(255, 255, 255, 0.02) !important;
 }
 .topbar--dash .shark-fat-pill--topbar::before,
 .topbar--dash .shark-fat-pill--topbar::after {
   display: none !important;
   content: none !important;
 }
-@media (max-width: 900px) {
-  .shark-dash-head { grid-template-columns: 1fr; text-align: center; }
-  .topbar--dash .shark-fat-pill--topbar { max-width: 100%; }
+.shark-greeting--topbar {
+  text-align: center;
+  padding: 0 16px;
 }
-.shark-greeting {
+.shark-greeting--topbar .shark-greeting-title {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  margin: 0 0 2px;
+}
+.shark-greeting--topbar .shark-greeting-name {
+  color: #3B82F6;
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.35);
+}
+.shark-greeting--topbar .shark-greeting-date {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+@media (max-width: 900px) {
+  .topbar--dash {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+  .topbar--dash .topbar-left,
+  .topbar--dash .topbar-right,
+  .topbar--dash .topbar-center {
+    justify-self: center;
+  }
+  .topbar--dash .topbar-right { width: 100%; justify-content: center; }
+}
+.shark-dash-head {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr auto;
+  align-items: start;
+  gap: 20px;
+}
+.shark-dash-head--greet-only { display: none; }
+.shark-fat-pill {
   text-align: center;
   padding-top: 4px;
   align-self: start;
@@ -1526,17 +1579,17 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   justify-content: space-between;
   gap: 16px;
   flex-wrap: nowrap;
-  padding: 12px 14px;
-  border-radius: 12px;
+  padding: 0;
+  border-radius: 0;
 }
 .shark-period-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  transition: background 0.3s ease, border-color 0.3s ease;
+  background: transparent;
+  border: none;
+  transition: none;
 }
 .shark-period-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-color: transparent;
 }
 .shark-period-card::before,
 .shark-period-card::after { display: none !important; content: none !important; }
@@ -1746,8 +1799,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   color: var(--muted);
   font-weight: 600;
 }
-.shark-chart-card .card-body { flex: 1; display: flex; align-items: stretch; padding: 8px 12px 16px !important; }
-.shark-chart-card .chart-wrap--hero { min-height: 300px; padding: 0; }
+.shark-chart-card--pro .card-body { flex: 1; display: flex; flex-direction: column; padding: 0 16px 16px !important; min-height: 0; }
+.shark-chart-card--pro .chart-wrap--hero { flex: 1; min-height: 340px; padding: 0; display: flex; flex-direction: column; }
+.shark-chart-header {
+  padding: 16px 18px 8px;
+}
+.shark-chart-card--pro .shark-chart-sub {
+  color: rgba(59, 130, 246, 0.75);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
 
 .shark-bottom-grid {
   display: grid;
@@ -1808,26 +1869,29 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 
 /* Gráfico Seu Desempenho — estilo Shark */
-.shark-perf-chart { width: 100%; }
+.shark-perf-chart { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .shark-chart-legend {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.78rem; color: var(--muted);
-  margin-bottom: 10px;
+  font-size: 0.78rem; color: #71717a;
+  margin-bottom: 6px;
+  padding-left: 2px;
 }
 .shark-chart-legend-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: #3B82F6;
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.55);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
   flex-shrink: 0;
 }
 .shark-chart-stage {
   position: relative;
   width: 100%;
+  flex: 1;
   min-height: 300px;
 }
 .shark-chart-svg {
   width: 100%;
-  height: auto;
+  height: 100%;
+  min-height: 300px;
   display: block;
 }
 .shark-chart-dot {

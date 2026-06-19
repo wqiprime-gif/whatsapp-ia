@@ -622,7 +622,7 @@ export const panelClientScript = `
     }
     const periodLbl = document.querySelector("[data-live=chart-period-label]");
     if (periodLbl && data.periodLabel) {
-      periodLbl.textContent = "Receita · " + String(data.periodLabel).toLowerCase();
+      periodLbl.textContent = String(data.periodLabel).toLowerCase();
     }
     const convGauge = document.querySelector("[data-live=conv-gauge]");
     if (convGauge && data.convGaugeHtml) convGauge.innerHTML = data.convGaugeHtml;

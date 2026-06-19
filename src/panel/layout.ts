@@ -123,15 +123,19 @@ export function appLayout(
   userName = "Usuario",
   subtitle = "",
   userAvatar = "",
-  topbarLeftHtml = ""
+  topbarLeftHtml = "",
+  topbarCenterHtml = ""
 ) {
   if (partial) return body;
 
   const is = (id: NavId) => active === id;
-  const topbarCls = topbarLeftHtml ? " topbar--dash" : "";
+  const topbarCls = topbarLeftHtml || topbarCenterHtml ? " topbar--dash" : "";
   const topbarLeft = topbarLeftHtml
     ? topbarLeftHtml
     : `<h1>${escapeHtml(title)}</h1>${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}`;
+  const topbarCenter = topbarCenterHtml
+    ? `<div class="topbar-center">${topbarCenterHtml}</div>`
+    : "";
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -185,6 +189,7 @@ export function appLayout(
         <div class="topbar-left">
           ${topbarLeft}
         </div>
+        ${topbarCenter}
         <div class="topbar-right">
           <div class="bell-wrap">
             <button type="button" class="icon-btn bell-btn" aria-label="Notificações">${icons.bell}<span class="bell-badge" style="display:none">!</span></button>

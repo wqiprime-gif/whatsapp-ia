@@ -293,12 +293,12 @@ export function sharkPerformanceChartHtml(
   const days = buildChartDays(dayCount, endOffset);
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
-  const w = 640;
-  const h = 260;
-  const padL = 8;
-  const padR = 8;
-  const padT = 12;
-  const padB = 28;
+  const w = 720;
+  const h = 320;
+  const padL = 12;
+  const padR = 12;
+  const padT = 8;
+  const padB = 32;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -307,15 +307,10 @@ export function sharkPerformanceChartHtml(
     const y = padT + chartH - (v / max) * chartH;
     return { x, y, v, day: days[i]! };
   });
-  const curve = smoothChartPath(coords);
+  const curve = smoothChartPath(coords, 0.42);
   const area = `${curve} L ${coords[coords.length - 1].x} ${baseY} L ${coords[0].x} ${baseY} Z`;
   const gid = `sg${Math.random().toString(36).slice(2, 9)}`;
-  const grid = [0.25, 0.5, 0.75]
-    .map((g) => {
-      const y = padT + chartH - g * chartH;
-      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="3 3"/>`;
-    })
-    .join("");
+  const glowId = `gl${Math.random().toString(36).slice(2, 9)}`;
   const dots = coords
     .map(
       (c, i) =>
@@ -350,17 +345,21 @@ export function sharkPerformanceChartHtml(
       <span>Receita</span>
     </div>
     <div class="shark-chart-stage">
-      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+      <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.28"/>
-            <stop offset="95%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
+            <stop offset="0%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.35"/>
+            <stop offset="55%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
+          <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
         </defs>
-        ${grid}
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.55)" stroke-width="1" opacity="0"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.7)" stroke-width="1" opacity="0"/>
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
-        <path d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+        <path d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#${glowId})" pointer-events="none"/>
         ${dots}
         ${labels}
         ${hits}
