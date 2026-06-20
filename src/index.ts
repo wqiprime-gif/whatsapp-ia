@@ -1,5 +1,7 @@
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
+import fs from "node:fs/promises";
+import path from "node:path";
 import Fastify from "fastify";
 import { ensureDataFile, loadBots } from "./bots.js";
 import { env } from "./config.js";
@@ -64,6 +66,19 @@ try {
 }
 const localBase = `http://127.0.0.1:${env.PORT}`;
 console.log("[startup] ZapManager WhatsApp online na porta", env.PORT);
+console.log("[startup] DATA_DIR:", env.DATA_DIR);
+try {
+  await fs.mkdir(env.DATA_DIR, { recursive: true });
+  const probe = path.join(env.DATA_DIR, ".writable-probe");
+  await fs.writeFile(probe, "ok", "utf8");
+  await fs.unlink(probe);
+  console.log("[startup] DATA_DIR gravável: sim (sessão WhatsApp persiste entre deploys)");
+} catch (error) {
+  console.warn(
+    "[startup] ⚠️ DATA_DIR não gravável — monte um volume Railway em /data ou a sessão cai a cada deploy:",
+    error instanceof Error ? error.message : error
+  );
+}
 console.log("[startup] Banco:", useDatabase() ? "PostgreSQL OK" : "arquivos locais (data/)");
 console.log("[startup] Instâncias cadastradas:", botsOnStart);
 console.log("[startup] Painel:", `${localBase}/login`);
@@ -81,9 +96,28 @@ void processDueScheduledCampaigns().catch((error) =>
   console.error("[schedule] Erro na verificação inicial:", error)
 );
 
+let appShuttingDown = false;
+
+async function onShutdownSignal(signal: string) {
+  if (appShuttingDown) return;
+  appShuttingDown = true;
+  console.log(`[shutdown] ${signal} — salvando sessões WhatsApp antes de encerrar...`);
+  try {
+    await shutdownWhatsAppBots();
+  } catch (error) {
+    console.error("[shutdown] Erro ao encerrar bots:", error);
+  }
+  try {
+    await app.close();
+  } catch {
+    // ignore
+  }
+  process.exit(0);
+}
+
 process.once("SIGINT", () => {
-  void shutdownWhatsAppBots();
+  void onShutdownSignal("SIGINT");
 });
 process.once("SIGTERM", () => {
-  void shutdownWhatsAppBots();
+  void onShutdownSignal("SIGTERM");
 });

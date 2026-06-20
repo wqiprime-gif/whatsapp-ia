@@ -2375,6 +2375,38 @@ app.post('/api/logout', async (_req, res) => {
   }
 });
 
+let shuttingDown = false;
+
+async function gracefulShutdown(source) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] Encerrando com sessão preservada (${source})...`);
+  try {
+    await client.destroy();
+    console.log('[shutdown] Sessão WhatsApp salva no disco.');
+  } catch (err) {
+    console.warn('[shutdown] destroy:', err?.message || err);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+  try {
+    server.close();
+  } catch (_) {}
+}
+
+app.post('/api/shutdown', (_req, res) => {
+  res.json({ ok: true, message: 'Encerrando sem logout...' });
+  setTimeout(() => {
+    gracefulShutdown('api').finally(() => process.exit(0));
+  }, 150);
+});
+
+function handleShutdownSignal(signal) {
+  gracefulShutdown(signal).finally(() => process.exit(0));
+}
+
+process.once('SIGTERM', () => handleShutdownSignal('SIGTERM'));
+process.once('SIGINT', () => handleShutdownSignal('SIGINT'));
+
 // Envio externo (remarketing do painel) — whatsapp-web.js client.sendMessage
 app.post('/api/send', async (req, res) => {
   const to = req.body?.to;
@@ -2578,5 +2610,6 @@ client.on('disconnected', (reason) => {
     console.error(`⚠️ Erro ao atualizar status: ${error.message}`);
   }
 
+  if (shuttingDown) return;
   client.initialize();
 });

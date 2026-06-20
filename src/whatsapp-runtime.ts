@@ -99,6 +99,53 @@ async function purgeAllWaSessionDirs(botId: string) {
   }
 }
 
+async function requestWaGracefulShutdown(port: number) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    await fetch(`http://127.0.0.1:${port}/api/shutdown`, { method: "POST", signal: ctrl.signal });
+    clearTimeout(timer);
+  } catch {
+    // processo pode já ter encerrado
+  }
+}
+
+async function migrateLegacyWaSession(botId: string, authDir: string): Promise<boolean> {
+  await fs.mkdir(authDir, { recursive: true });
+  const clientId = waClientIdForBot(botId);
+  const target = path.join(authDir, `session-${clientId}`);
+  if (fsSync.existsSync(target)) return true;
+
+  const compact = botId.replace(/-/g, "");
+  const legacyRoots = [
+    path.join(hotbotDir, ".wwebjs_auth"),
+    path.join(rootDir, "data", "wwebjs_auth")
+  ];
+
+  for (const root of legacyRoots) {
+    try {
+      const entries = await fs.readdir(root);
+      for (const name of entries) {
+        if (!name.startsWith("session-")) continue;
+        const sid = name.slice("session-".length);
+        const matches =
+          sid === clientId ||
+          sid.replace(/^wa_?/, "") === compact ||
+          sid.includes(compact.slice(0, 8)) ||
+          compact.includes(sid.replace(/^wa_?/, "").slice(0, 8));
+        if (!matches) continue;
+        const src = path.join(root, name);
+        await fs.cp(src, target, { recursive: true });
+        console.log(`[wa-web] Sessão migrada de ${src} → ${target}`);
+        return true;
+      }
+    } catch {
+      // pasta legada pode não existir
+    }
+  }
+  return false;
+}
+
 async function requestWaLogout(botId: string, port: number) {
   try {
     const ctrl = new AbortController();
@@ -266,6 +313,9 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   const instDir = instanceDataDir(bot.id);
   await fs.mkdir(instDir, { recursive: true });
 
+  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  await migrateLegacyWaSession(bot.id, authDir);
+
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
     OPENAI_API_KEY: apiKey || "",
@@ -278,7 +328,7 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     BOT_ID: bot.id,
     PIX_KEY: bot.pixKey,
     PIX_RECIPIENT: bot.pixRecipientName || bot.name,
-    WA_AUTH_DIR: path.join(env.DATA_DIR, "wwebjs_auth"),
+    WA_AUTH_DIR: authDir,
     WA_INSTANCE_DIR: instDir,
     UPLOADS_DIR: uploadsDir,
     PUPPETEER_EXECUTABLE_PATH: resolveChromeExecutable(),
@@ -325,9 +375,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
 
   processes.set(bot.id, { child, port, botId: bot.id });
   const proxyNote = bot.proxyEnabled ? " · proxy isolado" : "";
-  const authDir = childEnv.WA_AUTH_DIR;
   const clientId = waClientIdForBot(bot.id);
-  const sessionDir = path.join(authDir || "", `session-${clientId}`);
+  const sessionDir = path.join(authDir, `session-${clientId}`);
   const hasSession = fsSync.existsSync(sessionDir);
   console.log(`[wa-web] ${bot.name} iniciado na porta ${port}${proxyNote}`);
   console.log(`[wa-web] Sessão: clientId=${clientId} · auth em ${authDir} · salva=${hasSession ? "sim" : "não"}`);
@@ -378,10 +427,15 @@ function registerMetaBot(bot: BotConfig) {
   console.log(`[wa-meta] ${bot.name} registrado (Phone ID ${bot.metaPhoneNumberId || "?"})`);
 }
 
-async function killWebBot(botId: string, timeoutMs = 15000) {
+async function killWebBot(botId: string, timeoutMs = 22000) {
   const proc = processes.get(botId);
   if (!proc) return;
+  await requestWaGracefulShutdown(proc.port);
   return new Promise<void>((resolve) => {
+    if (!processes.has(botId)) {
+      resolve();
+      return;
+    }
     const timer = setTimeout(() => {
       try {
         proc.child.kill("SIGKILL");
@@ -397,7 +451,7 @@ async function killWebBot(botId: string, timeoutMs = 15000) {
       resolve();
     });
     try {
-      proc.child.kill("SIGTERM");
+      if (!proc.child.killed) proc.child.kill("SIGTERM");
     } catch {
       clearTimeout(timer);
       processes.delete(botId);
@@ -458,6 +512,12 @@ export async function ensureWhatsAppBotsRunning() {
   if (restartInProgress) return;
   restartInProgress = true;
   try {
+    const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
+    if (isRailway) {
+      // Evita duas instâncias do container disputando a mesma sessão no volume.
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+
     const bots = await loadBots();
     const activeWeb = bots.filter((b) => b.active && !isMetaBot(b));
     const activeIds = new Set(activeWeb.map((b) => b.id));
@@ -500,7 +560,7 @@ export async function restartWhatsAppBots() {
 }
 
 export async function shutdownWhatsAppBots() {
-  await Promise.all([...processes.keys()].map((id) => killWebBot(id, 4000)));
+  await Promise.all([...processes.keys()].map((id) => killWebBot(id, 25000)));
   metaBots.clear();
 }
 
