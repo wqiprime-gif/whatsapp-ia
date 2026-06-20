@@ -708,9 +708,46 @@ function backupWaSession() {
       JSON.stringify({ clientId, backedUpAt: new Date().toISOString(), sessionId }, null, 2)
     );
     console.log(`💾 Backup sessão WhatsApp salvo (${backupDir})`);
+    void uploadWaSessionBackupToPanel();
     return true;
   } catch (e) {
     console.warn('⚠️ Falha no backup da sessão:', e?.message || e);
+    return false;
+  }
+}
+
+async function uploadWaSessionBackupToPanel() {
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  const panelUrl = process.env.PANEL_URL;
+  const secret = process.env.INTERNAL_SECRET;
+  const botId = process.env.BOT_ID || sessionId;
+  if (!panelUrl || !secret || !fs.existsSync(sessionDir)) return false;
+  try {
+    const { execFileSync } = require('child_process');
+    const archive = execFileSync('tar', ['-czf', '-', '-C', sessionDir, '.'], {
+      maxBuffer: 80 * 1024 * 1024,
+      encoding: 'buffer'
+    });
+    if (!archive || archive.length < 32) return false;
+    const res = await axios.post(
+      `${panelUrl}/internal/wa-session-backup`,
+      { botId, clientId, base64: archive.toString('base64') },
+      {
+        headers: { 'x-internal': secret, 'Content-Type': 'application/json' },
+        timeout: 120000,
+        maxBodyLength: 90 * 1024 * 1024,
+        maxContentLength: 90 * 1024 * 1024,
+        validateStatus: () => true
+      }
+    );
+    if (res.data?.ok) {
+      console.log(`💾 Backup sessão enviado ao PostgreSQL (${Math.round(archive.length / 1024)} KB)`);
+      return true;
+    }
+    console.warn('⚠️ PostgreSQL rejeitou backup:', res.data?.error || res.status);
+    return false;
+  } catch (e) {
+    console.warn('⚠️ Falha ao enviar backup ao PostgreSQL:', e?.message || e);
     return false;
   }
 }
@@ -2425,8 +2462,9 @@ async function gracefulShutdown(source) {
   console.log(`[shutdown] Encerrando com sessão preservada (${source})...`);
   try {
     backupWaSession();
+    await uploadWaSessionBackupToPanel();
     await client.destroy();
-    console.log('[shutdown] Sessão WhatsApp salva no disco.');
+    console.log('[shutdown] Sessão WhatsApp salva no disco e PostgreSQL.');
   } catch (err) {
     console.warn('[shutdown] destroy:', err?.message || err);
   }

@@ -161,6 +161,9 @@ export async function initDatabase() {
     const { initWaRedirectLinksSchema } = await import("../lib/wa-redirect-links.js");
     await initWaRedirectLinksSchema();
 
+    const { initWaSessionSchema } = await import("./wa-session.js");
+    await initWaSessionSchema(db);
+
     await migrateFromJsonFiles(db);
 
     console.log("[db] PostgreSQL conectado e schema pronto.");

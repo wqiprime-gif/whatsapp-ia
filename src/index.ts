@@ -103,6 +103,22 @@ try {
   } else {
     console.log(`[startup] Volume OK · ${sessionCount} sessão(ões) WhatsApp em disco`);
   }
+
+  if (useDatabase()) {
+    try {
+      const { countWaSessionBackups } = await import("./db/wa-session.js");
+      const dbBackups = await countWaSessionBackups();
+      if (dbBackups > 0) {
+        console.log(`[startup] PostgreSQL · ${dbBackups} backup(s) de sessão WhatsApp (reconexão automática após deploy)`);
+      } else if (!hadPreviousBoot || sessionCount === 0) {
+        console.log(
+          "[startup] PostgreSQL · nenhum backup de sessão ainda — após escanear o QR, a sessão será salva no banco"
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
 } catch (error) {
   console.warn(
     "[startup] ⚠️ DATA_DIR não gravável — monte um volume Railway em /data ou a sessão cai a cada deploy:",

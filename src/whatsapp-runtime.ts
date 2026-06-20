@@ -110,6 +110,34 @@ async function requestWaGracefulShutdown(port: number) {
   }
 }
 
+async function restoreWaSessionFromDb(botId: string, authDir: string, clientId: string): Promise<boolean> {
+  const target = path.join(authDir, `session-${clientId}`);
+  if (fsSync.existsSync(target)) return true;
+
+  try {
+    const { getWaSessionBackup } = await import("./db/wa-session.js");
+    const { extractTarBufferToDir } = await import("./lib/wa-session-archive.js");
+    const backup = await getWaSessionBackup(botId);
+    if (!backup?.data?.length) return false;
+
+    if (backup.clientId && backup.clientId !== clientId) {
+      console.warn(
+        `[wa-web] Backup PostgreSQL de ${botId} tem clientId diferente (${backup.clientId} ≠ ${clientId}) — ignorando`
+      );
+      return false;
+    }
+
+    await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+    await extractTarBufferToDir(backup.data, target);
+    const when = backup.backedUpAt.toISOString();
+    console.log(`[wa-web] ♻️ Sessão restaurada do PostgreSQL (${when}) → ${target}`);
+    return true;
+  } catch (err) {
+    console.warn(`[wa-web] Falha ao restaurar sessão do PostgreSQL (${botId}):`, err);
+    return false;
+  }
+}
+
 async function migrateLegacyWaSession(botId: string, authDir: string): Promise<boolean> {
   await fs.mkdir(authDir, { recursive: true });
   const clientId = waClientIdForBot(botId);
@@ -125,6 +153,10 @@ async function migrateLegacyWaSession(botId: string, authDir: string): Promise<b
     } catch (err) {
       console.warn(`[wa-web] Falha ao restaurar backup da instância ${botId}:`, err);
     }
+  }
+
+  if (await restoreWaSessionFromDb(botId, authDir, clientId)) {
+    return true;
   }
 
   const compact = botId.replace(/-/g, "");
@@ -407,6 +439,12 @@ export async function purgeWaInstanceData(botId: string) {
   const promptFile = path.join(hotbotDir, "prompts", `${botId}-prompt.json`);
   await fs.rm(instDir, { recursive: true, force: true }).catch(() => {});
   await fs.rm(promptFile, { force: true }).catch(() => {});
+  try {
+    const { clearWaSessionBackup } = await import("./db/wa-session.js");
+    await clearWaSessionBackup(botId);
+  } catch {
+    // ignore
+  }
   markWaForceQr(botId);
   console.log(`[wa-web] Instância ${botId} removida (dados + sessão WhatsApp)`);
 }

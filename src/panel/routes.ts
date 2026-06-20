@@ -503,6 +503,47 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/internal/wa-session-backup", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().uuid(),
+          clientId: z.string().min(1),
+          base64: z.string().min(1)
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) {
+        return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
+      }
+
+      const data = Buffer.from(body.base64, "base64");
+      if (data.length < 32) {
+        return reply.code(400).send({ ok: false, error: "Backup vazio ou invalido" });
+      }
+      if (data.length > 80 * 1024 * 1024) {
+        return reply.code(413).send({ ok: false, error: "Backup excede 80MB" });
+      }
+
+      const { saveWaSessionBackup } = await import("../db/wa-session.js");
+      await saveWaSessionBackup(body.botId, data, body.clientId);
+      console.log(
+        `[wa-web] 💾 Backup sessão ${bot.name} salvo no PostgreSQL (${Math.round(data.length / 1024)} KB)`
+      );
+      return reply.send({ ok: true, bytes: data.length });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao salvar backup da sessao"
+      });
+    }
+  });
+
   app.post("/internal/events", async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });
