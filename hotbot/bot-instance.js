@@ -678,6 +678,45 @@ let _aiBaseUrl = process.env.AI_BASE_URL || '';
 let _openaiClient = null;
 let _aiSig = '';
 
+const https = require('https');
+const aiHttpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30_000,
+  maxSockets: 16,
+  family: 4,
+  timeout: 60_000
+});
+
+function aiBaseURL() {
+  return (_aiBaseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+}
+
+function aiAuthHeaders() {
+  const h = {
+    Authorization: `Bearer ${_aiKey}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json'
+  };
+  if (_aiProvider === 'openrouter') {
+    h['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app';
+    h['X-Title'] = 'ZapManager';
+  }
+  return h;
+}
+
+async function chatCompletionViaAxios(payload) {
+  const url = `${aiBaseURL()}/chat/completions`;
+  const res = await axios.post(url, payload, {
+    headers: aiAuthHeaders(),
+    httpsAgent: aiHttpsAgent,
+    timeout: 60_000,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    transitional: { clarifyTimeoutError: true }
+  });
+  return res.data;
+}
+
 function reloadAiRuntime() {
   const envKey = String(process.env.OPENAI_API_KEY || '').trim();
   try {
@@ -718,17 +757,17 @@ function getOpenAI() {
     } else {
       console.log(`🤖 IA ativa: ${_aiProvider} · ${aiModel()} · key ${_aiKey.slice(0, 7)}…`);
     }
-    const opts = { apiKey: _aiKey || 'missing-key', timeout: 30_000, maxRetries: 1 };
-    if (_aiBaseUrl) {
-      opts.baseURL = _aiBaseUrl;
-      if (_aiProvider === 'openrouter') {
-        opts.defaultHeaders = {
-          'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app',
-          'X-Title': 'ZapManager'
-        };
+    _openaiClient = {
+      chat: {
+        completions: {
+          create: async (payload) => {
+            const body = { ...payload };
+            if (!body.model) body.model = aiModel();
+            return chatCompletionViaAxios(body);
+          }
+        }
       }
-    }
-    _openaiClient = new OpenAI(opts);
+    };
   }
   return _openaiClient;
 }
@@ -755,9 +794,10 @@ console.log(`🔑 IA runtime: ${aiRuntimePath} · key=${getOpenAiApiKey() ? getO
     const txt = r?.choices?.[0]?.message?.content || '(vazio)';
     console.log(`✅ Self-test IA OK em ${dt}ms · resposta="${txt.slice(0, 30)}"`);
   } catch (e) {
-    const det = e?.error?.message || e?.response?.data?.error?.message || e?.cause?.message || '';
+    const det = e?.response?.data?.error?.message || e?.error?.message || e?.cause?.message || '';
+    const stat = e?.response?.status || e?.status;
     console.error(`❌ Self-test IA FALHOU: ${e?.message || e}${det ? ' — ' + det : ''}`);
-    if (e?.status) console.error(`   status=${e.status}`);
+    if (stat) console.error(`   status=${stat}`);
     if (e?.code) console.error(`   code=${e.code}`);
   }
 })();
@@ -1104,8 +1144,8 @@ async function runCompletion(userNumber, message) {
     return assistantMessage;
   } catch (error) {
     const msg = error?.message || String(error);
-    const detail = error?.error?.message || error?.response?.data?.error?.message || error?.cause?.message || '';
-    const status = error?.status || error?.response?.status;
+    const detail = error?.response?.data?.error?.message || error?.error?.message || error?.cause?.message || '';
+    const status = error?.response?.status || error?.status;
     console.error('Error in runCompletion:', msg, status ? `(HTTP ${status})` : '', detail ? `— ${detail}` : '');
     throw error;
   }
@@ -1872,12 +1912,12 @@ client.on("message", async (message) => {
       } catch (completionError) {
         const errMsg = completionError?.message || String(completionError);
         const apiDetail =
-          completionError?.error?.message ||
           completionError?.response?.data?.error?.message ||
+          completionError?.error?.message ||
           completionError?.cause?.message ||
           '';
-        const status = completionError?.status || completionError?.response?.status || '';
-        const code = completionError?.code || completionError?.error?.code || '';
+        const status = completionError?.response?.status || completionError?.status || '';
+        const code = completionError?.code || completionError?.response?.data?.error?.code || completionError?.error?.code || '';
         console.error('═'.repeat(60));
         console.error(`❌ ERRO IA OpenAI: ${errMsg}`);
         if (apiDetail) console.error(`   detalhe: ${apiDetail}`);
@@ -2026,6 +2066,8 @@ async function transcribeAudio(fileBuffer, ext = 'ogg') {
           Authorization: `Bearer ${getOpenAiApiKey()}`,
           ...formData.getHeaders()
         },
+        httpsAgent: aiHttpsAgent,
+        timeout: 60_000,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       }
