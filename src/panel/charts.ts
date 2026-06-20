@@ -295,10 +295,10 @@ export function sharkPerformanceChartHtml(
   const max = Math.max(...values, 1);
   const w = 879;
   const h = 150;
-  const padL = 10;
-  const padR = 10;
-  const padT = 10;
-  const padB = 24;
+  const padL = 16;
+  const padR = 16;
+  const padT = 18;
+  const padB = 28;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -313,7 +313,7 @@ export function sharkPerformanceChartHtml(
   const gridLines = [0.25, 0.5, 0.75]
     .map((frac) => {
       const gy = padT + chartH * (1 - frac);
-      return `<line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 6" pointer-events="none"/>`;
+      return `<line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3 6" pointer-events="none" opacity="0.08"/>`;
     })
     .join("");
   const dots = coords

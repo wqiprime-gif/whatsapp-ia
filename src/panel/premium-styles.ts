@@ -528,20 +528,20 @@ body:not(.auth-body) .ambient {
 }
 
 .sidebar {
-  background: #050505 !important;
+  background: #070707 !important;
   border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: none !important;
 }
 .btn-new {
   background: linear-gradient(135deg, #0a5cff, #3b82f6) !important;
-  box-shadow: 0 8px 32px rgba(10, 92, 255, 0.4) !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 6px 20px rgba(10, 92, 255, 0.28) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
 }
 .nav a.active {
-  background: rgba(10, 92, 255, 0.12) !important;
+  background: rgba(10, 92, 255, 0.1) !important;
   color: var(--blue-bright) !important;
-  border-color: rgba(10, 92, 255, 0.35) !important;
-  box-shadow: 0 0 24px rgba(10, 92, 255, 0.1) !important;
+  border-color: rgba(10, 92, 255, 0.22) !important;
+  box-shadow: 0 0 12px rgba(10, 92, 255, 0.06) !important;
 }
 .topbar {
   background: #050505 !important;
@@ -962,15 +962,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 
 .dash-glow-card {
   border-radius: 14px;
-  background: #0a0a0a;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #090909;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 .shark-card {
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .shark-card:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: #0d0d0d !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
 .shark-card:hover .shark-icon-box {
   background: rgba(59, 130, 246, 0.15);
@@ -1398,33 +1398,42 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-security-form { display: grid; gap: 12px; }
 
 /* —— SHARK DASHBOARD —— */
-.shark-dash { display: flex; flex-direction: column; gap: 16px; }
+.shark-dash { display: flex; flex-direction: column; gap: 18px; }
 .shark-dash .dash-glow-card {
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   background:
-    radial-gradient(ellipse 88% 68% at 50% 108%, rgba(59, 130, 246, 0.13), transparent 64%),
-    radial-gradient(ellipse 45% 38% at 92% 8%, rgba(59, 130, 246, 0.06), transparent 58%),
-    #0a0a0a;
+    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.12), transparent 75%),
+    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.05), transparent 62%),
+    #090909;
 }
 .shark-dash .dash-glow-card.card-premium {
   background:
-    radial-gradient(ellipse 88% 68% at 50% 108%, rgba(59, 130, 246, 0.13), transparent 64%),
-    radial-gradient(ellipse 45% 38% at 92% 8%, rgba(59, 130, 246, 0.06), transparent 58%),
-    #0a0a0a !important;
-  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.12), transparent 75%),
+    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.05), transparent 62%),
+    #090909 !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
 .shark-dash .dash-glow-card.card-premium .card-head {
   background: transparent !important;
-  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+  padding: 20px 24px 12px !important;
+}
+.shark-dash .dash-glow-card.card-premium .card-head h3 {
+  font-weight: 500 !important;
+  font-size: 0.9rem !important;
+  color: #d4d4d8 !important;
+}
+.shark-dash .dash-glow-card.card-premium .card-body {
+  padding: 8px 24px 24px !important;
 }
 .shark-dash .shark-card.dash-glow-card:hover {
   background:
-    radial-gradient(ellipse 88% 68% at 50% 108%, rgba(59, 130, 246, 0.17), transparent 64%),
-    radial-gradient(ellipse 45% 38% at 92% 8%, rgba(59, 130, 246, 0.09), transparent 58%),
-    rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.15), transparent 75%),
+    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.07), transparent 62%),
+    #0d0d0d !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
 }
 .shark-dash .shark-chart-card--pro {
   min-height: 0;
@@ -1441,8 +1450,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-fat-pill--topbar {
   flex-shrink: 0;
   background:
-    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(59, 130, 246, 0.08), transparent 70%),
-    rgba(255, 255, 255, 0.02) !important;
+    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(0, 100, 255, 0.1), transparent 72%),
+    #090909 !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 .topbar--dash .shark-fat-pill--topbar::before,
 .topbar--dash .shark-fat-pill--topbar::after {
@@ -1451,19 +1461,22 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-greeting--topbar {
   text-align: center;
-  padding: 0 16px;
+  padding: 8px 16px 6px;
 }
 .shark-greeting--topbar .shark-greeting-title {
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  margin: 0 0 2px;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  margin: 0 0 4px;
+  font-weight: 500;
 }
 .shark-greeting--topbar .shark-greeting-name {
   color: var(--blue-bright);
-  text-shadow: 0 0 20px rgba(10, 92, 255, 0.35);
+  font-weight: 600;
+  text-shadow: 0 0 16px rgba(10, 92, 255, 0.22);
 }
 .shark-greeting--topbar .shark-greeting-date {
   font-size: 0.62rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
+  color: #71717a;
 }
 @media (max-width: 900px) {
   .topbar--dash {
@@ -1555,22 +1568,23 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-greeting-title {
   font-family: var(--font-display);
   font-size: clamp(1rem, 1.6vw, 1.3rem);
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: #fff;
   margin: 0 0 4px;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 .shark-greeting-name {
   color: var(--blue-bright);
-  text-shadow: 0 0 18px rgba(10, 92, 255, 0.35);
+  font-weight: 600;
+  text-shadow: 0 0 14px rgba(10, 92, 255, 0.22);
 }
 .shark-greeting-date {
   font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #71717a;
   margin: 0;
 }
 .shark-head-right { text-align: right; }
@@ -1583,17 +1597,19 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   justify-content: space-between;
   gap: 16px;
   flex-wrap: nowrap;
-  padding: 12px 14px;
-  border-radius: 12px;
+  height: 54px;
+  min-height: 54px;
+  padding: 0 18px;
+  border-radius: 16px;
 }
 .shark-period-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #0b0b0b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 .shark-period-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #0d0d0d;
+  border-color: rgba(255, 255, 255, 0.07);
 }
 .shark-period-card::before,
 .shark-period-card::after { display: none !important; content: none !important; }
@@ -1616,9 +1632,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   flex: 0 0 auto;
   margin-left: auto;
   width: auto;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 .shark-period-tabs {
@@ -1630,15 +1646,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-period-tab {
   flex: 0 0 auto;
-  padding: 9px 14px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: #71717a;
   font-size: 0.6875rem;
   font-weight: 500;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 32px;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 @media (max-width: 900px) {
@@ -1687,37 +1703,37 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   .shark-kpi-grid { grid-template-columns: 1fr; }
 }
 .shark-kpi-card {
-  padding: 14px 16px;
+  padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 148px;
+  gap: 12px;
+  min-height: 156px;
 }
 .shark-kpi-head {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 .shark-kpi-title {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #e5e5e5;
+  color: #d4d4d8;
   margin: 0;
-  line-height: 1.25;
+  line-height: 1.35;
   font-family: var(--font-display);
   letter-spacing: -0.01em;
 }
 .shark-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
   color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.14);
   transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
 .shark-kpi-card:hover .shark-icon-box,
@@ -1727,13 +1743,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   background: rgba(59, 130, 246, 0.15);
   border-color: rgba(59, 130, 246, 0.28);
 }
-.shark-icon-box svg { width: 18px; height: 18px; }
+.shark-icon-box svg { width: 16px; height: 16px; }
 .shark-icon-box--lg {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
 }
-.shark-icon-box--lg svg { width: 20px; height: 20px; }
+.shark-icon-box--lg svg { width: 18px; height: 18px; }
 .shark-icon-box--circle {
   width: 44px;
   height: 44px;
@@ -1761,11 +1777,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-kpi-value {
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3vw, 2.35rem);
-  font-weight: 800;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: #fff;
-  line-height: 1.1;
+  line-height: 1.15;
+  margin-top: 2px;
 }
 .shark-kpi-value.accent { color: #fff; }
 .shark-kpi-sub { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
@@ -1808,12 +1825,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 16px 14px !important;
+  padding: 4px 24px 22px !important;
   min-height: 0 !important;
 }
 .shark-chart-header {
-  padding: 14px 16px 0;
+  padding: 22px 24px 8px;
   flex-shrink: 0;
+}
+.shark-chart-header h3 {
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 .shark-chart-card--pro .shark-chart-sub {
   color: rgba(59, 130, 246, 0.75);
@@ -1883,10 +1904,11 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-perf-chart { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .shark-chart-legend {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.78rem; color: #a1a1aa;
+  font-size: 0.72rem; color: #a1a1aa;
   margin: 0;
-  padding-left: 2px;
+  padding: 0 4px 14px;
   flex-shrink: 0;
+  font-weight: 500;
 }
 .shark-chart-legend-dot {
   width: 8px; height: 8px; border-radius: 50%;

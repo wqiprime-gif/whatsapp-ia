@@ -2,10 +2,10 @@
 export const designSystem = {
   colors: {
     bgBase: "#050505",
-    bgElevated: "#0a0a0a",
-    bgSidebar: "#050505",
-    bgCard: "#0a0a0a",
-    bgCardSolid: "#0a0a0a",
+    bgElevated: "#0b0b0b",
+    bgSidebar: "#070707",
+    bgCard: "#090909",
+    bgCardSolid: "#090909",
     bgCardHover: "rgba(8, 12, 24, 0.95)",
     border: "rgba(255, 255, 255, 0.06)",
     borderHighlight: "rgba(10, 92, 255, 0.35)",
