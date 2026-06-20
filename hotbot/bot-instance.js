@@ -670,30 +670,70 @@ client.initialize().catch((error) => {
 });
 
 const openAiApiKey = process.env.OPENAI_API_KEY;
-const aiModel = () => process.env.AI_MODEL || 'gpt-4o-mini';
-const aiProviderName = process.env.AI_PROVIDER || 'openai';
-if (!openAiApiKey) {
-  console.error('❌ OPENAI_API_KEY vazia — a IA NÃO vai responder. Configure a API Key na instância ou em Configurações.');
-} else {
-  console.log(`🤖 IA ativa: ${aiProviderName} · modelo ${aiModel()}`);
-}
-const openaiOpts = { apiKey: openAiApiKey || 'missing-key' };
-if (process.env.AI_BASE_URL) {
-  openaiOpts.baseURL = process.env.AI_BASE_URL;
-  if (process.env.AI_PROVIDER === 'openrouter') {
-    openaiOpts.defaultHeaders = {
-      'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app',
-      'X-Title': 'ZapManager'
-    };
+const aiRuntimePath = path.join(instancesDataDir, 'ai-runtime.json');
+let _aiKey = openAiApiKey || '';
+let _aiModel = process.env.AI_MODEL || 'gpt-4o-mini';
+let _aiProvider = process.env.AI_PROVIDER || 'openai';
+let _aiBaseUrl = process.env.AI_BASE_URL || '';
+let _openaiClient = null;
+let _aiSig = '';
+
+function reloadAiRuntime() {
+  try {
+    if (fs.existsSync(aiRuntimePath)) {
+      const d = JSON.parse(fs.readFileSync(aiRuntimePath, 'utf8'));
+      if (d.apiKey) _aiKey = d.apiKey;
+      if (d.model) _aiModel = d.model;
+      if (d.provider) _aiProvider = d.provider;
+      if (d.baseURL !== undefined) _aiBaseUrl = d.baseURL || '';
+    }
+  } catch (e) {
+    console.warn('⚠️ ai-runtime.json:', e.message);
   }
 }
-const openai = new OpenAI(openaiOpts);
+
+function aiModel() {
+  reloadAiRuntime();
+  return _aiModel || 'gpt-4o-mini';
+}
+
+function getOpenAiApiKey() {
+  reloadAiRuntime();
+  return _aiKey || '';
+}
+
+function getOpenAI() {
+  reloadAiRuntime();
+  const sig = `${_aiKey}|${_aiModel}|${_aiProvider}|${_aiBaseUrl}`;
+  if (!_openaiClient || sig !== _aiSig) {
+    _aiSig = sig;
+    if (!_aiKey) {
+      console.error('❌ OPENAI_API_KEY vazia — salve a API Key na instância (não precisa reconectar o WhatsApp).');
+    } else {
+      console.log(`🤖 IA ativa: ${_aiProvider} · ${aiModel()} · key ${_aiKey.slice(0, 7)}…`);
+    }
+    const opts = { apiKey: _aiKey || 'missing-key' };
+    if (_aiBaseUrl) {
+      opts.baseURL = _aiBaseUrl;
+      if (_aiProvider === 'openrouter') {
+        opts.defaultHeaders = {
+          'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app',
+          'X-Title': 'ZapManager'
+        };
+      }
+    }
+    _openaiClient = new OpenAI(opts);
+  }
+  return _openaiClient;
+}
+
+getOpenAI();
 
 /** Gera fala no tom do prompt da instância — sem mensagens fixas do código. */
 async function generatePersonaReply(userNumber, instruction) {
   const conversation = getUserConversation(userNumber);
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: aiModel(),
       temperature: 0.55,
       max_tokens: 120,
@@ -961,7 +1001,7 @@ async function runCompletion(userNumber, message) {
       : tools;
     console.log(`Tools disponíveis para ${userNumber}:`, availableTools.map(t => t.function.name));
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: aiModel(),
       temperature: 0.3,
       messages: conversation,
@@ -1252,7 +1292,7 @@ Qual pacote te interessa, amor? 💕
 
     // --- PRIORIDADE 3: GPT com contexto completo das últimas 5 mensagens ---
     try {
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAI().chat.completions.create({
         model: aiModel(),
         messages: [
           {
@@ -1788,8 +1828,8 @@ client.on("message", async (message) => {
           if (wantsPixIntent(combinedMessage) && !pixAlreadySent) {
             await enviarChavePix(from, getUserConversation(from));
           }
-        } else if (!openAiApiKey || openAiApiKey === 'missing-key') {
-          await sendTextHuman(client, from, 'Oii! Meu sistema de IA ainda não está configurado no servidor. Peça para atualizar a API Key na instância e clicar em Reiniciar motor.');
+        } else if (!getOpenAiApiKey()) {
+          await sendTextHuman(client, from, 'Oii! Meu sistema de IA ainda não está configurado. Salve a API Key na instância e clique em Salvar (não precisa reconectar o WhatsApp).');
         }
       } catch (completionError) {
         const errMsg = completionError?.message || String(completionError);
@@ -1800,7 +1840,7 @@ client.on("message", async (message) => {
         console.error(`❌ Erro ao processar mensagem: ${errMsg}${apiDetail ? ` (${apiDetail})` : ''}\n`);
         isProcessing[from] = false;
         const hint = /model|invalid_api|authentication|api key/i.test(`${errMsg} ${apiDetail}`)
-          ? 'Oii! Deu um problema na configuração da IA (modelo ou API Key). Confere no painel da instância e clica em Reiniciar motor. 😊'
+          ? 'Oii! Deu um problema na configuração da IA (modelo ou API Key). Confere no painel da instância, salva de novo e manda outra mensagem. 😊'
           : 'Oii! Travou um segundo aqui, manda de novo pra mim? 😊';
         try {
           await sendTextHuman(client, from, hint);
@@ -1926,7 +1966,7 @@ async function transcribeAudio(fileBuffer, ext = 'ogg') {
       formData,
       {
         headers: {
-          Authorization: `Bearer ${openAiApiKey}`,
+          Authorization: `Bearer ${getOpenAiApiKey()}`,
           ...formData.getHeaders()
         },
         maxContentLength: Infinity,

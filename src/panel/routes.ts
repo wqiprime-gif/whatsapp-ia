@@ -1412,16 +1412,13 @@ export async function registerPanelRoutes(
       const updated = merged;
       await upsertBot(updated);
       await syncProductsFromPrompt(updated.id, updated.prompt);
-      const aiTouched =
-        Boolean(body.aiApiKey?.trim()) ||
-        (existing.aiProvider ?? "openai") !== (updated.aiProvider ?? "openai") ||
-        (existing.aiModel ?? "") !== (updated.aiModel ?? "");
-      if (botNeedsMotorRestart(existing, updated) || aiTouched) {
-        hooks.restartBots();
-        return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando motor com nova IA..."));
-      }
       hooks.syncBots();
-      return reply.redirect(flashRedirect("/instances", "Instância atualizada! WhatsApp permanece conectado."));
+      if (botNeedsMotorRestart(existing, updated)) {
+        hooks.restartBots();
+        return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando conexão WhatsApp..."));
+      }
+      const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar o WhatsApp." : "";
+      return reply.redirect(flashRedirect("/instances", `Instância salva!${aiMsg}`));
     } catch (error) {
       request.log.error(error);
       return reply.redirect(flashRedirect(editPath, `Erro: ${errorMessage(error)}`, "err"));

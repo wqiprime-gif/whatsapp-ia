@@ -5,7 +5,7 @@ import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
 import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
 import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, sanitizeAIModel } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
-import { decryptSecret } from "../lib/crypto.js";
+import { decryptSecret, maskApiKey } from "../lib/crypto.js";
 import { icons } from "./icons.js";
 import { botInitials, escapeHtml } from "./layout.js";
 import { promptTagsSidebar } from "./prompt-tags-block.js";
@@ -135,6 +135,14 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
   const provider = bot?.aiProvider ?? "openai";
   const model = sanitizeAIModel(provider, bot?.aiModel ?? AI_PROVIDERS[provider].defaultModel);
   const hasKey = Boolean(bot?.aiApiKeyEncrypted);
+  let maskedKey = "";
+  if (hasKey && bot?.aiApiKeyEncrypted) {
+    try {
+      maskedKey = maskApiKey(decryptSecret(bot.aiApiKeyEncrypted));
+    } catch {
+      maskedKey = "•••••••• (salva)";
+    }
+  }
   const providerOptions = Object.entries(AI_PROVIDERS)
     .map(
       ([id, p]) =>
@@ -155,7 +163,7 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
           <p>Escolha o provedor, modelo e API Key usados para responder os leads desta instância.</p>
         </div>
       </div>
-      ${isEdit && hasKey ? `<p class="form-hint" style="color:#22C55E;margin-bottom:10px">API Key salva. Deixe o campo vazio para manter a atual.</p>` : ""}
+      ${isEdit && hasKey ? `<p class="form-hint" style="color:#22C55E;margin-bottom:10px">Chave ativa: <code style="color:#93c5fd">${escapeHtml(maskedKey)}</code> — deixe o campo abaixo vazio para manter.</p>` : ""}
       <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
         <label class="field">
           <span>Provedor de IA</span>

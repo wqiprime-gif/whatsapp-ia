@@ -188,6 +188,37 @@ async function syncBotFiles(bot: BotConfig, port: number) {
       2
     )
   );
+
+  await writeAiRuntimeFile(bot);
+}
+
+async function writeAiRuntimeFile(bot: BotConfig) {
+  const instDir = path.join(instancesDir, bot.id);
+  const owner = await getUserById(bot.userId).catch(() => null);
+  let payload: Record<string, string> = {
+    apiKey: "",
+    model: env.OPENAI_MODEL,
+    provider: "openai",
+    baseURL: "",
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    const ai = await resolveBotAIConfig(bot, owner?.email);
+    const cfg = AI_PROVIDERS[ai.provider];
+    payload = {
+      apiKey: ai.apiKey,
+      model: ai.model,
+      provider: ai.provider,
+      baseURL: cfg.baseURL || "",
+      updatedAt: new Date().toISOString()
+    };
+    console.log(`[wa-web] ai-runtime ${bot.name}: ${ai.provider} · ${ai.model} · key ${ai.apiKey.slice(0, 7)}…`);
+  } catch (err) {
+    console.warn(`[wa-web] ai-runtime ${bot.name} vazio: ${err instanceof Error ? err.message : err}`);
+  }
+  await fs.writeFile(path.join(instDir, "ai-runtime.json"), JSON.stringify(payload, null, 2), {
+    mode: 0o600
+  });
 }
 
 async function spawnWebBot(bot: BotConfig, port: number) {
@@ -207,7 +238,7 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     console.error(`[wa-web] IA ${bot.name}: sem API Key — ${err instanceof Error ? err.message : err}`);
   }
   if (!apiKey) {
-    console.error(`[wa-web] ⚠️ ${bot.name} rodando SEM API Key — a IA não vai responder até você salvar a chave na instância e reiniciar.`);
+    console.error(`[wa-web] ⚠️ ${bot.name} rodando SEM API Key — salve a chave na instância (WhatsApp não precisa reconectar).`);
   }
   const providerCfg = AI_PROVIDERS[provider];
   const proxyUrl = proxyUrlForBot(bot);
@@ -306,16 +337,13 @@ export async function syncWhatsAppBotConfigs() {
   }
 }
 
-/** Reinício completo só quando muda conexão (proxy, API, ativo). */
+/** Reinício completo só quando muda conexão WhatsApp (proxy, ativo, provedor WA). IA atualiza via sync sem desconectar. */
 export function botNeedsMotorRestart(before: BotConfig, after: BotConfig): boolean {
   return (
     before.active !== after.active ||
     (before.waApiProvider ?? "whatsapp_web") !== (after.waApiProvider ?? "whatsapp_web") ||
     Boolean(before.proxyEnabled) !== Boolean(after.proxyEnabled) ||
-    (after.proxyUrlEncrypted ?? "") !== (before.proxyUrlEncrypted ?? "") ||
-    (before.aiProvider ?? "openai") !== (after.aiProvider ?? "openai") ||
-    (before.aiModel ?? "") !== (after.aiModel ?? "") ||
-    (after.aiApiKeyEncrypted ?? "") !== (before.aiApiKeyEncrypted ?? "")
+    (after.proxyUrlEncrypted ?? "") !== (before.proxyUrlEncrypted ?? "")
   );
 }
 

@@ -287,7 +287,7 @@ export async function upsertBot(bot: BotConfig) {
          follow_up_max_per_lead = EXCLUDED.follow_up_max_per_lead,
          ai_provider = EXCLUDED.ai_provider,
          ai_model = EXCLUDED.ai_model,
-         ai_api_key_encrypted = EXCLUDED.ai_api_key_encrypted`,
+         ai_api_key_encrypted = COALESCE(EXCLUDED.ai_api_key_encrypted, bots.ai_api_key_encrypted)`,
       [
         bot.id,
         bot.userId,
