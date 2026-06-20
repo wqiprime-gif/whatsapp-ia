@@ -1443,14 +1443,32 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   background: rgba(59, 130, 246, 0.1);
   border-color: rgba(59, 130, 246, 0.22);
 }
+.shark-icon-box--green {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.28);
+}
+.shark-icon-box--yellow {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.28);
+}
 .shark-card:hover .shark-icon-box--blue {
   background: rgba(59, 130, 246, 0.16);
   border-color: rgba(59, 130, 246, 0.32);
 }
+.shark-card:hover .shark-icon-box--green {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+.shark-card:hover .shark-icon-box--yellow {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.35);
+}
 .shark-fat-pill--topbar {
   flex-shrink: 0;
   background:
-    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(0, 100, 255, 0.1), transparent 72%),
+    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(34, 197, 94, 0.12), transparent 72%),
     #090909 !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }

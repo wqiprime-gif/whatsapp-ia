@@ -40,10 +40,12 @@ function glowStyle(i: number) {
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
 }
 
-function sharkIconBox(icon: string, large = false, circle = false, blue = false) {
+type SharkIconTone = "blue" | "green" | "yellow";
+
+function sharkIconBox(icon: string, large = false, circle = false, tone: SharkIconTone = "blue") {
   const cls = large ? " shark-icon-box--lg" : circle ? " shark-icon-box--circle" : "";
-  const tone = blue ? " shark-icon-box--blue" : "";
-  return `<span class="shark-icon-box${cls}${tone}" aria-hidden="true">${icon}</span>`;
+  const toneCls = ` shark-icon-box--${tone}`;
+  return `<span class="shark-icon-box${cls}${toneCls}" aria-hidden="true">${icon}</span>`;
 }
 
 export function formatRelativeTime(iso: string) {
@@ -334,7 +336,7 @@ export function dashboardPage(
 
   const topbarFatPill = `
       <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
-        ${sharkIconBox(icons.dollar, true, true)}
+        ${sharkIconBox(icons.dollar, true, true, "green")}
         <div class="shark-fat-body">
           <div class="shark-fat-top">
             <span class="shark-fat-label">Faturamento</span>
@@ -377,7 +379,7 @@ export function dashboardPage(
       <div class="shark-kpi-grid">
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(1)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.dollar, false, false, true)}
+            ${sharkIconBox(icons.dollar, false, false, "blue")}
             <h3 class="shark-kpi-title">Vendas aprovadas</h3>
           </div>
           <div class="shark-kpi-value" data-live-stat="salesValue">R$ ${salesReais}</div>
@@ -388,14 +390,14 @@ export function dashboardPage(
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(2)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.trending, false, false, true)}
+            ${sharkIconBox(icons.trending, false, false, "blue")}
             <h3 class="shark-kpi-title">Taxa de conversão</h3>
           </div>
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(3)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.zap, false, false, true)}
+            ${sharkIconBox(icons.zap, false, false, "blue")}
             <h3 class="shark-kpi-title">Total starts</h3>
           </div>
           <div class="shark-kpi-value" data-live-stat="leads">${data.stats.leads}</div>
@@ -403,7 +405,7 @@ export function dashboardPage(
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(4)}">
           <div class="shark-kpi-head">
-            ${sharkIconBox(icons.receipt, false, false, true)}
+            ${sharkIconBox(icons.receipt, false, false, "blue")}
             <h3 class="shark-kpi-title">Ticket médio</h3>
           </div>
           <div class="shark-kpi-value" data-live-stat="ticketMedio">R$ ${ticketMedio}</div>
@@ -413,7 +415,7 @@ export function dashboardPage(
       <div class="shark-chart-card shark-card dash-glow-card shark-chart-card--pro" style="${glowStyle(5)}">
         <div class="shark-chart-header">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.activity, false, false, true)}
+            ${sharkIconBox(icons.activity, false, false, "blue")}
             <div>
               <h3>Seu desempenho</h3>
               <span class="shark-chart-sub" data-live="chart-period-label">Últimos 7 dias</span>
@@ -455,7 +457,7 @@ export function dashboardPage(
       <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.crown)}
+            ${sharkIconBox(icons.crown, false, false, "yellow")}
             <div>
               <h3>Top 5 Players</h3>
               <span class="shark-card-sub">Corrida de faturamento</span>

@@ -116,6 +116,17 @@ async function migrateLegacyWaSession(botId: string, authDir: string): Promise<b
   const target = path.join(authDir, `session-${clientId}`);
   if (fsSync.existsSync(target)) return true;
 
+  const instBackup = path.join(instanceDataDir(botId), "wa-auth-backup");
+  if (fsSync.existsSync(instBackup)) {
+    try {
+      await fs.cp(instBackup, target, { recursive: true });
+      console.log(`[wa-web] Sessão restaurada do backup da instância → ${target}`);
+      return true;
+    } catch (err) {
+      console.warn(`[wa-web] Falha ao restaurar backup da instância ${botId}:`, err);
+    }
+  }
+
   const compact = botId.replace(/-/g, "");
   const legacyRoots = [
     path.join(hotbotDir, ".wwebjs_auth"),
@@ -514,8 +525,18 @@ export async function ensureWhatsAppBotsRunning() {
   try {
     const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
     if (isRailway) {
-      // Evita duas instâncias do container disputando a mesma sessão no volume.
       await new Promise((r) => setTimeout(r, 5000));
+    }
+
+    const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+    try {
+      const entries = await fs.readdir(authDir);
+      const sessions = entries.filter((n) => n.startsWith("session-"));
+      console.log(
+        `[wa-web] Inventário ${authDir}: ${sessions.length} sessão(ões) — ${sessions.join(", ") || "nenhuma"}`
+      );
+    } catch {
+      console.warn(`[wa-web] Pasta de sessão vazia ou inexistente: ${authDir}`);
     }
 
     const bots = await loadBots();

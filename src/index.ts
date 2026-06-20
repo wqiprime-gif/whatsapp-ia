@@ -67,12 +67,42 @@ try {
 const localBase = `http://127.0.0.1:${env.PORT}`;
 console.log("[startup] ZapManager WhatsApp online na porta", env.PORT);
 console.log("[startup] DATA_DIR:", env.DATA_DIR);
+const markerPath = path.join(env.DATA_DIR, ".zap-volume-marker");
+let hadPreviousBoot = false;
 try {
   await fs.mkdir(env.DATA_DIR, { recursive: true });
   const probe = path.join(env.DATA_DIR, ".writable-probe");
   await fs.writeFile(probe, "ok", "utf8");
   await fs.unlink(probe);
-  console.log("[startup] DATA_DIR gravável: sim (sessão WhatsApp persiste entre deploys)");
+
+  try {
+    const prev = await fs.readFile(markerPath, "utf8");
+    if (prev.trim()) hadPreviousBoot = true;
+  } catch {
+    hadPreviousBoot = false;
+  }
+  await fs.writeFile(markerPath, new Date().toISOString(), "utf8");
+
+  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  let sessionCount = 0;
+  try {
+    const entries = await fs.readdir(authDir);
+    sessionCount = entries.filter((n) => n.startsWith("session-")).length;
+  } catch {
+    sessionCount = 0;
+  }
+
+  if (!hadPreviousBoot && sessionCount === 0) {
+    console.warn(
+      "[startup] ⚠️ Volume /data SEM histórico — primeiro deploy ou volume Railway não montado. Após conectar o QR, as sessões ficam em /data/wwebjs_auth."
+    );
+  } else if (hadPreviousBoot && sessionCount === 0) {
+    console.warn(
+      "[startup] ⚠️ Volume resetou ou sessões sumiram — será necessário QR de novo. Confira Volume Railway montado em /data."
+    );
+  } else {
+    console.log(`[startup] Volume OK · ${sessionCount} sessão(ões) WhatsApp em disco`);
+  }
 } catch (error) {
   console.warn(
     "[startup] ⚠️ DATA_DIR não gravável — monte um volume Railway em /data ou a sessão cai a cada deploy:",

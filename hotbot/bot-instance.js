@@ -681,15 +681,57 @@ function hasPersistedWaSession() {
 
 function purgeSessionDir() {
   const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  const backupDir = path.join(instancesDataDir, 'wa-auth-backup');
   try {
     if (fs.existsSync(sessionDir)) {
       fs.rmSync(sessionDir, { recursive: true, force: true });
       console.log(`🗑️ Sessão removida: ${sessionDir}`);
     }
+    if (fs.existsSync(backupDir)) {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+      console.log(`🗑️ Backup de sessão removido: ${backupDir}`);
+    }
   } catch (e) {
     console.warn('⚠️ Falha ao apagar sessão:', e?.message || e);
   }
 }
+
+function backupWaSession() {
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  const backupDir = path.join(instancesDataDir, 'wa-auth-backup');
+  if (!fs.existsSync(sessionDir)) return false;
+  try {
+    if (fs.existsSync(backupDir)) fs.rmSync(backupDir, { recursive: true, force: true });
+    fs.cpSync(sessionDir, backupDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(instancesDataDir, 'wa-session-meta.json'),
+      JSON.stringify({ clientId, backedUpAt: new Date().toISOString(), sessionId }, null, 2)
+    );
+    console.log(`💾 Backup sessão WhatsApp salvo (${backupDir})`);
+    return true;
+  } catch (e) {
+    console.warn('⚠️ Falha no backup da sessão:', e?.message || e);
+    return false;
+  }
+}
+
+function restoreWaSessionFromBackup() {
+  if (hasPersistedWaSession()) return false;
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  const backupDir = path.join(instancesDataDir, 'wa-auth-backup');
+  if (!fs.existsSync(backupDir)) return false;
+  try {
+    if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
+    fs.cpSync(backupDir, sessionDir, { recursive: true });
+    console.log(`♻️ Sessão restaurada do backup (${backupDir})`);
+    return true;
+  } catch (e) {
+    console.warn('⚠️ Falha ao restaurar sessão do backup:', e?.message || e);
+    return false;
+  }
+}
+
+restoreWaSessionFromBackup();
 
 if (process.env.WA_FORCE_QR === '1') {
   console.log('🔄 WA_FORCE_QR ativo — sessão antiga será ignorada; aguardando QR novo');
@@ -2382,6 +2424,7 @@ async function gracefulShutdown(source) {
   shuttingDown = true;
   console.log(`[shutdown] Encerrando com sessão preservada (${source})...`);
   try {
+    backupWaSession();
     await client.destroy();
     console.log('[shutdown] Sessão WhatsApp salva no disco.');
   } catch (err) {
@@ -2482,6 +2525,7 @@ io.on('connection', function(socket) {
 client.on('ready', () => {
   writeConnectionStatus('ready', '', cachedWhatsappNumber);
   persistWhatsappNumber();
+  setTimeout(() => backupWaSession(), 3000);
   schedulePersistWhatsappNumber();
   Object.values(clientSockets).forEach(socket => {
     socket.emit('ready', 'Dispositivo pronto!');
@@ -2504,6 +2548,7 @@ client.on('ready', () => {
 client.on('authenticated', () => {
   writeConnectionStatus('authenticated', '', cachedWhatsappNumber);
   schedulePersistWhatsappNumber();
+  setTimeout(() => backupWaSession(), 5000);
   Object.values(clientSockets).forEach(socket => {
     socket.emit('authenticated', 'Autenticado!');
     socket.emit('message', 'Autenticado!');
