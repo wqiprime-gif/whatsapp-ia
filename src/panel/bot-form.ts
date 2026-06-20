@@ -132,7 +132,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
 }
 
 function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
-  const provider = bot?.aiProvider ?? "openrouter";
+  const provider = bot?.aiProvider ?? "openai";
   const model = bot?.aiModel ?? AI_PROVIDERS[provider].defaultModel;
   const hasKey = Boolean(bot?.aiApiKeyEncrypted);
   const providerOptions = Object.entries(AI_PROVIDERS)
@@ -142,24 +142,9 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
     )
     .join("");
   const hint = AI_PROVIDERS[provider]?.keyHint ?? "sk-...";
-  const freeModelOptions =
-    provider === "openrouter"
-      ? OPENROUTER_FREE_MODELS.map(
-          (m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`
-        ).join("")
-      : "";
-  const modelField =
-    provider === "openrouter"
-      ? `<label class="field">
-          <span>Modelo IA</span>
-          <input name="aiModel" list="inst-openrouter-models" value="${escapeHtml(model)}" placeholder="openrouter/free" />
-          <datalist id="inst-openrouter-models">${freeModelOptions}</datalist>
-          <span class="form-hint">Grátis: <code>openrouter/free</code> ou modelos com <code>:free</code></span>
-        </label>`
-      : `<label class="field">
-          <span>Modelo IA</span>
-          <input name="aiModel" value="${escapeHtml(model)}" placeholder="${escapeHtml(AI_PROVIDERS[provider].defaultModel)}" />
-        </label>`;
+  const freeModelOptions = OPENROUTER_FREE_MODELS.map(
+    (m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`
+  ).join("");
 
   return `
     <div class="form-section span-2 form-section-ai" id="ia-instancia">
@@ -167,10 +152,10 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
         <span class="form-section-icon form-section-icon-cyan">${icons.sparkles}</span>
         <div>
           <h4>Inteligência Artificial desta instância</h4>
-          <p>Cada instância usa <strong>sua própria API Key</strong>. A IA só responde leads se a chave estiver configurada aqui.</p>
+          <p>Escolha o provedor, modelo e API Key usados para responder os leads desta instância.</p>
         </div>
       </div>
-      ${isEdit && hasKey ? `<p class="form-hint" style="color:#22C55E;margin-bottom:10px">API Key salva nesta instância. Deixe o campo vazio para manter a atual.</p>` : ""}
+      ${isEdit && hasKey ? `<p class="form-hint" style="color:#22C55E;margin-bottom:10px">API Key salva. Deixe o campo vazio para manter a atual.</p>` : ""}
       <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
         <label class="field">
           <span>Provedor de IA</span>
@@ -178,11 +163,14 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
             ${providerOptions}
           </select>
         </label>
-        ${modelField}
+        <label class="field">
+          <span>Modelo IA</span>
+          <input name="aiModel" list="inst-ai-models" value="${escapeHtml(model)}" placeholder="${escapeHtml(AI_PROVIDERS[provider].defaultModel)}" />
+          <datalist id="inst-ai-models">${freeModelOptions}</datalist>
+        </label>
         <label class="field span-2">
           <span>API Key da IA ${isEdit ? "" : "<strong style='color:#EAB308'>(obrigatório)</strong>"}</span>
           <input name="aiApiKey" type="password" placeholder="${escapeHtml(hint)}" autocomplete="new-password" ${isEdit ? "" : "required minlength='8'"} />
-          <span class="form-hint">OpenRouter (grátis): <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> · OpenAI: platform.openai.com</span>
         </label>
       </div>
     </div>`;

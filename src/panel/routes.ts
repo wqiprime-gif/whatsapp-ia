@@ -50,7 +50,6 @@ import {
   setSessionCookie
 } from "../lib/session.js";
 import { generateBotPrompt } from "../lib/prompt-generator.js";
-import { getAIProvider, getApiKeyStatus, getOpenAIModel, updateOpenAISettings, resolveBotAIConfig } from "../lib/settings.js";
 import {
   leadsPage,
   mediaPage,
@@ -63,7 +62,6 @@ import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGauge
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
-import { AI_PROVIDERS } from "../lib/ai-providers.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
@@ -76,7 +74,6 @@ import {
   newInstancePage,
   registerPage,
   profilePage,
-  settingsPage,
   topBotsRankingHtml,
   topPlayersRankingHtml
 } from "./ui.js";
@@ -296,15 +293,12 @@ function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDel
 }
 
 async function ensureInstanceAIKey(
-  user: { id: string; email: string },
+  _user: { id: string; email: string },
   body: { aiApiKey?: string },
   existing?: { aiApiKeyEncrypted?: string }
 ) {
   if (body.aiApiKey?.trim() || existing?.aiApiKeyEncrypted) return;
-  const status = await getApiKeyStatus(user.id, user.email);
-  if (!status.configured) {
-    throw new Error("Informe a API Key da IA nesta instância (provedor + chave).");
-  }
+  throw new Error("Informe a API Key da IA nesta instância.");
 }
 
 function mimeTypeFromPath(filePath: string) {
@@ -1229,16 +1223,9 @@ export async function registerPanelRoutes(
     const links = await listWaRedirectLinks(user.id);
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
-    const provider = await getAIProvider(user.id);
-    const model = await getOpenAIModel(user.id);
-    const aiInfo = {
-      provider: provider,
-      providerLabel: AI_PROVIDERS[provider].label,
-      model
-    };
     return reply
       .type("text/html")
-      .send(waLinksPage(links, base, aiInfo, isPartial(request), panelUserLabel(user), flash));
+      .send(waLinksPage(links, base, isPartial(request), panelUserLabel(user), flash));
   });
 
   app.post("/links", async (request, reply) => {
@@ -1440,32 +1427,7 @@ export async function registerPanelRoutes(
   app.get("/settings", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const query = z
-      .object({ msg: z.string().optional(), t: z.string().optional(), botId: z.string().optional() })
-      .parse(request.query);
-    const bots = await loadBots(user.id);
-    const previewBotId = query.botId || bots[0]?.id || "";
-    const status = await getApiKeyStatus(user.id, user.email);
-    const model = await getOpenAIModel(user.id);
-    const provider = await getAIProvider(user.id);
-    return reply.type("text/html").send(
-      settingsPage(
-        {
-          message: query.msg,
-          messageIsError: query.t === "err",
-          maskedKey: status.masked,
-          configured: status.configured,
-          source: status.source,
-          model,
-          provider,
-          providerLabel: status.providerLabel
-        },
-        bots,
-        previewBotId,
-        isPartial(request),
-        panelUserLabel(user)
-      )
-    );
+    return reply.redirect("/instances");
   });
 
   app.post("/settings/previews", async (request, reply) => {
@@ -1484,36 +1446,19 @@ export async function registerPanelRoutes(
       });
       hooks.syncBots();
       return reply.redirect(
-        flashRedirect(`/settings?botId=${botId}`, "Prévias da instância atualizadas!")
+        flashRedirect(`/instances/${botId}/edit`, "Prévias da instância atualizadas!")
       );
     } catch (error) {
       request.log.error(error);
-      return reply.redirect(
-        flashRedirect(`/settings?botId=${botId}`, `Erro: ${errorMessage(error)}`, "err")
-      );
+      const dest = botId ? `/instances/${botId}/edit` : "/instances";
+      return reply.redirect(flashRedirect(dest, `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 
   app.post("/settings", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    try {
-      const body = z
-        .object({
-          openaiApiKey: z.string().optional(),
-          openaiModel: z.string().optional(),
-          aiProvider: z.string().optional()
-        })
-        .parse(request.body ?? {});
-      await updateOpenAISettings(user.id, {
-        apiKey: body.openaiApiKey,
-        model: body.openaiModel,
-        provider: body.aiProvider
-      });
-      return reply.redirect(flashRedirect("/settings", "Configurações salvas!"));
-    } catch (error) {
-      return reply.redirect(flashRedirect("/settings", `Erro: ${errorMessage(error)}`, "err"));
-    }
+    return reply.redirect("/instances");
   });
 
   app.post("/api/prompt-generator", async (request, reply) => {

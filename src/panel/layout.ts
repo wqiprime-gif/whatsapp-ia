@@ -167,7 +167,6 @@ export function appLayout(
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
-          ${navItem("/settings", "Configurações", icons.settings, is("settings"))}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
         </div>
       </nav>
@@ -178,7 +177,7 @@ export function appLayout(
           <div class="plan-usage-head"><span>Capacidade</span><span class="plan-usage-pct">72%</span></div>
           <div class="plan-usage-bar" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><span style="width:72%"></span></div>
         </div>
-        <a href="/settings">Ver configurações</a>
+        <a href="/perfil">Minha conta</a>
       </div>
       <form method="post" action="/logout" style="margin-top:12px">
         <button type="submit" class="nav-btn" style="width:100%">${icons.logout}<span class="nav-text"> Sair</span></button>
@@ -209,7 +208,7 @@ export function appLayout(
     <a href="/instances" class="mobile-tab${is("instances") || is("new") ? " active" : ""}" data-nav="instances">${icons.layers}<span>Bots</span></a>
     <a href="/links" class="mobile-tab${is("links") ? " active" : ""}" data-nav="links">${icons.link}<span>Links</span></a>
     <a href="/leads" class="mobile-tab${is("leads") ? " active" : ""}" data-nav="leads">${icons.users}<span>Leads</span></a>
-    <a href="/settings" class="mobile-tab${is("settings") || is("profile") ? " active" : ""}" data-nav="settings">${icons.settings}<span>Mais</span></a>
+    <a href="/perfil" class="mobile-tab${is("profile") ? " active" : ""}" data-nav="profile">${icons.users}<span>Conta</span></a>
   </nav>
   <div id="panel-toasts" class="panel-toasts"></div>
   <div id="sale-popup-root" class="sale-popup-root" aria-live="polite"></div>

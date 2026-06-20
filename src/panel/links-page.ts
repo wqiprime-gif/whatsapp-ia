@@ -3,12 +3,6 @@ import { redirectUrl } from "../lib/wa-redirect-links.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
 
-export type WaLinkAiInfo = {
-  provider: string;
-  providerLabel: string;
-  model: string;
-};
-
 function targetRow(target: WaRedirectTarget | null, index: number, removable: boolean) {
   const id = target?.id ?? "";
   const label = target?.label ?? "";
@@ -84,7 +78,6 @@ function linkCard(link: WaRedirectLink, baseUrl: string) {
 export function waLinksPage(
   links: WaRedirectLink[],
   baseUrl: string,
-  aiInfo: WaLinkAiInfo,
   partial = false,
   userName = "Usuario",
   flash?: { message: string; ok: boolean }
@@ -125,13 +118,6 @@ export function waLinksPage(
           </div>
         </div>
       </header>
-
-      <div class="wa-rand-ai-banner">
-        <span class="wa-rand-ai-label">IA do painel</span>
-        <strong>${escapeHtml(aiInfo.providerLabel)}</strong>
-        <code>${escapeHtml(aiInfo.model)}</code>
-        <a href="/settings" class="wa-rand-ai-link">Configurações</a>
-      </div>
 
       <div class="wa-rand-layout">
         <section class="wa-rand-create dash-glow-card shark-card">

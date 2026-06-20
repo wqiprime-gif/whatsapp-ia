@@ -65,7 +65,7 @@ export function promptGeneratorBlock() {
               status.textContent = "Prompt gerado! Revise e salve a instância.";
               status.style.color = "var(--primary)";
             } catch (e) {
-              status.textContent = e.message || "Falha ao gerar prompt. Configure a IA em Configurações.";
+              status.textContent = e.message || "Falha ao gerar prompt. Configure a IA na instância.";
               status.style.color = "var(--danger)";
             } finally {
               btn.disabled = false;
