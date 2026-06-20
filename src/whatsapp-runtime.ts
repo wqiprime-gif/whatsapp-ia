@@ -129,6 +129,8 @@ async function restoreWaSessionFromDb(botId: string, authDir: string, clientId: 
 
     await fs.rm(target, { recursive: true, force: true }).catch(() => {});
     await extractTarBufferToDir(backup.data, target);
+    const { cleanChromiumProfileLocks } = await import("./lib/wa-profile-locks.js");
+    cleanChromiumProfileLocks(target);
     const when = backup.backedUpAt.toISOString();
     console.log(`[wa-web] ♻️ Sessão restaurada do PostgreSQL (${when}) → ${target}`);
     return true;
@@ -543,12 +545,26 @@ async function spawnWebBotsStaggered(bots: BotConfig[], skipExisting = false) {
     index++;
   }
 
+  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  for (const { bot } of toSpawn) {
+    await migrateLegacyWaSession(bot.id, authDir);
+  }
+  toSpawn.sort((a, b) => {
+    const aHas = fsSync.existsSync(path.join(authDir, `session-${waClientIdForBot(a.bot.id)}`));
+    const bHas = fsSync.existsSync(path.join(authDir, `session-${waClientIdForBot(b.bot.id)}`));
+    if (aHas && !bHas) return -1;
+    if (!aHas && bHas) return 1;
+    return 0;
+  });
+
   for (let i = 0; i < toSpawn.length; i++) {
     const { bot, port } = toSpawn[i]!;
     try {
       await spawnWebBot(bot, port);
       if (i < toSpawn.length - 1) {
-        await new Promise((r) => setTimeout(r, 4000));
+        const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
+        const delayMs = isRailway ? 12000 : 4000;
+        await new Promise((r) => setTimeout(r, delayMs));
       }
     } catch (error) {
       console.error(`[wa] Falha ao iniciar ${bot.name}:`, error);

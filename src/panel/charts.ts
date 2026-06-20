@@ -255,8 +255,9 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
         </linearGradient>
       </defs>
       <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>
-      <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="10" stroke-linecap="round"
-        stroke-dasharray="${dash.toFixed(2)} ${half.toFixed(2)}" />
+      <path class="conv-gauge-arc conv-gauge-arc--animate" d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${half.toFixed(2)} ${half.toFixed(2)}"
+        style="--gauge-offset:${(half - dash).toFixed(2)};--gauge-half:${half.toFixed(2)}" />
       <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="500">${clamped.toFixed(0)}%</text>
     </svg>
     <span class="conv-gauge-sub">${subtitle}</span>
@@ -359,7 +360,7 @@ export function sharkPerformanceChartHtml(
             <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.7)" stroke-width="1" opacity="0"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.55)" stroke-width="1" opacity="0"/>
         ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
         <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
@@ -368,12 +369,12 @@ export function sharkPerformanceChartHtml(
         ${hits}
       </svg>
       <div class="shark-chart-tooltip" hidden>
-        <div class="shark-chart-tooltip-row shark-chart-tooltip-row--main">
+        <span class="shark-chart-tooltip-day"></span>
+        <div class="shark-chart-tooltip-row">
           <span class="shark-chart-legend-dot"></span>
           <span class="shark-chart-tooltip-label">Receita</span>
           <strong class="shark-chart-tooltip-val"></strong>
         </div>
-        <span class="shark-chart-tooltip-day"></span>
       </div>
     </div>
   </div>`;

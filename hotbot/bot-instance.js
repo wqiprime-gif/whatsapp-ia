@@ -643,7 +643,7 @@ function saveCustomPrompt(prompt) {
 puppeteer.use(StealthPlugin());
 
 // Session Manager para persistência
-const sessionManager = require('./session-manager');
+const { cleanChromiumProfileLocks } = require('./utils/wa-profile-locks');
 const puppeteerArgs = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
@@ -701,6 +701,7 @@ function backupWaSession() {
   const backupDir = path.join(instancesDataDir, 'wa-auth-backup');
   if (!fs.existsSync(sessionDir)) return false;
   try {
+    cleanChromiumProfileLocks(sessionDir);
     if (fs.existsSync(backupDir)) fs.rmSync(backupDir, { recursive: true, force: true });
     fs.cpSync(sessionDir, backupDir, { recursive: true });
     fs.writeFileSync(
@@ -770,6 +771,7 @@ function restoreWaSessionFromBackup() {
 }
 
 restoreWaSessionFromBackup();
+cleanChromiumProfileLocks(path.join(authDataPath, `session-${clientId}`));
 
 if (process.env.WA_FORCE_QR === '1') {
   console.log('🔄 WA_FORCE_QR ativo — sessão antiga será ignorada; aguardando QR novo');
@@ -804,11 +806,33 @@ if (proxyAuth) {
   });
 }
 
-client.initialize().catch((error) => {
-  const message = error?.message || String(error);
-  console.error('❌ Falha ao inicializar WhatsApp Web:', message);
-  writeConnectionStatus('error', message);
-});
+async function startWhatsAppClient() {
+  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  cleanChromiumProfileLocks(sessionDir);
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    if (attempt > 1) {
+      console.warn(`⚠️ Chromium tentativa ${attempt}/4 — limpando locks...`);
+      cleanChromiumProfileLocks(sessionDir);
+      await new Promise((r) => setTimeout(r, 3500 * attempt));
+      try {
+        await client.destroy();
+      } catch (_) {}
+    }
+    try {
+      await client.initialize();
+      return;
+    } catch (error) {
+      const msg = error?.message || String(error);
+      console.warn(`⚠️ init WhatsApp falhou (${attempt}/4):`, msg);
+      if (attempt >= 4) {
+        console.error('❌ Falha ao inicializar WhatsApp Web:', msg);
+        writeConnectionStatus('error', msg);
+      }
+    }
+  }
+}
+
+void startWhatsAppClient();
 
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const aiRuntimePath = path.join(instancesDataDir, 'ai-runtime.json');

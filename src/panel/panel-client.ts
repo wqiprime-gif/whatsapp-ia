@@ -673,9 +673,27 @@ export const panelClientScript = `
     }
   }
 
+  function bindDashCardGlow(root) {
+    const scope = root || document;
+    scope.querySelectorAll(".shark-dash .dash-glow-card").forEach((card) => {
+      if (card.dataset.glowBound) return;
+      card.dataset.glowBound = "1";
+      const spot = document.createElement("div");
+      spot.className = "dash-mouse-glow";
+      spot.setAttribute("aria-hidden", "true");
+      card.insertBefore(spot, card.firstChild);
+      card.addEventListener("mousemove", (e) => {
+        const rect = card.getBoundingClientRect();
+        spot.style.setProperty("--mx", (e.clientX - rect.left) + "px");
+        spot.style.setProperty("--my", (e.clientY - rect.top) + "px");
+      });
+    });
+  }
+
   if (location.pathname === "/") {
     bindPeriodTabs(document);
     bindSharkCharts(document);
+    bindDashCardGlow(document);
     refreshLive(true);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refreshLive(true);
