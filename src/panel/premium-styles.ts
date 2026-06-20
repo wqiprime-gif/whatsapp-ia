@@ -972,10 +972,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   background: #0d0d0d !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
 }
-.shark-card:hover .shark-icon-box {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.28);
-}
 .dash-glow-card > * {
   position: relative;
   z-index: 1;
@@ -1443,33 +1439,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   background: rgba(59, 130, 246, 0.1);
   border-color: rgba(59, 130, 246, 0.22);
 }
-.shark-icon-box--green {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(34, 197, 94, 0.28);
-}
-.shark-icon-box--yellow {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.12);
-  border-color: rgba(251, 191, 36, 0.28);
-}
-.shark-card:hover .shark-icon-box--blue {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.32);
-}
-.shark-card:hover .shark-icon-box--green {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.35);
-}
-.shark-card:hover .shark-icon-box--yellow {
-  background: rgba(251, 191, 36, 0.18);
-  border-color: rgba(251, 191, 36, 0.35);
-}
 .shark-fat-pill--topbar {
   flex-shrink: 0;
-  background:
-    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(34, 197, 94, 0.12), transparent 72%),
-    #090909 !important;
+  background: #090909 !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 .topbar--dash .shark-fat-pill--topbar::before,
@@ -1574,7 +1546,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-fat-bar span {
   display: block; height: 100%;
-  background: #3b82f6;
+  background: #22c55e;
   border-radius: inherit;
   transition: width 0.5s ease;
 }
@@ -1754,13 +1726,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border: 1px solid rgba(59, 130, 246, 0.14);
   transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
-.shark-kpi-card:hover .shark-icon-box,
-.shark-fat-pill:hover .shark-icon-box,
-.shark-card:hover .shark-icon-box,
-.shark-card-head-row:hover .shark-icon-box {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.28);
-}
 .shark-icon-box svg { width: 16px; height: 16px; }
 .shark-icon-box--lg {
   width: 40px;
@@ -1772,6 +1737,59 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   width: 44px;
   height: 44px;
   border-radius: 50%;
+}
+.shark-icon-box.shark-icon-box--blue {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+.shark-icon-box.shark-icon-box--green {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.shark-icon-box.shark-icon-box--money {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #4ade80;
+  background: rgba(6, 78, 59, 0.55);
+  border: 1px solid rgba(34, 197, 94, 0.38);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.08);
+}
+.shark-icon-box.shark-icon-box--money svg {
+  width: 20px;
+  height: 20px;
+}
+.shark-icon-box.shark-icon-box--yellow {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.32);
+}
+.shark-card:hover .shark-icon-box.shark-icon-box--blue,
+.shark-kpi-card:hover .shark-icon-box.shark-icon-box--blue,
+.shark-card-head-row:hover .shark-icon-box.shark-icon-box--blue {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.32);
+}
+.shark-card:hover .shark-icon-box.shark-icon-box--money,
+.shark-fat-pill:hover .shark-icon-box.shark-icon-box--money {
+  color: #86efac;
+  background: rgba(6, 78, 59, 0.65);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+.shark-card:hover .shark-icon-box.shark-icon-box--yellow,
+.top-players-card:hover .shark-icon-box.shark-icon-box--yellow {
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.2);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+.shark-kpi-card:hover .shark-icon-box:not(.shark-icon-box--yellow):not(.shark-icon-box--money):not(.shark-icon-box--green),
+.shark-fat-pill:hover .shark-icon-box:not(.shark-icon-box--money),
+.shark-card:hover .shark-icon-box:not(.shark-icon-box--yellow):not(.shark-icon-box--money):not(.shark-icon-box--green),
+.shark-card-head-row:hover .shark-icon-box:not(.shark-icon-box--yellow):not(.shark-icon-box--money) {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.28);
 }
 .shark-card-head-row {
   display: flex;

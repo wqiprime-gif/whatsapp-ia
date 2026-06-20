@@ -40,12 +40,14 @@ function glowStyle(i: number) {
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
 }
 
-type SharkIconTone = "blue" | "green" | "yellow";
+type SharkIconTone = "blue" | "green" | "yellow" | "money";
 
 function sharkIconBox(icon: string, large = false, circle = false, tone: SharkIconTone = "blue") {
-  const cls = large ? " shark-icon-box--lg" : circle ? " shark-icon-box--circle" : "";
-  const toneCls = ` shark-icon-box--${tone}`;
-  return `<span class="shark-icon-box${cls}${toneCls}" aria-hidden="true">${icon}</span>`;
+  const parts = ["shark-icon-box"];
+  if (large) parts.push("shark-icon-box--lg");
+  if (circle) parts.push("shark-icon-box--circle");
+  parts.push(tone === "money" ? "shark-icon-box--money" : `shark-icon-box--${tone}`);
+  return `<span class="${parts.join(" ")}" aria-hidden="true">${icon}</span>`;
 }
 
 export function formatRelativeTime(iso: string) {
@@ -336,7 +338,7 @@ export function dashboardPage(
 
   const topbarFatPill = `
       <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
-        ${sharkIconBox(icons.dollar, true, true, "green")}
+        ${sharkIconBox(icons.dollar, true, true, "money")}
         <div class="shark-fat-body">
           <div class="shark-fat-top">
             <span class="shark-fat-label">Faturamento</span>
