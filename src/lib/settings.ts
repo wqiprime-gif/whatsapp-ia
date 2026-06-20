@@ -3,7 +3,7 @@ import path from "node:path";
 import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
-import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId } from "./ai-providers.js";
+import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./ai-providers.js";
 import type { BotConfig } from "../bots.js";
 
 function isPlatformOwner(email?: string) {
@@ -192,7 +192,7 @@ export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Pr
     return {
       apiKey: decryptSecret(bot.aiApiKeyEncrypted),
       provider,
-      model: bot.aiModel?.trim() || cfg.defaultModel,
+      model: sanitizeAIModel(provider, bot.aiModel || cfg.defaultModel),
       source: "instancia"
     };
   }
@@ -203,7 +203,7 @@ export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Pr
     return {
       apiKey: decryptSecret(settings.openaiApiKeyEncrypted),
       provider,
-      model: settings.openaiModel || cfg.defaultModel,
+      model: sanitizeAIModel(provider, settings.openaiModel || cfg.defaultModel),
       source: "painel"
     };
   }
@@ -212,7 +212,7 @@ export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Pr
       return {
         apiKey: env.OPENROUTER_API_KEY,
         provider,
-        model: settings.openaiModel || cfg.defaultModel,
+        model: sanitizeAIModel(provider, settings.openaiModel || cfg.defaultModel),
         source: "env"
       };
     }
@@ -220,7 +220,7 @@ export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Pr
       return {
         apiKey: env.OPENAI_API_KEY,
         provider,
-        model: settings.openaiModel || cfg.defaultModel,
+        model: sanitizeAIModel(provider, settings.openaiModel || cfg.defaultModel),
         source: "env"
       };
     }

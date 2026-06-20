@@ -3,7 +3,7 @@ import { env } from "../config.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
 import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
-import { AI_PROVIDERS, OPENROUTER_FREE_MODELS } from "../lib/ai-providers.js";
+import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, sanitizeAIModel } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { icons } from "./icons.js";
@@ -133,7 +133,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
 
 function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
   const provider = bot?.aiProvider ?? "openai";
-  const model = bot?.aiModel ?? AI_PROVIDERS[provider].defaultModel;
+  const model = sanitizeAIModel(provider, bot?.aiModel ?? AI_PROVIDERS[provider].defaultModel);
   const hasKey = Boolean(bot?.aiApiKeyEncrypted);
   const providerOptions = Object.entries(AI_PROVIDERS)
     .map(

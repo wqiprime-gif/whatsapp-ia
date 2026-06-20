@@ -50,6 +50,36 @@ export function normalizeAIProvider(value?: string | null): AIProviderId {
   return "openai";
 }
 
+/** Evita modelo de outro provedor (ex: openrouter/free com OpenAI). */
+export function sanitizeAIModel(provider: AIProviderId, model?: string | null): string {
+  const cfg = AI_PROVIDERS[provider];
+  const raw = (model ?? "").trim();
+  if (!raw) return cfg.defaultModel;
+
+  const looksOpenRouter = /openrouter\/|:free|meta-llama|qwen\/|mistralai\/|google\/gemini.*:free/i.test(raw);
+  const looksOpenAI = /^gpt-|^o[134]-/i.test(raw);
+  const looksDeepSeek = /^deepseek/i.test(raw);
+  const looksGemini = /^gemini/i.test(raw);
+  const looksClaude = /^claude/i.test(raw);
+
+  if (provider === "openai" && (looksOpenRouter || looksDeepSeek || looksGemini || looksClaude)) {
+    return cfg.defaultModel;
+  }
+  if (provider === "openrouter" && looksOpenAI && !raw.includes("/")) {
+    return cfg.defaultModel;
+  }
+  if (provider === "deepseek" && (looksOpenRouter || looksOpenAI)) {
+    return cfg.defaultModel;
+  }
+  if (provider === "gemini" && (looksOpenRouter || looksOpenAI)) {
+    return cfg.defaultModel;
+  }
+  if (provider === "anthropic" && (looksOpenRouter || looksOpenAI)) {
+    return cfg.defaultModel;
+  }
+  return raw;
+}
+
 export function openRouterDefaultHeaders(siteUrl?: string) {
   return {
     "HTTP-Referer": siteUrl || "https://zapmanager.app",

@@ -3,7 +3,7 @@ import { decryptSecret, encryptSecret } from "./crypto.js";
 import type { BotConfig } from "../bots.js";
 import { parseWaApiProvider } from "./wa-api-types.js";
 import { buildProxyUrl, parseProxyUrl } from "./wa-proxy.js";
-import { AI_PROVIDERS, normalizeAIProvider } from "./ai-providers.js";
+import { AI_PROVIDERS, normalizeAIProvider, sanitizeAIModel } from "./ai-providers.js";
 
 export function defaultMetaVerifyToken() {
   return randomBytes(16).toString("hex");
@@ -73,7 +73,7 @@ export function applyAIFieldsFromForm(
   const next: BotConfig = {
     ...bot,
     aiProvider: provider,
-    aiModel: fields.aiModel?.trim() || bot.aiModel || cfg.defaultModel
+    aiModel: sanitizeAIModel(provider, fields.aiModel?.trim() || bot.aiModel || cfg.defaultModel)
   };
   const key = fields.aiApiKey?.trim();
   if (key) {

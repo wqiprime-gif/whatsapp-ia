@@ -1026,8 +1026,10 @@ async function runCompletion(userNumber, message) {
     scheduleSaveConversations();
     return assistantMessage;
   } catch (error) {
-    console.error('Error in runCompletion:', error.message);
-    return;
+    const msg = error?.message || String(error);
+    const detail = error?.error?.message || error?.response?.data?.error?.message;
+    console.error('Error in runCompletion:', msg, detail ? `— ${detail}` : '');
+    throw error;
   }
 }
 
@@ -1786,10 +1788,24 @@ client.on("message", async (message) => {
           if (wantsPixIntent(combinedMessage) && !pixAlreadySent) {
             await enviarChavePix(from, getUserConversation(from));
           }
+        } else if (!openAiApiKey || openAiApiKey === 'missing-key') {
+          await sendTextHuman(client, from, 'Oii! Meu sistema de IA ainda não está configurado no servidor. Peça para atualizar a API Key na instância e clicar em Reiniciar motor.');
         }
       } catch (completionError) {
-        console.error(`❌ Erro ao processar mensagem: ${completionError.message}\n`);
+        const errMsg = completionError?.message || String(completionError);
+        const apiDetail =
+          completionError?.error?.message ||
+          completionError?.response?.data?.error?.message ||
+          '';
+        console.error(`❌ Erro ao processar mensagem: ${errMsg}${apiDetail ? ` (${apiDetail})` : ''}\n`);
         isProcessing[from] = false;
+        const hint = /model|invalid_api|authentication|api key/i.test(`${errMsg} ${apiDetail}`)
+          ? 'Oii! Deu um problema na configuração da IA (modelo ou API Key). Confere no painel da instância e clica em Reiniciar motor. 😊'
+          : 'Oii! Travou um segundo aqui, manda de novo pra mim? 😊';
+        try {
+          await sendTextHuman(client, from, hint);
+          void panelLog({ type: 'message', jid: from, role: 'assistant', content: hint });
+        } catch (_) {}
       }
     });
 
@@ -1828,7 +1844,7 @@ const getDelay = (part) => {
 
 function humanTypingMs(text) {
   const len = String(text || '').length;
-  return Math.min(12000, Math.max(1800, len * 48 + 600));
+  return Math.min(8000, Math.max(600, len * 32 + 400));
 }
 
 /** Envia texto com indicador "digitando..." proporcional ao tamanho da mensagem. */

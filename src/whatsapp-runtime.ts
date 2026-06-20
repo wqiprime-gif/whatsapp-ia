@@ -206,6 +206,9 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   } catch (err) {
     console.error(`[wa-web] IA ${bot.name}: sem API Key — ${err instanceof Error ? err.message : err}`);
   }
+  if (!apiKey) {
+    console.error(`[wa-web] ⚠️ ${bot.name} rodando SEM API Key — a IA não vai responder até você salvar a chave na instância e reiniciar.`);
+  }
   const providerCfg = AI_PROVIDERS[provider];
   const proxyUrl = proxyUrlForBot(bot);
   const instDir = instanceDataDir(bot.id);

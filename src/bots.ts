@@ -5,7 +5,7 @@ import { env } from "./config.js";
 import { getPool, useDatabase } from "./db/index.js";
 import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
-import { normalizeAIProvider, type AIProviderId } from "./lib/ai-providers.js";
+import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
 
 const dataDir = env.DATA_DIR;
 const uploadsDir = path.join(dataDir, "uploads");
@@ -179,7 +179,7 @@ function rowToBot(row: {
     followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
     followUpMaxPerLead: row.follow_up_max_per_lead ?? 2,
     aiProvider: normalizeAIProvider(row.ai_provider),
-    aiModel: row.ai_model ?? undefined,
+    aiModel: sanitizeAIModel(normalizeAIProvider(row.ai_provider), row.ai_model),
     aiApiKeyEncrypted: row.ai_api_key_encrypted ?? undefined
   };
 }
@@ -225,7 +225,7 @@ export async function loadBots(userId?: string) {
     metaAccessTokenEncrypted: b.metaAccessTokenEncrypted,
     metaVerifyToken: b.metaVerifyToken ?? "",
     aiProvider: normalizeAIProvider(b.aiProvider),
-    aiModel: b.aiModel,
+    aiModel: b.aiModel ? sanitizeAIModel(normalizeAIProvider(b.aiProvider), b.aiModel) : undefined,
     aiApiKeyEncrypted: b.aiApiKeyEncrypted
   })) as BotConfig[];
 
