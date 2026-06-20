@@ -729,17 +729,18 @@ async function uploadWaSessionBackupToPanel() {
       encoding: 'buffer'
     });
     if (!archive || archive.length < 32) return false;
-    const res = await axios.post(
-      `${panelUrl}/internal/wa-session-backup`,
-      { botId, clientId, base64: archive.toString('base64') },
-      {
-        headers: { 'x-internal': secret, 'Content-Type': 'application/json' },
-        timeout: 120000,
-        maxBodyLength: 90 * 1024 * 1024,
-        maxContentLength: 90 * 1024 * 1024,
-        validateStatus: () => true
-      }
-    );
+    const res = await axios.post(`${panelUrl}/internal/wa-session-backup`, archive, {
+      headers: {
+        'x-internal': secret,
+        'Content-Type': 'application/octet-stream',
+        'x-bot-id': botId,
+        'x-client-id': clientId
+      },
+      timeout: 120000,
+      maxBodyLength: 90 * 1024 * 1024,
+      maxContentLength: 90 * 1024 * 1024,
+      validateStatus: () => true
+    });
     if (res.data?.ok) {
       console.log(`💾 Backup sessão enviado ao PostgreSQL (${Math.round(archive.length / 1024)} KB)`);
       return true;

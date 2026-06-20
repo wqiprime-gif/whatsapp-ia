@@ -503,25 +503,38 @@ export async function registerPanelRoutes(
     }
   });
 
-  app.post("/internal/wa-session-backup", async (request, reply) => {
+  app.post("/internal/wa-session-backup", { bodyLimit: 100 * 1024 * 1024 }, async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });
     }
     try {
-      const body = z
-        .object({
-          botId: z.string().uuid(),
-          clientId: z.string().min(1),
-          base64: z.string().min(1)
-        })
-        .parse(request.body ?? {});
+      const isRaw = String(request.headers["content-type"] || "").includes("application/octet-stream");
+      let botId: string;
+      let clientId: string;
+      let data: Buffer;
 
-      const bot = await getBotByIdAny(body.botId);
+      if (isRaw) {
+        botId = z.string().uuid().parse(request.headers["x-bot-id"]);
+        clientId = z.string().min(1).parse(request.headers["x-client-id"]);
+        data = Buffer.isBuffer(request.body) ? request.body : Buffer.from(request.body as string);
+      } else {
+        const body = z
+          .object({
+            botId: z.string().uuid(),
+            clientId: z.string().min(1),
+            base64: z.string().min(1)
+          })
+          .parse(request.body ?? {});
+        botId = body.botId;
+        clientId = body.clientId;
+        data = Buffer.from(body.base64, "base64");
+      }
+
+      const bot = await getBotByIdAny(botId);
       if (!bot) {
         return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
       }
 
-      const data = Buffer.from(body.base64, "base64");
       if (data.length < 32) {
         return reply.code(400).send({ ok: false, error: "Backup vazio ou invalido" });
       }
@@ -530,7 +543,7 @@ export async function registerPanelRoutes(
       }
 
       const { saveWaSessionBackup } = await import("../db/wa-session.js");
-      await saveWaSessionBackup(body.botId, data, body.clientId);
+      await saveWaSessionBackup(botId, data, clientId);
       console.log(
         `[wa-web] 💾 Backup sessão ${bot.name} salvo no PostgreSQL (${Math.round(data.length / 1024)} KB)`
       );

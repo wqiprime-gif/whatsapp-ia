@@ -27,7 +27,16 @@ export async function syncBots() {
   await syncWhatsAppBotConfigs();
 }
 
-const app = Fastify({ logger: true });
+const WA_SESSION_BODY_LIMIT = 100 * 1024 * 1024;
+
+const app = Fastify({ logger: true, bodyLimit: WA_SESSION_BODY_LIMIT });
+app.addContentTypeParser(
+  "application/octet-stream",
+  { parseAs: "buffer", bodyLimit: WA_SESSION_BODY_LIMIT },
+  (_req, body, done) => {
+    done(null, body);
+  }
+);
 await app.register(formbody);
 await app.register(multipart, {
   limits: { fileSize: 50 * 1024 * 1024, files: 20 }

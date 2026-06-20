@@ -78,7 +78,7 @@ export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-pre
       ${urls.length > 0 ? `<p class="form-hint">${urls.length} arquivo(s)</p>` : ""}
       <label class="field">
         <span>Mídias de prévia</span>
-        <div class="dropzone">
+        <div class="dropzone dropzone-neon">
           <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Imagens ou vídeos (JPG, PNG, MP4)</p>
           <input form="${formId}" name="previewFiles" type="file" accept="image/*,video/*" multiple />
         </div>
@@ -123,7 +123,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
       ${list}
       <label class="field">
         <span>Mídias de entrega (opcional)</span>
-        <div class="dropzone">
+        <div class="dropzone dropzone-neon">
           <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Arquivos extras enviados junto com o link</p>
           <input form="${formId}" name="deliveryFiles" type="file" accept="image/*,video/*,application/pdf" multiple />
         </div>

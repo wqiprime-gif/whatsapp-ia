@@ -31,7 +31,7 @@ export const premiumStyles = `
     transparent 0deg,
     rgba(10, 92, 255, 0.14) 25deg,
     transparent 50deg,
-    rgba(52, 211, 153, 0.08) 90deg,
+    rgba(10, 92, 255, 0.08) 90deg,
     transparent 130deg,
     rgba(10, 92, 255, 0.1) 200deg,
     transparent 360deg
@@ -52,7 +52,7 @@ export const premiumStyles = `
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background:
     radial-gradient(ellipse 50% 40% at 20% 10%, rgba(10, 92, 255, 0.25), transparent 55%),
-    radial-gradient(ellipse 40% 35% at 85% 20%, rgba(52, 211, 153, 0.12), transparent 50%),
+    radial-gradient(ellipse 40% 35% at 85% 20%, rgba(10, 92, 255, 0.12), transparent 50%),
     radial-gradient(ellipse 60% 50% at 50% 100%, rgba(10, 92, 255, 0.08), transparent 60%);
 }
 .mesh-blob--app { opacity: 0.7; }
@@ -184,8 +184,8 @@ body:not(.auth-body) .ambient {
 .schedule-mode-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .form-section-preview {
-  border-color: rgba(52, 211, 153, 0.28) !important;
-  background: rgba(52, 211, 153, 0.06) !important;
+  border-color: rgba(10, 92, 255, 0.28) !important;
+  background: rgba(10, 92, 255, 0.06) !important;
 }
 .form-section-icon-cyan { color: #00b4ff; }
 .preview-url-list {
