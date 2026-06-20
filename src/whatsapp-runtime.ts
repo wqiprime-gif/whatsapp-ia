@@ -10,7 +10,7 @@ import { decryptSecret } from "./lib/crypto.js";
 import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
 import { puppeteerProxyArgs } from "./lib/wa-proxy.js";
 import { AI_PROVIDERS } from "./lib/ai-providers.js";
-import { getAIProvider, getOpenAIModel, getOpenAIApiKey } from "./lib/settings.js";
+import { resolveBotAIConfig } from "./lib/settings.js";
 
 const hotbotDir = path.join(rootDir, "hotbot");
 const instancesDir = path.join(env.DATA_DIR, "wa-instances");
@@ -194,9 +194,18 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   await syncBotFiles(bot, port);
 
   const owner = await getUserById(bot.userId).catch(() => null);
-  const apiKey = await getOpenAIApiKey(bot.userId, owner?.email).catch(() => "");
-  const provider = await getAIProvider(bot.userId).catch(() => "openai" as const);
-  const model = await getOpenAIModel(bot.userId).catch(() => env.OPENAI_MODEL);
+  let apiKey = "";
+  let provider: import("./lib/ai-providers.js").AIProviderId = "openai";
+  let model = env.OPENAI_MODEL;
+  try {
+    const ai = await resolveBotAIConfig(bot, owner?.email);
+    apiKey = ai.apiKey;
+    provider = ai.provider;
+    model = ai.model;
+    console.log(`[wa-web] IA ${bot.name}: ${ai.provider} · ${ai.model} · fonte=${ai.source}`);
+  } catch (err) {
+    console.error(`[wa-web] IA ${bot.name}: sem API Key — ${err instanceof Error ? err.message : err}`);
+  }
   const providerCfg = AI_PROVIDERS[provider];
   const proxyUrl = proxyUrlForBot(bot);
   const instDir = instanceDataDir(bot.id);
@@ -300,7 +309,10 @@ export function botNeedsMotorRestart(before: BotConfig, after: BotConfig): boole
     before.active !== after.active ||
     (before.waApiProvider ?? "whatsapp_web") !== (after.waApiProvider ?? "whatsapp_web") ||
     Boolean(before.proxyEnabled) !== Boolean(after.proxyEnabled) ||
-    (after.proxyUrlEncrypted ?? "") !== (before.proxyUrlEncrypted ?? "")
+    (after.proxyUrlEncrypted ?? "") !== (before.proxyUrlEncrypted ?? "") ||
+    (before.aiProvider ?? "openai") !== (after.aiProvider ?? "openai") ||
+    (before.aiModel ?? "") !== (after.aiModel ?? "") ||
+    (after.aiApiKeyEncrypted ?? "") !== (before.aiApiKeyEncrypted ?? "")
   );
 }
 

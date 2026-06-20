@@ -671,7 +671,13 @@ client.initialize().catch((error) => {
 
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const aiModel = () => process.env.AI_MODEL || 'gpt-4o-mini';
-const openaiOpts = { apiKey: openAiApiKey };
+const aiProviderName = process.env.AI_PROVIDER || 'openai';
+if (!openAiApiKey) {
+  console.error('❌ OPENAI_API_KEY vazia — a IA NÃO vai responder. Configure a API Key na instância ou em Configurações.');
+} else {
+  console.log(`🤖 IA ativa: ${aiProviderName} · modelo ${aiModel()}`);
+}
+const openaiOpts = { apiKey: openAiApiKey || 'missing-key' };
 if (process.env.AI_BASE_URL) {
   openaiOpts.baseURL = process.env.AI_BASE_URL;
   if (process.env.AI_PROVIDER === 'openrouter') {

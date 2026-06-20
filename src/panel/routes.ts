@@ -37,7 +37,7 @@ import {
   type BotConfig,
   type NamedAudio
 } from "../bots.js";
-import { applyWaFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
+import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
 import { authenticateUser, createUser, getUserById, updateUserProfile } from "../db/users.js";
@@ -50,7 +50,7 @@ import {
   setSessionCookie
 } from "../lib/session.js";
 import { generateBotPrompt } from "../lib/prompt-generator.js";
-import { getAIProvider, getApiKeyStatus, getOpenAIModel, updateOpenAISettings } from "../lib/settings.js";
+import { getAIProvider, getApiKeyStatus, getOpenAIModel, updateOpenAISettings, resolveBotAIConfig } from "../lib/settings.js";
 import {
   leadsPage,
   mediaPage,
@@ -284,12 +284,27 @@ const botFormFieldsSchema = z.object({
   metaVerifyToken: z.string().optional(),
   followUpEnabled: z.enum(["true", "false"]).default("true"),
   followUpAfterMinutes: z.coerce.number().min(1).max(180).default(10),
-  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2)
+  followUpMaxPerLead: z.coerce.number().min(1).max(5).default(2),
+  aiProvider: z.string().optional(),
+  aiModel: z.string().optional(),
+  aiApiKey: z.string().optional()
 });
 
 function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDelaySeconds: number }) {
   const totalSeconds = input.messageDelayMinutes * 60 + input.messageDelaySeconds;
   return Math.max(1500, totalSeconds * 1000);
+}
+
+async function ensureInstanceAIKey(
+  user: { id: string; email: string },
+  body: { aiApiKey?: string },
+  existing?: { aiApiKeyEncrypted?: string }
+) {
+  if (body.aiApiKey?.trim() || existing?.aiApiKeyEncrypted) return;
+  const status = await getApiKeyStatus(user.id, user.email);
+  if (!status.configured) {
+    throw new Error("Informe a API Key da IA nesta instância (provedor + chave).");
+  }
 }
 
 function mimeTypeFromPath(filePath: string) {
@@ -1374,9 +1389,11 @@ export async function registerPanelRoutes(
       const { fields, previewUploads, deliveryUploads, avatarUrl, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
+      await ensureInstanceAIKey(user, body, existing);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
-      const merged = applyWaFieldsFromForm(
-        {
+      const merged = applyAIFieldsFromForm(
+        applyWaFieldsFromForm(
+          {
           ...existing,
           name: body.name,
           token: existing.token,
@@ -1401,6 +1418,8 @@ export async function registerPanelRoutes(
           followUpAfterMinutes: body.followUpAfterMinutes,
           followUpMaxPerLead: body.followUpMaxPerLead
         },
+        body
+        ),
         body
       );
       const updated = merged;
@@ -1537,10 +1556,12 @@ export async function registerPanelRoutes(
       const { fields, previewUploads, deliveryUploads, avatarUrl, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
+      await ensureInstanceAIKey(user, body);
       const botId = randomUUID();
 
       await upsertBot(
-        applyWaFieldsFromForm(
+        applyAIFieldsFromForm(
+          applyWaFieldsFromForm(
             {
               id: botId,
               userId: user.id,
@@ -1573,7 +1594,9 @@ export async function registerPanelRoutes(
               followUpMaxPerLead: body.followUpMaxPerLead
             },
             body
-          )
+          ),
+          body
+        )
       );
 
       await syncProductsFromPrompt(botId, body.prompt);

@@ -3,6 +3,7 @@ import { env } from "../config.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
 import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
+import { AI_PROVIDERS, OPENROUTER_FREE_MODELS } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret } from "../lib/crypto.js";
 import { icons } from "./icons.js";
@@ -127,6 +128,63 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
           <input form="${formId}" name="deliveryFiles" type="file" accept="image/*,video/*,application/pdf" multiple />
         </div>
       </label>
+    </div>`;
+}
+
+function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
+  const provider = bot?.aiProvider ?? "openrouter";
+  const model = bot?.aiModel ?? AI_PROVIDERS[provider].defaultModel;
+  const hasKey = Boolean(bot?.aiApiKeyEncrypted);
+  const providerOptions = Object.entries(AI_PROVIDERS)
+    .map(
+      ([id, p]) =>
+        `<option value="${id}" ${provider === id ? "selected" : ""}>${escapeHtml(p.label)}</option>`
+    )
+    .join("");
+  const hint = AI_PROVIDERS[provider]?.keyHint ?? "sk-...";
+  const freeModelOptions =
+    provider === "openrouter"
+      ? OPENROUTER_FREE_MODELS.map(
+          (m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`
+        ).join("")
+      : "";
+  const modelField =
+    provider === "openrouter"
+      ? `<label class="field">
+          <span>Modelo IA</span>
+          <input name="aiModel" list="inst-openrouter-models" value="${escapeHtml(model)}" placeholder="openrouter/free" />
+          <datalist id="inst-openrouter-models">${freeModelOptions}</datalist>
+          <span class="form-hint">Grátis: <code>openrouter/free</code> ou modelos com <code>:free</code></span>
+        </label>`
+      : `<label class="field">
+          <span>Modelo IA</span>
+          <input name="aiModel" value="${escapeHtml(model)}" placeholder="${escapeHtml(AI_PROVIDERS[provider].defaultModel)}" />
+        </label>`;
+
+  return `
+    <div class="form-section span-2 form-section-ai" id="ia-instancia">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.sparkles}</span>
+        <div>
+          <h4>Inteligência Artificial desta instância</h4>
+          <p>Cada instância usa <strong>sua própria API Key</strong>. A IA só responde leads se a chave estiver configurada aqui.</p>
+        </div>
+      </div>
+      ${isEdit && hasKey ? `<p class="form-hint" style="color:#22C55E;margin-bottom:10px">API Key salva nesta instância. Deixe o campo vazio para manter a atual.</p>` : ""}
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
+        <label class="field">
+          <span>Provedor de IA</span>
+          <select name="aiProvider" id="inst-ai-provider">
+            ${providerOptions}
+          </select>
+        </label>
+        ${modelField}
+        <label class="field span-2">
+          <span>API Key da IA ${isEdit ? "" : "<strong style='color:#EAB308'>(obrigatório)</strong>"}</span>
+          <input name="aiApiKey" type="password" placeholder="${escapeHtml(hint)}" autocomplete="new-password" ${isEdit ? "" : "required minlength='8'"} />
+          <span class="form-hint">OpenRouter (grátis): <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> · OpenAI: platform.openai.com</span>
+        </label>
+      </div>
     </div>`;
 }
 
@@ -295,6 +353,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           </select>
           <span class="form-hint">Ativo ≠ conectado ao WhatsApp. A conexão real aparece depois do QR.</span>
         </label>
+        ${aiConfigBlock(isEdit, bot)}
         ${waConnectionBlock(isEdit, bot)}
         <label class="field span-2">Foto de perfil do bot
           <div class="dropzone">

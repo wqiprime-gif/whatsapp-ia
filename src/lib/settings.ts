@@ -4,6 +4,7 @@ import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
 import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId } from "./ai-providers.js";
+import type { BotConfig } from "../bots.js";
 
 function isPlatformOwner(email?: string) {
   const admin = env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -174,4 +175,61 @@ export async function updateOpenAISettings(
 
   await saveSettings(userId, next);
   return next;
+}
+
+export type ResolvedBotAI = {
+  apiKey: string;
+  model: string;
+  provider: AIProviderId;
+  source: "instancia" | "painel" | "env";
+};
+
+/** IA da instância tem prioridade; senão usa Configurações do usuário. */
+export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Promise<ResolvedBotAI> {
+  if (bot.aiApiKeyEncrypted) {
+    const provider = normalizeAIProvider(bot.aiProvider);
+    const cfg = AI_PROVIDERS[provider];
+    return {
+      apiKey: decryptSecret(bot.aiApiKeyEncrypted),
+      provider,
+      model: bot.aiModel?.trim() || cfg.defaultModel,
+      source: "instancia"
+    };
+  }
+  const settings = await loadSettings(bot.userId);
+  const provider = normalizeAIProvider(settings.aiProvider);
+  const cfg = AI_PROVIDERS[provider];
+  if (settings.openaiApiKeyEncrypted) {
+    return {
+      apiKey: decryptSecret(settings.openaiApiKeyEncrypted),
+      provider,
+      model: settings.openaiModel || cfg.defaultModel,
+      source: "painel"
+    };
+  }
+  if (isPlatformOwner(userEmail)) {
+    if (provider === "openrouter" && env.OPENROUTER_API_KEY) {
+      return {
+        apiKey: env.OPENROUTER_API_KEY,
+        provider,
+        model: settings.openaiModel || cfg.defaultModel,
+        source: "env"
+      };
+    }
+    if (env.OPENAI_API_KEY) {
+      return {
+        apiKey: env.OPENAI_API_KEY,
+        provider,
+        model: settings.openaiModel || cfg.defaultModel,
+        source: "env"
+      };
+    }
+  }
+  throw new Error(
+    "Configure a API Key da IA na instância (ao criar/editar) ou em Configurações no painel."
+  );
+}
+
+export function botHasAIConfigured(bot: BotConfig): boolean {
+  return Boolean(bot.aiApiKeyEncrypted);
 }
