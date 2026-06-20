@@ -367,7 +367,7 @@ function registerMetaBot(bot: BotConfig) {
   console.log(`[wa-meta] ${bot.name} registrado (Phone ID ${bot.metaPhoneNumberId || "?"})`);
 }
 
-async function killWebBot(botId: string) {
+async function killWebBot(botId: string, timeoutMs = 15000) {
   const proc = processes.get(botId);
   if (!proc) return;
   return new Promise<void>((resolve) => {
@@ -379,7 +379,7 @@ async function killWebBot(botId: string) {
       }
       processes.delete(botId);
       resolve();
-    }, 15000);
+    }, timeoutMs);
     proc.child.once("exit", () => {
       clearTimeout(timer);
       processes.delete(botId);
@@ -407,6 +407,41 @@ function webBotIndex(bots: BotConfig[], botId: string) {
   return 0;
 }
 
+async function spawnWebBotsStaggered(bots: BotConfig[], skipExisting = false) {
+  for (const bot of bots) {
+    if (!bot.active || !isMetaBot(bot)) continue;
+    if (!bot.metaPhoneNumberId?.trim() || !bot.metaAccessTokenEncrypted) {
+      console.warn(`[wa-meta] ${bot.name}: configure Phone ID e token Meta.`);
+      continue;
+    }
+    registerMetaBot(bot);
+  }
+
+  const toSpawn: { bot: BotConfig; port: number }[] = [];
+  let index = 0;
+  for (const bot of bots) {
+    if (!bot.active || isMetaBot(bot)) continue;
+    if (skipExisting && processes.has(bot.id)) {
+      index++;
+      continue;
+    }
+    toSpawn.push({ bot, port: bot.waPort ?? waPortForBot(bot.id, index) });
+    index++;
+  }
+
+  for (let i = 0; i < toSpawn.length; i++) {
+    const { bot, port } = toSpawn[i]!;
+    try {
+      await spawnWebBot(bot, port);
+      if (i < toSpawn.length - 1) {
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+    } catch (error) {
+      console.error(`[wa] Falha ao iniciar ${bot.name}:`, error);
+    }
+  }
+}
+
 /** Sobe bots ativos que ainda não têm processo — não mata os que já estão conectados. */
 export async function ensureWhatsAppBotsRunning() {
   if (restartInProgress) return;
@@ -423,29 +458,7 @@ export async function ensureWhatsAppBotsRunning() {
     }
 
     metaBots.clear();
-    let index = 0;
-    for (const bot of bots) {
-      if (!bot.active) continue;
-      try {
-        if (isMetaBot(bot)) {
-          if (!bot.metaPhoneNumberId?.trim() || !bot.metaAccessTokenEncrypted) {
-            console.warn(`[wa-meta] ${bot.name}: configure Phone ID e token Meta.`);
-            continue;
-          }
-          registerMetaBot(bot);
-        } else {
-          if (processes.has(bot.id)) {
-            index++;
-            continue;
-          }
-          const port = bot.waPort ?? waPortForBot(bot.id, index);
-          index++;
-          await spawnWebBot(bot, port);
-        }
-      } catch (error) {
-        console.error(`[wa] Falha ao iniciar ${bot.name}:`, error);
-      }
-    }
+    await spawnWebBotsStaggered(bots, true);
   } finally {
     restartInProgress = false;
   }
@@ -468,34 +481,15 @@ export async function restartWhatsAppBots() {
   try {
     await Promise.all([...processes.keys()].map((id) => killWebBot(id)));
     metaBots.clear();
-
     const bots = await loadBots();
-    let index = 0;
-    for (const bot of bots) {
-      if (!bot.active) continue;
-      try {
-        if (isMetaBot(bot)) {
-          if (!bot.metaPhoneNumberId?.trim() || !bot.metaAccessTokenEncrypted) {
-            console.warn(`[wa-meta] ${bot.name}: configure Phone ID e token Meta.`);
-            continue;
-          }
-          registerMetaBot(bot);
-        } else {
-          const port = bot.waPort ?? waPortForBot(bot.id, index);
-          index++;
-          await spawnWebBot(bot, port);
-        }
-      } catch (error) {
-        console.error(`[wa] Falha ao iniciar ${bot.name}:`, error);
-      }
-    }
+    await spawnWebBotsStaggered(bots, false);
   } finally {
     restartInProgress = false;
   }
 }
 
 export async function shutdownWhatsAppBots() {
-  await Promise.all([...processes.keys()].map((id) => killWebBot(id)));
+  await Promise.all([...processes.keys()].map((id) => killWebBot(id, 4000)));
   metaBots.clear();
 }
 

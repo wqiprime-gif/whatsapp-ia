@@ -304,6 +304,9 @@ const halfPriceOffered = {};
 const CANT_PAY_RE =
   /nao consigo|n[aã]o consigo|nao tenho|n[aã]o tenho|sem dinheiro|t[aá] caro|muito caro|caro demais|nao da|n[aã]o d[aá]|imposs[ií]vel|nao posso|n[aã]o posso|so tenho|s[oó] tenho|nao pago|n[aã]o pago/i;
 
+const DISCOUNT_INTENT_RE =
+  /desconto|metade|mais barato|baratinh|diminuir|reduzir|promo[cç][aã]o|abaixar|menor pre[cç]o|faz\s+por|faz\s+menos|tem como.*desconto|nao tem como.*desconto|n[aã]o tem como.*desconto|consegue.*desconto|da\s+um\s+desconto|com metade|pela metade|50\s*%|cinquenta por cento/i;
+
 function parseOfferReais(text) {
   const m = String(text || '').match(/r?\$?\s*(\d{1,3})(?:[,.](\d{2}))?/i);
   if (!m) return null;
@@ -313,24 +316,52 @@ function parseOfferReais(text) {
   return whole + cents / 100;
 }
 
-function tryHalfPriceOffer(jid, text) {
-  if (halfPriceOffered[jid]) return null;
-  if (!CANT_PAY_RE.test(String(text || ''))) return null;
-  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice !== false);
-  if (products.length === 0) return null;
+function wantsDiscount(text) {
+  const t = String(text || '');
+  return CANT_PAY_RE.test(t) || DISCOUNT_INTENT_RE.test(t);
+}
 
+function pickProductForOffer(text, products) {
+  const t = String(text || '').toLowerCase();
+  const pkgNum = t.match(/pacote\s*#?\s*(\d+)/i);
+  if (pkgNum) {
+    const idx = Number(pkgNum[1]) - 1;
+    const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+    if (sorted[idx]) return sorted[idx];
+  }
+  if (/complet/i.test(t)) {
+    const m = products.find((p) => /complet/i.test(p.name || ''));
+    if (m) return m;
+  }
+  if (/b[aá]sico|basico/i.test(t)) {
+    const m = products.find((p) => /b[aá]sico|basico/i.test(p.name || ''));
+    if (m) return m;
+  }
+  if (/chamada|v[ií]deo/i.test(t)) {
+    const m = products.find((p) => /chamada|v[ií]deo|video/i.test(p.name || ''));
+    if (m) return m;
+  }
   const offer = parseOfferReais(text);
-  let product = products.find((p) => p.allowHalfPrice) || products[0];
   if (offer !== null) {
     const match = products.find((p) => Math.abs((p.priceCents || 0) / 100 - offer) < 2);
-    if (match) product = match;
+    if (match) return match;
   }
+  return products.find((p) => p.allowHalfPrice) || products[0];
+}
 
+function tryHalfPriceOffer(jid, text) {
+  if (halfPriceOffered[jid]) return null;
+  if (!wantsDiscount(text)) return null;
+  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
+  if (products.length === 0) return null;
+
+  const product = pickProductForOffer(text, products);
   const pct = product.halfPricePercent ?? 50;
   const halfCents = Math.round((product.priceCents || 0) * (pct / 100));
   const half = (halfCents / 100).toFixed(2).replace('.', ',');
   const full = ((product.priceCents || 0) / 100).toFixed(2).replace('.', ',');
   halfPriceOffered[jid] = true;
+  console.log(`💰 Oferta ${pct}% para ${jid}: ${product.name} R$${full} → R$${half}`);
   return `entendo amor 💕 o ${product.name} ta R$ ${full}, mas dessa vez consigo fazer por metade — R$ ${half}. e so pra voce, manda o pix? 😘`;
 }
 
@@ -531,10 +562,27 @@ function buildPixAppendix() {
   return block;
 }
 
+function buildDiscountAppendix() {
+  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
+  if (products.length === 0) return '';
+  let block = '\n\n--- POLÍTICA DE DESCONTO (OBRIGATÓRIO) ---\n';
+  block += 'Se o lead pedir desconto, disser que está caro, ou quiser metade do valor, você PODE e DEVE aceitar e oferecer o desconto UMA VEZ por lead.\n';
+  block += 'Pacotes com desconto disponível:\n';
+  for (const p of products) {
+    const pct = p.halfPricePercent ?? 50;
+    const halfCents = Math.round((p.priceCents || 0) * (pct / 100));
+    const half = (halfCents / 100).toFixed(2).replace('.', ',');
+    const full = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
+    block += `- ${p.name}: de R$ ${full} por R$ ${half} (${pct}% off)\n`;
+  }
+  block += 'NUNCA diga que não consegue dar desconto se o lead pedir — ofereça o valor com desconto acima.\n';
+  return block;
+}
+
 function buildSystemPrompt() {
   const panelPrompt = readPanelPromptRaw();
   const base = panelPrompt || loadDefaultPrompt() || '';
-  return base + buildPixAppendix();
+  return base + buildPixAppendix() + buildDiscountAppendix();
 }
 
 function refreshAllConversationPrompts() {

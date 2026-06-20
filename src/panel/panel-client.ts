@@ -600,6 +600,21 @@ export const panelClientScript = `
         if (key === "salesCountVal") el.textContent = String(stats.salesCount);
         if (key === "convRate") el.textContent = (stats.convRate || "0,0") + "%";
         if (key === "activeBots") el.textContent = String(stats.activeBots);
+        if (key === "ticketMedio") {
+          el.textContent = stats.ticketMedioCents > 0 ? money(stats.ticketMedioCents) : "R$ 0,00";
+        }
+        if (key === "fatPct") el.textContent = (stats.fatProgress || 0) + "%";
+        if (key === "fatBar") el.style.width = (stats.fatProgress || 0) + "%";
+      });
+      document.querySelectorAll(".shark-kpi-foot span:last-child").forEach((el) => {
+        if (el.closest(".shark-kpi-card") && el.textContent && el.textContent.includes("Aprov")) {
+          const pct = stats.leads > 0 ? Math.round((stats.salesCount / stats.leads) * 100) : 0;
+          el.textContent = pct + "% Aprov.";
+        }
+      });
+      document.querySelectorAll(".shark-mini-bar span").forEach((el) => {
+        const pct = stats.leads > 0 ? Math.round((stats.salesCount / stats.leads) * 100) : 0;
+        el.style.width = pct + "%";
       });
     }
     const feed = document.querySelector("[data-live=activity-feed]");
@@ -610,6 +625,8 @@ export const panelClientScript = `
         feed.setAttribute("data-feed-sig", data.activityHtml);
       }
     }
+    const instances = document.querySelector("[data-live=instances-card]");
+    if (instances && data.instancesHtml) instances.innerHTML = data.instancesHtml;
     const top = document.querySelector("[data-live=top-bots]");
     if (top && data.topBotsHtml) top.innerHTML = data.topBotsHtml;
     const topPlayers = document.querySelector("[data-live=top-players]");
@@ -652,6 +669,9 @@ export const panelClientScript = `
     bindPeriodTabs(document);
     bindSharkCharts(document);
     refreshLive(true);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshLive(true);
+    });
   }
   checkNewSales();
   setInterval(() => {
@@ -659,7 +679,7 @@ export const panelClientScript = `
     checkNewSales();
     if (location.pathname !== "/") return;
     refreshLive(true);
-  }, 2500);
+  }, 1500);
 
   function findNavRoute(q) {
     const query = q.trim().toLowerCase();

@@ -99,7 +99,7 @@ export function channelDonutSvg(stats: { label: string; value: number; color: st
 export function salesFunnelHtml(input: { leads: number; sales: number; messages: number }) {
   const leadCount = Math.max(input.leads, 1);
   const stages = [
-    { label: "Leads", value: input.leads, pct: 100, color: "#4ade80" },
+    { label: "Leads", value: input.leads, pct: 100, color: "#3b82f6" },
     {
       label: "Conversas",
       value: input.messages,

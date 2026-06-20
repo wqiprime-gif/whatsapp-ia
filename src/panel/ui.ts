@@ -264,7 +264,7 @@ export function loginPage(message = "") {
 </html>`;
 }
 
-function activeInstancesCardHtml(bots: BotConfig[], statuses: Record<string, WaLiveStatus>) {
+export function activeInstancesCardHtml(bots: BotConfig[], statuses: Record<string, WaLiveStatus>) {
   const connected = bots.filter((b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready").length;
   const statusLabel: Record<string, string> = {
     connected: "Online",
@@ -338,10 +338,10 @@ export function dashboardPage(
         <div class="shark-fat-body">
           <div class="shark-fat-top">
             <span class="shark-fat-label">Faturamento</span>
-            <span class="shark-fat-pct">${fatProgress}%</span>
+            <span class="shark-fat-pct" data-live-stat="fatPct">${fatProgress}%</span>
           </div>
           <div class="shark-fat-bar" role="progressbar" aria-valuenow="${fatProgress}" aria-valuemin="0" aria-valuemax="100">
-            <span style="width:${fatProgress}%"></span>
+            <span style="width:${fatProgress}%" data-live-stat="fatBar"></span>
           </div>
           <div class="shark-fat-bottom">
             <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
@@ -406,7 +406,7 @@ export function dashboardPage(
             ${sharkIconBox(icons.receipt, false, false, true)}
             <h3 class="shark-kpi-title">Ticket médio</h3>
           </div>
-          <div class="shark-kpi-value">R$ ${ticketMedio}</div>
+          <div class="shark-kpi-value" data-live-stat="ticketMedio">R$ ${ticketMedio}</div>
           <span class="shark-kpi-sub">Vendas: <strong data-live-stat="salesCountVal">${data.stats.salesCount}</strong> · PIX pagos</span>
         </div>
       </div>
@@ -450,7 +450,7 @@ export function dashboardPage(
             </div>
           </div>
         </div>
-        <div class="card-body">${activeInstancesCardHtml(bots, statuses)}</div>
+        <div class="card-body" data-live="instances-card">${activeInstancesCardHtml(bots, statuses)}</div>
       </div>
       <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         <div class="card-head">

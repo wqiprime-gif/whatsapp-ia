@@ -40,7 +40,7 @@ export function waQrPage(bot: BotConfig, partial = false, userName = "Usuario") 
             wrap.innerHTML = '<img src="' + data.qr + '" alt="QR Code" style="max-width:280px;border-radius:12px" /><p class="form-hint" style="margin-top:12px">WhatsApp → Aparelhos conectados → Conectar</p>';
             if (status) status.textContent = "QR disponível — escaneie agora.";
           } else if (data.connected) {
-            wrap.innerHTML = '<div style="font-size:3rem">✅</div><p class="form-hint">Instância conectada ao WhatsApp.</p>';
+            wrap.innerHTML = '<div style="width:64px;height:64px;margin:0 auto;border-radius:50%;background:rgba(10,92,255,0.15);border:2px solid #3b82f6;display:grid;place-items:center"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div><p class="form-hint" style="margin-top:12px;color:#3b82f6">Instância conectada ao WhatsApp.</p>';
             if (status) status.textContent = "";
           } else if (data.error) {
             wrap.innerHTML = '<div style="font-size:3rem">⚠️</div><p class="form-hint" style="color:var(--warning)">Falha ao iniciar o motor WhatsApp.</p>';

@@ -66,6 +66,7 @@ import { buildWaMeUrl } from "../lib/wa-links.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
+  activeInstancesCardHtml,
   dashboardPage,
   formatRelativeTime,
   instancesPage,
@@ -733,6 +734,7 @@ export async function registerPanelRoutes(
     const query = z.object({ period: z.string().optional() }).parse(request.query);
     const period = normalizeDashboardPeriod(query.period);
     const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
     const stats = await dashboardStatsForPeriod(period, user.id);
     const chart = await salesByPeriod(period, user.id);
     const chartOpts = chartOptionsForPeriod(period);
@@ -758,6 +760,10 @@ export async function registerPanelRoutes(
     });
 
     const convPct = stats.leads > 0 ? (stats.salesCount / stats.leads) * 100 : 0;
+    const ticketMedioCents =
+      stats.salesCount > 0 ? Math.round(stats.salesTotalCents / stats.salesCount) : 0;
+    const fatGoal = 10_000;
+    const fatProgress = Math.min(100, Math.round((stats.salesTotalCents / 100 / fatGoal) * 100));
 
     const periodLabels: Record<string, string> = {
       hoje: "Hoje",
@@ -776,12 +782,18 @@ export async function registerPanelRoutes(
         salesCount: stats.salesCount,
         messagesToday: stats.messagesToday,
         activeBots: bots.filter((b) => b.active).length,
+        connectedBots: bots.filter(
+          (b) => statuses[b.id] === "connected" || statuses[b.id] === "meta_ready"
+        ).length,
+        ticketMedioCents,
+        fatProgress,
         convRate:
           stats.leads > 0
             ? ((stats.salesCount / stats.leads) * 100).toFixed(1).replace(".", ",")
             : "0,0"
       },
       activityHtml: activityFeedHtml(activities),
+      instancesHtml: activeInstancesCardHtml(bots, statuses),
       topBotsHtml: topBotsRankingHtml(topBots),
       topPlayersHtml: topPlayersRankingHtml(topPlayers, user.id),
       chartSvg: sharkPerformanceChartHtml(chart, chartOpts),

@@ -309,7 +309,7 @@ export function remarketingPage(
   const botNameById = new Map(bots.map((b) => [b.id, b.name]));
   const botChecks =
     bots.length === 0
-      ? `<p class="form-hint">Nenhuma instância ainda. <a href="/instances/new" style="color:var(--green)">Criar instância</a></p>`
+      ? `<p class="form-hint">Nenhuma instância ainda. <a href="/instances/new" style="color:var(--primary)">Criar instância</a></p>`
       : `<div class="rmk-instance-toolbar">
           <button type="button" class="btn btn-secondary btn-sm" id="rmk-select-all">Marcar todas</button>
           <button type="button" class="btn btn-secondary btn-sm" id="rmk-select-none">Desmarcar</button>
