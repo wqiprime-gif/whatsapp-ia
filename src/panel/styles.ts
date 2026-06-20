@@ -520,7 +520,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 .user-avatar {
   width: 34px; height: 34px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #5ee4a8);
+  background: linear-gradient(135deg, var(--primary), #00b4ff);
   display: grid; place-items: center;
   font-size: 0.68rem; font-weight: 800; color: #041018;
   flex-shrink: 0;
@@ -751,7 +751,7 @@ button, input, textarea, select { font-family: inherit; }
   font-size: 0.7rem; font-weight: 700;
   white-space: nowrap;
 }
-.badge-online { background: var(--success-bg); color: var(--success); border: 1px solid rgba(94, 228, 168, 0.25); }
+.badge-online { background: var(--success-bg); color: var(--success); border: 1px solid rgba(59, 130, 246, 0.25); }
 .badge-paused { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(255, 200, 87, 0.25); }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
@@ -827,7 +827,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 .activity-icon.pay { background: var(--success-bg); color: var(--success); }
 .activity-icon.lead { background: rgba(61, 200, 255, 0.12); color: var(--primary); }
-.activity-icon.sale { background: rgba(94, 228, 168, 0.1); color: #5ee4a8; }
+.activity-icon.sale { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
 .activity-text { flex: 1; font-size: 0.85rem; line-height: 1.45; }
 .activity-text strong { color: var(--text); }
 .activity-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
@@ -872,7 +872,7 @@ button, input, textarea, select { font-family: inherit; }
   padding: 14px 18px; border-radius: var(--radius); margin-bottom: 18px;
   font-size: 0.88rem; font-weight: 500;
 }
-.alert-success { background: var(--success-bg); border: 1px solid rgba(94, 228, 168, 0.35); color: #9ef0c8; }
+.alert-success { background: var(--success-bg); border: 1px solid rgba(59, 130, 246, 0.35); color: #93c5fd; }
 .alert-error { background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.35); color: #ffb4b4; }
 
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
@@ -1050,7 +1050,7 @@ button, input, textarea, select { font-family: inherit; }
 .prompt-tag-doc-head:hover code { color: var(--primary); }
 .prompt-tag-doc-head code {
   font-size: 0.72rem;
-  color: #34d399;
+  color: #00b4ff;
   font-weight: 700;
 }
 .prompt-tag-doc-label { font-size: 0.82rem; font-weight: 600; }
@@ -1498,7 +1498,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 .rank-bar span {
   display: block; height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), #5ee4a8);
+  background: linear-gradient(90deg, var(--primary), #00b4ff);
   transition: width 0.5s var(--ease);
 }
 .product-rank.rank-gold { background: rgba(255, 200, 87, 0.2); color: #ffc857; }

@@ -178,7 +178,7 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
         </label>
         <label class="field span-2">
           <span>API Key da IA ${isEdit ? "" : "<strong style='color:#EAB308'>(obrigatório)</strong>"}</span>
-          <input name="aiApiKey" type="password" placeholder="${escapeHtml(hint)}" autocomplete="new-password" ${isEdit ? "" : "required minlength='8'"} />
+          <input name="aiApiKey" type="password" placeholder="${isEdit && hasKey ? `Salva: ${escapeHtml(maskedKey)} — vazio para manter` : escapeHtml(hint)}" autocomplete="new-password" ${isEdit ? "" : "required minlength='8'"} />
         </label>
       </div>
     </div>`;

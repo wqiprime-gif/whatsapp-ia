@@ -788,7 +788,7 @@ export async function registerPanelRoutes(
       convGaugeHtml: conversionGaugeSvg(convPct, `${stats.salesCount} pagos de ${stats.leads} leads`),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),
-      sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#34d399"),
+      sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#00b4ff"),
       latestSale: latestSale
         ? {
             id: latestSale.id,

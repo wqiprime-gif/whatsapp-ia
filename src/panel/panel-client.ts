@@ -659,7 +659,7 @@ export const panelClientScript = `
     checkNewSales();
     if (location.pathname !== "/") return;
     refreshLive(true);
-  }, 5000);
+  }, 2500);
 
   function findNavRoute(q) {
     const query = q.trim().toLowerCase();

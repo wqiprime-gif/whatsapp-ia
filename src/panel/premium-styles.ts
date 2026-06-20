@@ -552,7 +552,7 @@ body:not(.auth-body) .ambient {
 .chart-wrap .chart-svg polyline { stroke: var(--green-bright) !important; }
 .chart-wrap .chart-svg path { fill: rgba(10, 92, 255, 0.15) !important; }
 
-/* Telegram chat — verde */
+/* Telegram chat — azul */
 .tg-bubble--out .tg-bubble-text {
   background: linear-gradient(135deg, #0a5cff, #3b82f6) !important;
   box-shadow: 0 8px 28px rgba(10, 92, 255, 0.3) !important;
@@ -895,7 +895,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .chart-svg--bars { width: 100%; height: auto; max-height: 200px; display: block; }
 
-/* Efeito Shark — listras verdes topo/rodapé em TODOS os cards ao mesmo tempo */
+/* Efeito Shark — listras azuis topo/rodapé em TODOS os cards ao mesmo tempo */
 @keyframes shark-edge-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }

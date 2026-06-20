@@ -718,7 +718,7 @@ function getOpenAI() {
     } else {
       console.log(`🤖 IA ativa: ${_aiProvider} · ${aiModel()} · key ${_aiKey.slice(0, 7)}…`);
     }
-    const opts = { apiKey: _aiKey || 'missing-key', timeout: 90_000, maxRetries: 2 };
+    const opts = { apiKey: _aiKey || 'missing-key', timeout: 30_000, maxRetries: 1 };
     if (_aiBaseUrl) {
       opts.baseURL = _aiBaseUrl;
       if (_aiProvider === 'openrouter') {
@@ -735,6 +735,32 @@ function getOpenAI() {
 
 getOpenAI();
 console.log(`🔑 IA runtime: ${aiRuntimePath} · key=${getOpenAiApiKey() ? getOpenAiApiKey().slice(0, 7) + '…' : 'VAZIA'}`);
+
+(async () => {
+  try {
+    const k = getOpenAiApiKey();
+    if (!k) {
+      console.warn('⚠️ Self-test IA: sem API Key — pulei o teste');
+      return;
+    }
+    console.log(`🩺 Self-test IA: chamando ${aiModel()}…`);
+    const t0 = Date.now();
+    const r = await getOpenAI().chat.completions.create({
+      model: aiModel(),
+      messages: [{ role: 'user', content: 'oi' }],
+      max_tokens: 5,
+      temperature: 0
+    });
+    const dt = Date.now() - t0;
+    const txt = r?.choices?.[0]?.message?.content || '(vazio)';
+    console.log(`✅ Self-test IA OK em ${dt}ms · resposta="${txt.slice(0, 30)}"`);
+  } catch (e) {
+    const det = e?.error?.message || e?.response?.data?.error?.message || e?.cause?.message || '';
+    console.error(`❌ Self-test IA FALHOU: ${e?.message || e}${det ? ' — ' + det : ''}`);
+    if (e?.status) console.error(`   status=${e.status}`);
+    if (e?.code) console.error(`   code=${e.code}`);
+  }
+})();
 
 /** Gera fala no tom do prompt da instância — sem mensagens fixas do código. */
 async function generatePersonaReply(userNumber, instruction) {
@@ -1848,14 +1874,31 @@ client.on("message", async (message) => {
         const apiDetail =
           completionError?.error?.message ||
           completionError?.response?.data?.error?.message ||
+          completionError?.cause?.message ||
           '';
-        console.error(`❌ Erro ao processar mensagem: ${errMsg}${apiDetail ? ` (${apiDetail})` : ''}\n`);
+        const status = completionError?.status || completionError?.response?.status || '';
+        const code = completionError?.code || completionError?.error?.code || '';
+        console.error('═'.repeat(60));
+        console.error(`❌ ERRO IA OpenAI: ${errMsg}`);
+        if (apiDetail) console.error(`   detalhe: ${apiDetail}`);
+        if (status) console.error(`   status HTTP: ${status}`);
+        if (code) console.error(`   código: ${code}`);
+        console.error(`   modelo: ${aiModel()} · key: ${getOpenAiApiKey() ? getOpenAiApiKey().slice(0, 7) + '…' : 'VAZIA'}`);
+        console.error('═'.repeat(60));
         isProcessing[from] = false;
-        const hint = /model|invalid_api|authentication|api key|incorrect.*key|401|403/i.test(`${errMsg} ${apiDetail}`)
-          ? 'Oii! Deu um problema na configuração da IA (modelo ou API Key). Confere no painel da instância, salva de novo e manda outra mensagem. 😊'
-          : /timeout|fetch|network|econn|rate|529|503/i.test(`${errMsg} ${apiDetail}`)
-            ? 'Oii! A IA demorou pra responder, manda de novo em alguns segundos? 😊'
-            : 'Oii! Travou um segundo aqui, manda de novo pra mim? 😊';
+        const fullErr = `${errMsg} ${apiDetail} ${status} ${code}`.toLowerCase();
+        let hint;
+        if (/invalid_api|incorrect.*key|401|invalid_request_error.*api_key|authentication/i.test(fullErr)) {
+          hint = 'Oii! A API Key da IA está inválida. Abre o painel, edita a instância e cola a chave de novo (sem precisar reconectar o WhatsApp). 😊';
+        } else if (/insufficient_quota|429|rate.?limit|quota/i.test(fullErr)) {
+          hint = 'Oii! A conta da IA está sem créditos ou bloqueada por limite. Confere o saldo no painel da OpenAI. 😊';
+        } else if (/model.*not.*found|model_not_found|invalid.*model|does not exist/i.test(fullErr)) {
+          hint = `Oii! O modelo "${aiModel()}" não está disponível pra essa API Key. Edita a instância e usa "gpt-4o-mini". 😊`;
+        } else if (/timeout|fetch.*failed|network|econn|enotfound|getaddrinfo|503|529|504/i.test(fullErr)) {
+          hint = 'Oii! A IA demorou pra responder, manda de novo em alguns segundos? 😊';
+        } else {
+          hint = `Oii! Deu erro na IA: ${apiDetail || errMsg}. Confere o painel da instância. 😊`;
+        }
         try {
           await sendTextHuman(client, from, hint);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: hint });
