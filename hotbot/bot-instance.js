@@ -679,16 +679,22 @@ let _openaiClient = null;
 let _aiSig = '';
 
 function reloadAiRuntime() {
+  const envKey = String(process.env.OPENAI_API_KEY || '').trim();
   try {
     if (fs.existsSync(aiRuntimePath)) {
       const d = JSON.parse(fs.readFileSync(aiRuntimePath, 'utf8'));
-      if (d.apiKey) _aiKey = d.apiKey;
+      const fileKey = String(d.apiKey || '').trim();
+      if (fileKey) _aiKey = fileKey;
+      else if (envKey) _aiKey = envKey;
       if (d.model) _aiModel = d.model;
       if (d.provider) _aiProvider = d.provider;
       if (d.baseURL !== undefined) _aiBaseUrl = d.baseURL || '';
+    } else if (envKey) {
+      _aiKey = envKey;
     }
   } catch (e) {
     console.warn('⚠️ ai-runtime.json:', e.message);
+    if (envKey) _aiKey = envKey;
   }
 }
 
@@ -712,7 +718,7 @@ function getOpenAI() {
     } else {
       console.log(`🤖 IA ativa: ${_aiProvider} · ${aiModel()} · key ${_aiKey.slice(0, 7)}…`);
     }
-    const opts = { apiKey: _aiKey || 'missing-key' };
+    const opts = { apiKey: _aiKey || 'missing-key', timeout: 90_000, maxRetries: 2 };
     if (_aiBaseUrl) {
       opts.baseURL = _aiBaseUrl;
       if (_aiProvider === 'openrouter') {
@@ -728,6 +734,7 @@ function getOpenAI() {
 }
 
 getOpenAI();
+console.log(`🔑 IA runtime: ${aiRuntimePath} · key=${getOpenAiApiKey() ? getOpenAiApiKey().slice(0, 7) + '…' : 'VAZIA'}`);
 
 /** Gera fala no tom do prompt da instância — sem mensagens fixas do código. */
 async function generatePersonaReply(userNumber, instruction) {
@@ -1011,6 +1018,10 @@ async function runCompletion(userNumber, message) {
       tool_choice: 'auto',
     });
 
+    if (!completion?.choices?.length) {
+      throw new Error('OpenAI retornou resposta vazia');
+    }
+
     const choice = completion.choices[0];
     const toolCall = choice.message?.tool_calls?.[0];
     const fnName = toolCall?.function?.name;
@@ -1067,8 +1078,9 @@ async function runCompletion(userNumber, message) {
     return assistantMessage;
   } catch (error) {
     const msg = error?.message || String(error);
-    const detail = error?.error?.message || error?.response?.data?.error?.message;
-    console.error('Error in runCompletion:', msg, detail ? `— ${detail}` : '');
+    const detail = error?.error?.message || error?.response?.data?.error?.message || error?.cause?.message || '';
+    const status = error?.status || error?.response?.status;
+    console.error('Error in runCompletion:', msg, status ? `(HTTP ${status})` : '', detail ? `— ${detail}` : '');
     throw error;
   }
 }
@@ -1839,9 +1851,11 @@ client.on("message", async (message) => {
           '';
         console.error(`❌ Erro ao processar mensagem: ${errMsg}${apiDetail ? ` (${apiDetail})` : ''}\n`);
         isProcessing[from] = false;
-        const hint = /model|invalid_api|authentication|api key/i.test(`${errMsg} ${apiDetail}`)
+        const hint = /model|invalid_api|authentication|api key|incorrect.*key|401|403/i.test(`${errMsg} ${apiDetail}`)
           ? 'Oii! Deu um problema na configuração da IA (modelo ou API Key). Confere no painel da instância, salva de novo e manda outra mensagem. 😊'
-          : 'Oii! Travou um segundo aqui, manda de novo pra mim? 😊';
+          : /timeout|fetch|network|econn|rate|529|503/i.test(`${errMsg} ${apiDetail}`)
+            ? 'Oii! A IA demorou pra responder, manda de novo em alguns segundos? 😊'
+            : 'Oii! Travou um segundo aqui, manda de novo pra mim? 😊';
         try {
           await sendTextHuman(client, from, hint);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: hint });

@@ -24,7 +24,7 @@ export function panelSceneScript(mode: "auth" | "app" = "app") {
 
     var blue = 0x0a5cff;
     var cyan = 0x00b4ff;
-    var green = 0x25d366;
+    var green = 0x0a5cff;
 
     var group = new THREE.Group();
     scene.add(group);

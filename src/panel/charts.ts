@@ -46,7 +46,7 @@ export function kpiTrendLabel(values: number[]) {
   return { text: `${pct >= 0 ? "+" : ""}${pct}%`, positive: pct >= 0 };
 }
 
-export function sparklineSvg(values: number[], color = "#25D366") {
+export function sparklineSvg(values: number[], color = "#0a5cff") {
   if (values.length === 0) values = [0, 0];
   const gid = `sp${Math.random().toString(36).slice(2, 9)}`;
   const w = 112;
@@ -104,13 +104,13 @@ export function salesFunnelHtml(input: { leads: number; sales: number; messages:
       label: "Conversas",
       value: input.messages,
       pct: input.leads ? Math.min(100, Math.round((input.messages / leadCount) * 100)) : 0,
-      color: "#22c55e"
+      color: "#3b82f6"
     },
     {
       label: "Vendas",
       value: input.sales,
       pct: input.leads ? Math.round((input.sales / leadCount) * 100) : 0,
-      color: "#25D366"
+      color: "#0a5cff"
     }
   ];
   return `<div class="funnel-pro">${stages
@@ -155,7 +155,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
   const bars = coords
     .map(
       (c, i) =>
-        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#25D366" class="chart-dot" style="animation-delay:${i * 0.08}s">
+        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#0a5cff" class="chart-dot" style="animation-delay:${i * 0.08}s">
       <title>R$ ${(c.v / 100).toFixed(2).replace(".", ",")}</title></circle>`
     )
     .join("");
@@ -177,7 +177,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
       </defs>
       ${grid}
       <path d="${area}" fill="url(#${gradId})"/>
-      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#25D366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#0a5cff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       ${bars}
       ${labels}
     </svg>
@@ -250,8 +250,8 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
     <svg class="conv-gauge-svg" viewBox="0 0 140 88" aria-hidden="true">
       <defs>
         <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#25D366"/>
-          <stop offset="100%" stop-color="#3de07a"/>
+          <stop offset="0%" stop-color="#0a5cff"/>
+          <stop offset="100%" stop-color="#3b82f6"/>
         </linearGradient>
       </defs>
       <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>

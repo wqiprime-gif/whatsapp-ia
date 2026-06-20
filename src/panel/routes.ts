@@ -345,7 +345,12 @@ function isPartial(request: FastifyRequest) {
 
 export async function registerPanelRoutes(
   app: FastifyInstance,
-  hooks: { restartBots: () => void; syncBots: () => void }
+  hooks: {
+    restartBots: () => void;
+    restartBot: (botId: string) => void;
+    ensureBots: () => void;
+    syncBots: () => void;
+  }
 ) {
   await app.register(cookie);
 
@@ -806,7 +811,7 @@ export async function registerPanelRoutes(
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-      <circle cx="24" cy="24" r="24" fill="#25D366"/>
+      <circle cx="24" cy="24" r="24" fill="#0a5cff"/>
       <path fill="#fff" d="M34.2 13.5c-2.6-2.6-6.1-4-9.8-4-7.6 0-13.8 6.2-13.8 13.8 0 2.4.6 4.8 1.8 6.9L9 37l7.1-1.9c2 .9 4.2 1.4 6.4 1.4h.1c7.6 0 13.8-6.2 13.8-13.8 0-3.7-1.4-7.2-4-9.8l-.2-.4zm-9.8 21.3h-.1c-2 0-4-.5-5.7-1.5l-.4-.2-4.2 1.1 1.1-4.1-.3-.4c-1.1-1.7-1.7-3.7-1.7-5.8 0-6 4.9-10.9 10.9-10.9 2.9 0 5.7 1.1 7.8 3.2 2.1 2.1 3.2 4.9 3.2 7.8 0 6-4.9 10.9-10.9 10.9zm6-8.1c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.7.2-.2.3-.8 1.1-1 1.3-.2.2-.4.3-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.4.4-.5.1-.1.1-.3.2-.5.1-.2 0-.3 0-.5 0-.1-.7-1.7-1-2.3-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.8 2.7 4.3 3.8.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.3-.2-.6-.3z"/>
     </svg>`;
     return reply.type("image/svg+xml").send(svg);
@@ -1414,7 +1419,7 @@ export async function registerPanelRoutes(
       await syncProductsFromPrompt(updated.id, updated.prompt);
       hooks.syncBots();
       if (botNeedsMotorRestart(existing, updated)) {
-        hooks.restartBots();
+        hooks.restartBot(updated.id);
         return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando conexão WhatsApp..."));
       }
       const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar o WhatsApp." : "";
@@ -1546,9 +1551,10 @@ export async function registerPanelRoutes(
       );
 
       await syncProductsFromPrompt(botId, body.prompt);
-      hooks.restartBots();
+      hooks.syncBots();
+      hooks.ensureBots();
       return reply.redirect(
-        flashRedirect(`/instances/${botId}/qr`, "Instância salva! Escaneie o QR Code para conectar.")
+        flashRedirect(`/instances/${botId}/qr`, "Instância criada! Escaneie o QR Code para conectar.")
       );
     } catch (error) {
       request.log.error(error);
@@ -1565,7 +1571,8 @@ export async function registerPanelRoutes(
       if (!bot) return reply.redirect(flashRedirect("/", "Bot nao encontrado.", "err"));
       bot.active = !bot.active;
       await upsertBot(bot);
-      hooks.restartBots();
+      if (bot.active) hooks.ensureBots();
+      else hooks.restartBot(params.id);
       return reply.redirect(
         flashRedirect("/", bot.active ? "Bot ativado." : "Bot pausado — nao responde no WhatsApp.")
       );
@@ -1581,7 +1588,7 @@ export async function registerPanelRoutes(
     const bot = await getBotById(id, user.id);
     if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
     await purgeWaInstanceData(bot.id);
-    hooks.restartBots();
+    hooks.restartBot(bot.id);
     return reply.redirect(
       flashRedirect(`/instances/${bot.id}/qr`, "Sessão WhatsApp apagada. Escaneie o QR Code novamente.")
     );
@@ -1595,7 +1602,7 @@ export async function registerPanelRoutes(
       await purgeWaInstanceData(params.id);
       await pruneRedirectLinksForBot(user.id, params.id);
       await deleteBot(params.id, user.id);
-      hooks.restartBots();
+      hooks.restartBot(params.id);
       return reply.redirect(flashRedirect("/instances", "Instância removida com sessão WhatsApp apagada."));
     } catch (error) {
       return reply.redirect(flashRedirect("/instances", `Erro: ${errorMessage(error)}`, "err"));

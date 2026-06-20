@@ -215,6 +215,16 @@ async function writeAiRuntimeFile(bot: BotConfig) {
     console.log(`[wa-web] ai-runtime ${bot.name}: ${ai.provider} · ${ai.model} · key ${ai.apiKey.slice(0, 7)}…`);
   } catch (err) {
     console.warn(`[wa-web] ai-runtime ${bot.name} vazio: ${err instanceof Error ? err.message : err}`);
+    if (env.OPENAI_API_KEY) {
+      payload = {
+        apiKey: env.OPENAI_API_KEY,
+        model: env.OPENAI_MODEL,
+        provider: "openai",
+        baseURL: "",
+        updatedAt: new Date().toISOString()
+      };
+      console.log(`[wa-web] ai-runtime ${bot.name}: fallback OPENAI_API_KEY do ambiente`);
+    }
   }
   await fs.writeFile(path.join(instDir, "ai-runtime.json"), JSON.stringify(payload, null, 2), {
     mode: 0o600
@@ -306,8 +316,13 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   const proxyNote = bot.proxyEnabled ? " · proxy isolado" : "";
   const authDir = childEnv.WA_AUTH_DIR;
   const clientId = waClientIdForBot(bot.id);
+  const sessionDir = path.join(authDir || "", `session-${clientId}`);
+  const hasSession = fsSync.existsSync(sessionDir);
   console.log(`[wa-web] ${bot.name} iniciado na porta ${port}${proxyNote}`);
-  console.log(`[wa-web] Sessão: clientId=${clientId} · auth em ${authDir}`);
+  console.log(`[wa-web] Sessão: clientId=${clientId} · auth em ${authDir} · salva=${hasSession ? "sim" : "não"}`);
+  if (!hasSession) {
+    console.warn(`[wa-web] ⚠️ Sem sessão salva em ${sessionDir} — será necessário QR. Monte volume em DATA_DIR (${env.DATA_DIR}).`);
+  }
 }
 
 /** Remove processo, pasta da instância e sessão WhatsApp salva (QR novo na próxima conexão). */
@@ -382,6 +397,71 @@ async function killWebBot(botId: string) {
 
 let restartInProgress = false;
 
+function webBotIndex(bots: BotConfig[], botId: string) {
+  let index = 0;
+  for (const bot of bots) {
+    if (!bot.active || isMetaBot(bot)) continue;
+    if (bot.id === botId) return index;
+    index++;
+  }
+  return 0;
+}
+
+/** Sobe bots ativos que ainda não têm processo — não mata os que já estão conectados. */
+export async function ensureWhatsAppBotsRunning() {
+  if (restartInProgress) return;
+  restartInProgress = true;
+  try {
+    const bots = await loadBots();
+    const activeWeb = bots.filter((b) => b.active && !isMetaBot(b));
+    const activeIds = new Set(activeWeb.map((b) => b.id));
+
+    for (const [id] of processes) {
+      if (!activeIds.has(id)) {
+        await killWebBot(id);
+      }
+    }
+
+    metaBots.clear();
+    let index = 0;
+    for (const bot of bots) {
+      if (!bot.active) continue;
+      try {
+        if (isMetaBot(bot)) {
+          if (!bot.metaPhoneNumberId?.trim() || !bot.metaAccessTokenEncrypted) {
+            console.warn(`[wa-meta] ${bot.name}: configure Phone ID e token Meta.`);
+            continue;
+          }
+          registerMetaBot(bot);
+        } else {
+          if (processes.has(bot.id)) {
+            index++;
+            continue;
+          }
+          const port = bot.waPort ?? waPortForBot(bot.id, index);
+          index++;
+          await spawnWebBot(bot, port);
+        }
+      } catch (error) {
+        console.error(`[wa] Falha ao iniciar ${bot.name}:`, error);
+      }
+    }
+  } finally {
+    restartInProgress = false;
+  }
+}
+
+/** Reinicia só uma instância (proxy, ativo, API WA). */
+export async function restartSingleWhatsAppBot(botId: string) {
+  await killWebBot(botId);
+  const bots = await loadBots();
+  const bot = bots.find((b) => b.id === botId);
+  if (!bot?.active || isMetaBot(bot)) return;
+  const port = bot.waPort ?? waPortForBot(bot.id, webBotIndex(bots, botId));
+  await spawnWebBot(bot, port);
+}
+
+/** Reinício total — só deploy ou botão manual. Mata todos os processos. */
 export async function restartWhatsAppBots() {
   if (restartInProgress) return;
   restartInProgress = true;

@@ -6,6 +6,8 @@ import { env } from "./config.js";
 import { initDatabase, useDatabase } from "./db/index.js";
 import { registerPanelRoutes } from "./panel/routes.js";
 import {
+  ensureWhatsAppBotsRunning,
+  restartSingleWhatsAppBot,
   restartWhatsAppBots,
   shutdownWhatsAppBots,
   syncWhatsAppBotConfigs
@@ -13,6 +15,10 @@ import {
 
 export async function restartBots() {
   await restartWhatsAppBots();
+}
+
+export async function ensureBots() {
+  await ensureWhatsAppBotsRunning();
 }
 
 export async function syncBots() {
@@ -33,6 +39,14 @@ if (!useDatabase()) {
 await registerPanelRoutes(app, {
   restartBots: () => {
     void restartBots().catch((error) => console.error("Erro ao reiniciar bots:", error));
+  },
+  restartBot: (botId: string) => {
+    void restartSingleWhatsAppBot(botId).catch((error) =>
+      console.error(`Erro ao reiniciar bot ${botId}:`, error)
+    );
+  },
+  ensureBots: () => {
+    void ensureBots().catch((error) => console.error("Erro ao subir bots:", error));
   },
   syncBots: () => {
     void syncBots().catch((error) => console.error("Erro ao sincronizar bots:", error));
@@ -55,7 +69,7 @@ console.log("[startup] Instâncias cadastradas:", botsOnStart);
 console.log("[startup] Painel:", `${localBase}/login`);
 console.log("[startup] Health:", `${localBase}/health`);
 
-void restartBots().catch((error) => console.error("Erro ao iniciar instâncias WA:", error));
+void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias WA:", error));
 
 const { processDueScheduledCampaigns } = await import("./lib/scheduled-campaigns.js");
 setInterval(() => {

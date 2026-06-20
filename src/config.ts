@@ -48,7 +48,7 @@ function loadEnv() {
       ...data,
       DATABASE_URL: databaseUrl,
       SESSION_SECRET: data.SESSION_SECRET || `${data.PANEL_PASSWORD}-session-secret-v1`,
-      DATA_DIR: data.DATA_DIR || path.join(rootDir, "data"),
+      DATA_DIR: data.DATA_DIR || (isRailway ? "/data" : path.join(rootDir, "data")),
       PUBLIC_BASE_URL: (data.PUBLIC_BASE_URL || "").trim()
     };
   }
