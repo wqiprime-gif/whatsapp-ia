@@ -777,7 +777,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 2px 8px;
   border-radius: 99px;
 }
-.kpi-trend.positive { color: #6ee7b7; background: rgba(10, 92, 255, 0.12); }
+.kpi-trend.positive { color: #3b82f6; background: rgba(10, 92, 255, 0.12); }
 .kpi-trend.negative { color: #fca5a5; background: rgba(255, 77, 109, 0.12); }
 .kpi-value {
   font-family: var(--font-display);
@@ -1028,7 +1028,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .device-card--on {
   border-color: rgba(10, 92, 255, 0.35);
   box-shadow: 0 0 24px rgba(10, 92, 255, 0.08);
-  background: linear-gradient(135deg, rgba(37,211,102,0.08), rgba(0,180,255,0.05));
+  background: linear-gradient(135deg, rgba(10, 92, 255,0.08), rgba(0,180,255,0.05));
 }
 .device-card-icon { position: relative; width: 44px; height: 44px; }
 .device-card-glyph {
@@ -1055,7 +1055,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 5px 10px; border-radius: 99px;
   background: rgba(255,255,255,0.06); color: var(--muted);
 }
-.device-pill--on { background: rgba(37,211,102,0.18); color: #6ee7b7; }
+.device-pill--on { background: rgba(10, 92, 255,0.18); color: #3b82f6; }
 .device-card-meta em { display: block; font-size: 0.68rem; color: var(--muted); font-style: normal; margin-top: 4px; }
 
 /* Produtos — lista visível com oferta 50% */
@@ -1070,7 +1070,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .product-row-pro:last-child { border-bottom: none; }
 .product-row-main strong { display: block; font-size: 0.9rem; }
 .product-row-main span { font-size: 0.75rem; color: var(--muted); }
-.product-row-price { font-weight: 800; color: #6ee7b7; font-size: 0.95rem; white-space: nowrap; }
+.product-row-price { font-weight: 800; color: #3b82f6; font-size: 0.95rem; white-space: nowrap; }
 .product-row-offer { min-width: 120px; text-align: right; }
 
 /* Calendário remarketing */
@@ -1145,7 +1145,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: 8px;
   border: 1px solid rgba(10, 92, 255, 0.35);
   background: rgba(10, 92, 255, 0.12);
-  color: #6ee7b7;
+  color: #3b82f6;
 }
 .top-players-tab--muted {
   border-color: rgba(255,255,255,0.08);
@@ -1184,7 +1184,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   place-items: center;
   font-size: 0.78rem;
   font-weight: 800;
-  background: linear-gradient(135deg, rgba(37,211,102,0.2), rgba(37,211,102,0.08));
+  background: linear-gradient(135deg, rgba(10, 92, 255,0.2), rgba(10, 92, 255,0.08));
   border: 1px solid rgba(10, 92, 255, 0.35);
   color: #fff;
 }
@@ -1223,7 +1223,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: 10px;
   background: rgba(10, 92, 255, 0.1);
   border: 1px solid rgba(10, 92, 255, 0.25);
-  color: #6ee7b7;
+  color: #3b82f6;
   white-space: nowrap;
 }
 .top-player-row--me { outline: 1px solid rgba(10, 92, 255, 0.35); }
@@ -1240,7 +1240,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 2px 6px;
   border-radius: 6px;
   background: rgba(10, 92, 255, 0.15);
-  color: #6ee7b7;
+  color: #3b82f6;
 }
 
 /* Ícone smartphone premium */
@@ -1259,7 +1259,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .device-card-glyph svg { width: 22px; height: 22px; }
 .device-card--on .device-card-glyph { background: rgba(10, 92, 255, 0.15); }
-.device-card--on .device-phone-icon { color: #6ee7b7; }
+.device-card--on .device-phone-icon { color: #3b82f6; }
 .dash-table-card .table-scroll { overflow-x: hidden; overflow-y: auto; }
 .dash-table-card .table { min-width: 0; }
 .dash-table-card .table-instances { min-width: 100%; }
@@ -1331,7 +1331,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(37,211,102,0.2), rgba(0,0,0,0.5));
+  background: linear-gradient(135deg, rgba(10, 92, 255,0.2), rgba(0,0,0,0.5));
   border: 2px solid rgba(10, 92, 255, 0.4);
   cursor: pointer;
   overflow: hidden;
@@ -1354,7 +1354,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   place-items: center;
   width: 100%;
   height: 100%;
-  font-size: 2.2rem; font-weight: 800; color: #6ee7b7;
+  font-size: 2.2rem; font-weight: 800; color: #3b82f6;
 }
 .profile-avatar-camera {
   z-index: 2;
@@ -1854,15 +1854,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   text-align: center;
   padding: 28px 24px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(37,211,102,0.08) 0%, rgba(0,0,0,0.5) 100%);
-  border: 1px solid rgba(37,211,102,0.15);
+  background: linear-gradient(180deg, rgba(10, 92, 255,0.08) 0%, rgba(0,0,0,0.5) 100%);
+  border: 1px solid rgba(10, 92, 255,0.15);
   width: 100%;
   max-width: 220px;
   transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 }
 .shark-card:hover .shark-award-preview {
-  background: linear-gradient(180deg, rgba(37,211,102,0.12) 0%, rgba(0,0,0,0.45) 100%);
-  border-color: rgba(37,211,102,0.22);
+  background: linear-gradient(180deg, rgba(10, 92, 255,0.12) 0%, rgba(0,0,0,0.45) 100%);
+  border-color: rgba(10, 92, 255,0.22);
 }
 .shark-award-lock {
   width: 48px; height: 48px;

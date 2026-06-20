@@ -152,22 +152,35 @@ function resolveChromiumPath() {
   return undefined;
 }
 
+const { waChatId } = require('./utils/wa-chat-id');
+
 async function panelLog(payload) {
   const panelUrl = process.env.PANEL_URL;
   const secret = process.env.INTERNAL_SECRET;
   const botId = process.env.BOT_ID || sessionId;
-  if (!panelUrl || !secret) return;
+  if (!panelUrl || !secret) {
+    console.warn('[panelLog] PANEL_URL ou INTERNAL_SECRET ausente —', payload.type);
+    return;
+  }
+  const body = { ...payload, botId };
+  if (body.jid && !body.chatId) body.chatId = waChatId(body.jid);
   try {
-    await axios.post(`${panelUrl}/internal/events`, { ...payload, botId }, {
+    const res = await axios.post(`${panelUrl}/internal/events`, body, {
       headers: { 'x-internal': secret, 'Content-Type': 'application/json' },
-      timeout: 5000
+      timeout: 8000,
+      validateStatus: () => true
     });
-  } catch (_) {}
+    if (res.data?.ok === false) {
+      console.error('[panelLog] rejeitado:', payload.type, res.data?.error || res.data);
+    }
+  } catch (err) {
+    console.error('[panelLog] erro:', payload.type, err.message);
+  }
 }
 
-function waChatId(jid) {
-  const digits = String(jid).replace(/@.*/, '').replace(/\D/g, '');
-  return Number(digits) || 0;
+function logLeadFromMessage(message) {
+  const displayName = message._data?.notifyName || String(message.from).split('@')[0] || 'Contato';
+  void panelLog({ type: 'lead', jid: message.from, displayName });
 }
 
 const RECEIPT_ACK_MESSAGES = [
@@ -1800,6 +1813,7 @@ client.on("message", async (message) => {
   }
 
   onLeadMessage(message.from);
+  logLeadFromMessage(message);
 
   // Processar comprovante (APENAS imagem ou PDF, não áudio)
   if (message.hasMedia && (message.type === 'image' || message.type === 'document')) {
@@ -1864,11 +1878,6 @@ client.on("message", async (message) => {
   else if (!message.hasMedia) {
     console.log(`\n💬 Recebeu mensagem de ${message.from}`);
     console.log(`   Texto: "${message.body}"`);
-    void panelLog({
-      type: 'lead',
-      jid: message.from,
-      displayName: message._data?.notifyName || message.from.replace('@c.us', '')
-    });
     void panelLog({
       type: 'message',
       jid: message.from,

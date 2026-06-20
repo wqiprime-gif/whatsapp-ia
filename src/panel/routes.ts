@@ -530,7 +530,10 @@ export async function registerPanelRoutes(
         .parse(request.body ?? {});
 
       const chatId = body.chatId ?? (body.jid ? chatIdFromWaJid(body.jid) : 0);
-      if (!chatId) return reply.send({ ok: false, error: "chatId invalido" });
+      if (!chatId) {
+        request.log.warn({ body }, "internal/events: chatId invalido");
+        return reply.send({ ok: false, error: "chatId invalido" });
+      }
 
       if (body.type === "lead") {
         await upsertLead({
@@ -539,6 +542,7 @@ export async function registerPanelRoutes(
           displayName: body.displayName,
           source: body.source
         });
+        request.log.info({ botId: body.botId, chatId, displayName: body.displayName }, "lead registrado");
       } else if (body.type === "message" && body.content) {
         await logMessage({
           botId: body.botId,

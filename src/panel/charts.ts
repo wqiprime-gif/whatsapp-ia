@@ -171,8 +171,8 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
     <svg class="chart-svg chart-svg--pro" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(37,211,102,0.4)"/>
-          <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
+          <stop offset="0%" stop-color="rgba(10, 92, 255,0.4)"/>
+          <stop offset="100%" stop-color="rgba(10, 92, 255,0)"/>
         </linearGradient>
       </defs>
       ${grid}
@@ -202,7 +202,7 @@ export function messagesChartSvgFromData(points: { day: string; count: number }[
       const bh = (v / max) * (h - pad * 2);
       const x = pad + i * ((w - pad * 2) / 7) + 4;
       const y = h - pad - bh;
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(37,211,102,0.75)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(10, 92, 255,0.75)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
         <title>${v} msgs</title></rect>`;
     })
     .join("");

@@ -1050,7 +1050,7 @@ button, input, textarea, select { font-family: inherit; }
 .prompt-tag-doc-head:hover code { color: var(--primary); }
 .prompt-tag-doc-head code {
   font-size: 0.72rem;
-  color: #00b4ff;
+  color: var(--primary);
   font-weight: 700;
 }
 .prompt-tag-doc-label { font-size: 0.82rem; font-weight: 600; }

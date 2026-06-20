@@ -73,7 +73,7 @@ export function loginLightningScript() {
         else ctx.lineTo(b.pts[j].x, b.pts[j].y);
       }
       ctx.stroke();
-      ctx.strokeStyle = "rgba(37,211,102," + (alpha*0.5) + ")";
+      ctx.strokeStyle = "rgba(10, 92, 255," + (alpha*0.5) + ")";
       ctx.lineWidth = (b.width * 0.45) * b.life;
       ctx.stroke();
     }
