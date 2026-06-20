@@ -1,18 +1,7 @@
-import type { BotConfig } from "../bots.js";
-import type { WaRedirectLink } from "../lib/wa-redirect-links.js";
+import type { WaRedirectLink, WaRedirectTarget } from "../lib/wa-redirect-links.js";
 import { redirectUrl } from "../lib/wa-redirect-links.js";
-import type { WaLiveStatus } from "../whatsapp-runtime.js";
-import { buildWaMeUrl, formatWaPhoneDisplay } from "../lib/wa-links.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
-
-export type WaLinkBotRow = {
-  bot: BotConfig;
-  status: WaLiveStatus;
-  phone: string;
-  phoneDisplay: string;
-  waUrl: string;
-};
 
 export type WaLinkAiInfo = {
   provider: string;
@@ -20,51 +9,44 @@ export type WaLinkAiInfo = {
   model: string;
 };
 
-function instancePickList(
-  rows: WaLinkBotRow[],
-  selectedIds: string[],
-  savedPhones: Record<string, string>,
-  fieldName: string
-) {
-  if (rows.length === 0) {
-    return `<p class="form-hint">Nenhuma instância cadastrada. <a href="/instances/new" style="color:var(--green-bright)">Criar instância</a></p>`;
-  }
-  return rows
-    .map((row) => {
-      const on = row.status === "connected" || row.status === "meta_ready";
-      const checked = selectedIds.includes(row.bot.id) ? "checked" : "";
-      const dotCls = on ? "wa-inst-dot--on" : "wa-inst-dot--off";
-      const hint = on ? "conectada" : "offline";
-      const phoneValue = savedPhones[row.bot.id] || row.phone || "";
-      const phoneField = `phone_${row.bot.id}`;
-      return `<div class="wa-inst-pick wa-inst-pick--row">
-        <label class="wa-inst-pick-check">
-          <input type="checkbox" name="${fieldName}" value="${escapeHtml(row.bot.id)}" ${checked} />
-          <span class="wa-inst-dot ${dotCls}" aria-hidden="true"></span>
-          <span class="wa-inst-pick-label">${escapeHtml(row.bot.name)} <em>(${escapeHtml(hint)})</em></span>
-        </label>
-        <input
-          type="tel"
-          class="wa-inst-phone"
-          name="${escapeHtml(phoneField)}"
-          placeholder="5511999999999"
-          value="${escapeHtml(phoneValue)}"
-          inputmode="numeric"
-          autocomplete="tel"
-        />
-      </div>`;
-    })
-    .join("");
+function targetRow(target: WaRedirectTarget | null, index: number, removable: boolean) {
+  const id = target?.id ?? "";
+  const label = target?.label ?? "";
+  const phone = target?.phone ?? "";
+  return `<div class="wa-target-row" data-target-row>
+    <input type="hidden" name="target_id_${index}" value="${escapeHtml(id)}" />
+    <label class="wa-target-field">
+      <span class="field-label">Nome</span>
+      <input type="text" name="target_label_${index}" value="${escapeHtml(label)}" placeholder="Ex: Atendente 1" maxlength="40" />
+    </label>
+    <label class="wa-target-field wa-target-field--phone">
+      <span class="field-label">WhatsApp (DDI)</span>
+      <input type="tel" name="target_phone_${index}" value="${escapeHtml(phone)}" placeholder="5511999999999" inputmode="numeric" autocomplete="tel" />
+    </label>
+    ${removable ? `<button type="button" class="wa-target-remove" title="Remover" aria-label="Remover número">&times;</button>` : ""}
+  </div>`;
 }
 
-function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string) {
+function targetsBlock(targets: WaRedirectTarget[], minRows = 2) {
+  const rows = targets.length > 0 ? targets : Array.from({ length: minRows }, () => null);
+  const padded = rows.length < minRows ? [...rows, ...Array(minRows - rows.length).fill(null)] : rows;
+  return `<div class="wa-targets-list" data-targets-list>
+    ${padded.map((t, i) => targetRow(t, i, padded.length > 1)).join("")}
+  </div>
+  <button type="button" class="btn btn-ghost wa-target-add">+ Adicionar número</button>`;
+}
+
+function linkCard(link: WaRedirectLink, baseUrl: string) {
   const url = redirectUrl(baseUrl, link.slug);
   const totalClicks = Object.values(link.clickCounts).reduce((s, n) => s + n, 0);
-  const configured = link.botIds.filter((id) => Boolean(link.phones[id]?.trim())).length;
+  const configured = link.targets.length;
   return `<article class="wa-rand-card dash-glow-card shark-card" id="link-${escapeHtml(link.id)}">
     <div class="wa-rand-card-head">
-      <h3>${escapeHtml(link.name)}</h3>
-      <span class="wa-rand-clicks">${totalClicks} clique(s) · ${configured} número(s)</span>
+      <div class="wa-rand-card-title">
+        <span class="wa-rand-card-icon">${icons.link}</span>
+        <h3>${escapeHtml(link.name)}</h3>
+      </div>
+      <span class="wa-rand-clicks">${totalClicks} cliques · ${configured} número(s)</span>
     </div>
     <div class="wa-link-field wa-rand-url">
       <input type="text" readonly value="${escapeHtml(url)}" id="url-${escapeHtml(link.id)}" />
@@ -73,7 +55,7 @@ function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string) {
     <form method="post" action="/links/${escapeHtml(link.id)}" class="wa-rand-form">
       <div class="wa-rand-grid-2">
         <label class="field">
-          <span class="field-label">Nome</span>
+          <span class="field-label">Nome da campanha</span>
           <input type="text" name="name" value="${escapeHtml(link.name)}" required maxlength="80" />
         </label>
         <label class="field">
@@ -86,21 +68,20 @@ function linkCard(link: WaRedirectLink, rows: WaLinkBotRow[], baseUrl: string) {
         <textarea name="initialMessage" rows="2" placeholder="Texto que já vem digitado no WhatsApp do lead">${escapeHtml(link.initialMessage)}</textarea>
       </label>
       <div class="wa-rand-instances">
-        <span class="field-label">Instâncias no rodízio</span>
-        <div class="wa-inst-pick-list">${instancePickList(rows, link.botIds, link.phones, "botIds")}</div>
-        <span class="form-hint">Marque as instâncias e digite o <strong>número com DDI</strong> (ex: 5511999999999). O link distribui o tráfego entre esses números — não precisa estar online.</span>
+        <span class="field-label">Números no rodízio</span>
+        ${targetsBlock(link.targets, 1)}
+        <span class="form-hint">Digite os números manualmente — não dependem de instância conectada.</span>
       </div>
       <div class="wa-rand-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
-        <button type="submit" formaction="/links/${escapeHtml(link.id)}/reset" formmethod="post" class="btn btn-ghost">📊 Zerar contadores</button>
-        <button type="submit" formaction="/links/${escapeHtml(link.id)}/delete" formmethod="post" class="btn btn-danger" onclick="return confirm('Excluir este link?')">🗑 Excluir</button>
+        <button type="submit" formaction="/links/${escapeHtml(link.id)}/reset" formmethod="post" class="btn btn-ghost">Zerar contadores</button>
+        <button type="submit" formaction="/links/${escapeHtml(link.id)}/delete" formmethod="post" class="btn btn-danger" onclick="return confirm('Excluir este link?')">Excluir</button>
       </div>
     </form>
   </article>`;
 }
 
 export function waLinksPage(
-  rows: WaLinkBotRow[],
   links: WaRedirectLink[],
   baseUrl: string,
   aiInfo: WaLinkAiInfo,
@@ -108,93 +89,127 @@ export function waLinksPage(
   userName = "Usuario",
   flash?: { message: string; ok: boolean }
 ) {
-  const configuredCount = links.reduce(
-    (n, l) => n + l.botIds.filter((id) => Boolean(l.phones[id]?.trim())).length,
+  const totalNumbers = links.reduce((n, l) => n + l.targets.length, 0);
+  const totalClicks = links.reduce(
+    (n, l) => n + Object.values(l.clickCounts).reduce((s, c) => s + c, 0),
     0
   );
 
   const savedLinks =
     links.length === 0
-      ? `<div class="empty wa-rand-empty">Nenhum link criado ainda. Use o formulário acima para gerar seu primeiro randomizador.</div>`
-      : links.map((l) => linkCard(l, rows, baseUrl)).join("");
+      ? `<div class="empty wa-rand-empty">Nenhum link criado. Use o painel ao lado para gerar seu primeiro randomizador.</div>`
+      : links.map((l) => linkCard(l, baseUrl)).join("");
 
   const body = `
     <div class="wa-rand-page page-shell">
       ${flash ? alertHtml(flash.message, flash.ok ? "success" : "error") : ""}
 
-      <p class="wa-rand-intro">
-        <strong>Randomizador</strong> — crie links que distribuem tráfego entre vários números WhatsApp.
-        Marque as instâncias, <strong>digite o número manualmente</strong> e use o link em campanhas — cada clique manda o lead para o próximo número (rodízio justo).
-        ${configuredCount > 0 ? `<span class="wa-rand-online">${configuredCount} número(s) configurado(s) nos seus links.</span>` : `<span class="wa-rand-warn">Digite o número com DDI em cada instância do rodízio.</span>`}
-      </p>
+      <header class="wa-rand-hero dash-glow-card shark-card">
+        <div class="wa-rand-hero-text">
+          <p class="wa-rand-eyebrow">Randomizador premium</p>
+          <h2 class="wa-rand-hero-title">Distribua tráfego entre seus WhatsApps</h2>
+          <p class="wa-rand-hero-sub">Um link, vários números. Cada clique rotaciona entre os WhatsApps que você cadastrar — ideal para campanhas e anúncios.</p>
+        </div>
+        <div class="wa-rand-hero-stats">
+          <div class="wa-rand-stat">
+            <span class="wa-rand-stat-val">${links.length}</span>
+            <span class="wa-rand-stat-lbl">Links</span>
+          </div>
+          <div class="wa-rand-stat">
+            <span class="wa-rand-stat-val">${totalNumbers}</span>
+            <span class="wa-rand-stat-lbl">Números</span>
+          </div>
+          <div class="wa-rand-stat">
+            <span class="wa-rand-stat-val">${totalClicks}</span>
+            <span class="wa-rand-stat-lbl">Cliques</span>
+          </div>
+        </div>
+      </header>
 
       <div class="wa-rand-ai-banner">
-        <span class="wa-rand-ai-label">IA configurada no painel</span>
+        <span class="wa-rand-ai-label">IA do painel</span>
         <strong>${escapeHtml(aiInfo.providerLabel)}</strong>
         <code>${escapeHtml(aiInfo.model)}</code>
-        <a href="/settings" class="wa-rand-ai-link">Alterar em Configurações →</a>
+        <a href="/settings" class="wa-rand-ai-link">Configurações</a>
       </div>
 
-      <section class="wa-rand-create dash-glow-card shark-card">
-        <h3 class="wa-rand-section-title">${icons.link} Novo link de redirecionamento</h3>
-        <form method="post" action="/links" class="wa-rand-form">
-          <div class="wa-rand-grid-2">
+      <div class="wa-rand-layout">
+        <section class="wa-rand-create dash-glow-card shark-card">
+          <h3 class="wa-rand-section-title">${icons.sparkles} Novo link</h3>
+          <form method="post" action="/links" class="wa-rand-form">
+            <div class="wa-rand-grid-2">
+              <label class="field">
+                <span class="field-label">Nome da campanha</span>
+                <input type="text" name="name" placeholder="Ex: Campanha Junho" required maxlength="80" />
+              </label>
+              <label class="field">
+                <span class="field-label">Slug (URL)</span>
+                <input type="text" name="slug" placeholder="junho" maxlength="48" pattern="[a-zA-Z0-9-]+" />
+                <span class="form-hint">${escapeHtml(baseUrl)}/r/<strong>seu-slug</strong></span>
+              </label>
+            </div>
             <label class="field">
-              <span class="field-label">Nome</span>
-              <input type="text" name="name" placeholder="Ex: Campanha Junho" required maxlength="80" />
+              <span class="field-label">Mensagem inicial (opcional)</span>
+              <textarea name="initialMessage" rows="2" placeholder="Texto pré-preenchido no WhatsApp"></textarea>
             </label>
-            <label class="field">
-              <span class="field-label">Slug (URL)</span>
-              <input type="text" name="slug" placeholder="Ex: junho" maxlength="48" pattern="[a-zA-Z0-9-]+" />
-              <span class="form-hint">Fica: ${escapeHtml(baseUrl)}/r/<strong>seu-slug</strong></span>
-            </label>
-          </div>
-          <label class="field">
-            <span class="field-label">Mensagem inicial (opcional)</span>
-            <textarea name="initialMessage" rows="2" placeholder="Texto que já vem digitado no WhatsApp do lead"></textarea>
-          </label>
-          <div class="wa-rand-instances">
-            <span class="field-label">Instâncias no rodízio</span>
-            <div class="wa-inst-pick-list">${instancePickList(rows, rows.map((r) => r.bot.id), {}, "botIds")}</div>
-            <span class="form-hint">Preencha o número de cada instância que entrará no rodízio.</span>
-          </div>
-          <div class="wa-rand-create-foot">
-            <button type="submit" class="btn btn-primary btn-lg wa-rand-create-btn">${icons.sparkles} Criar link</button>
-          </div>
-        </form>
-      </section>
+            <div class="wa-rand-instances">
+              <span class="field-label">Números no rodízio</span>
+              ${targetsBlock([], 2)}
+            </div>
+            <div class="wa-rand-create-foot">
+              <button type="submit" class="btn btn-primary btn-lg wa-rand-create-btn">${icons.link} Criar link</button>
+            </div>
+          </form>
+        </section>
 
-      <section class="wa-rand-list">
-        <h3 class="wa-rand-section-title">Seus links (${links.length})</h3>
-        ${savedLinks}
-      </section>
-
-      <details class="wa-rand-direct">
-        <summary>Links diretos wa.me por instância</summary>
-        <div class="wa-links-grid" style="margin-top:14px">
-          ${rows
-            .map((row) => {
-              const on = row.status === "connected" || row.status === "meta_ready";
-              const hasPhone = Boolean(row.phone);
-              const url = row.waUrl || "";
-              const disabled = !on || !url;
-              return `<div class="wa-link-card">
-                <div class="wa-link-card-head">
-                  <strong>${escapeHtml(row.bot.name)}</strong>
-                  <span class="wa-link-pill ${on && hasPhone ? "wa-link-pill--on" : on ? "wa-link-pill--warn" : "wa-link-pill--off"}">${on && hasPhone ? "Online" : on ? "Sem número" : "Offline"}</span>
-                </div>
-                <div class="wa-link-field">
-                  <input type="text" readonly value="${escapeHtml(url)}" ${disabled ? "disabled" : ""} />
-                  <button type="button" class="wa-link-copy" data-copy-target="prev" ${disabled ? "disabled" : ""}>Copiar</button>
-                </div>
-              </div>`;
-            })
-            .join("")}
-        </div>
-      </details>
+        <section class="wa-rand-list">
+          <h3 class="wa-rand-section-title">Seus links <span class="wa-rand-count">${links.length}</span></h3>
+          ${savedLinks}
+        </section>
+      </div>
     </div>
     <script>
     (function () {
+      function reindexRows(list) {
+        var rows = list.querySelectorAll("[data-target-row]");
+        rows.forEach(function (row, i) {
+          row.querySelectorAll("input, textarea").forEach(function (inp) {
+            var n = inp.getAttribute("name");
+            if (!n) return;
+            inp.setAttribute("name", n.replace(/_\\d+$/, "_" + i));
+          });
+          var rm = row.querySelector(".wa-target-remove");
+          if (rm) rm.style.display = rows.length > 1 ? "" : "none";
+        });
+      }
+      function bindList(list) {
+        if (!list || list.dataset.bound) return;
+        list.dataset.bound = "1";
+        var addBtn = list.parentElement && list.parentElement.querySelector(".wa-target-add");
+        if (addBtn) {
+          addBtn.addEventListener("click", function () {
+            var i = list.querySelectorAll("[data-target-row]").length;
+            var div = document.createElement("div");
+            div.className = "wa-target-row";
+            div.setAttribute("data-target-row", "");
+            div.innerHTML = '<input type="hidden" name="target_id_' + i + '" value="" />' +
+              '<label class="wa-target-field"><span class="field-label">Nome</span><input type="text" name="target_label_' + i + '" placeholder="Ex: Atendente" maxlength="40" /></label>' +
+              '<label class="wa-target-field wa-target-field--phone"><span class="field-label">WhatsApp (DDI)</span><input type="tel" name="target_phone_' + i + '" placeholder="5511999999999" inputmode="numeric" /></label>' +
+              '<button type="button" class="wa-target-remove" title="Remover">&times;</button>';
+            list.appendChild(div);
+            reindexRows(list);
+          });
+        }
+        list.addEventListener("click", function (e) {
+          var btn = e.target.closest(".wa-target-remove");
+          if (!btn) return;
+          var row = btn.closest("[data-target-row]");
+          if (!row || list.querySelectorAll("[data-target-row]").length <= 1) return;
+          row.remove();
+          reindexRows(list);
+        });
+      }
+      document.querySelectorAll("[data-targets-list]").forEach(bindList);
       document.querySelectorAll(".wa-link-copy").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var sel = btn.getAttribute("data-copy-target");
@@ -218,24 +233,4 @@ export function waLinksPage(
     userName,
     "Randomizador — links rotativos de WhatsApp"
   );
-}
-
-export function buildWaLinkRows(
-  bots: BotConfig[],
-  statuses: Record<string, WaLiveStatus>,
-  phones: Record<string, string | null>,
-  defaultMessage = ""
-): WaLinkBotRow[] {
-  return bots.map((bot) => {
-    const status = statuses[bot.id] || "offline";
-    const phone = phones[bot.id] || "";
-    const waUrl = phone ? buildWaMeUrl(phone, defaultMessage) : "";
-    return {
-      bot,
-      status,
-      phone,
-      phoneDisplay: phone ? formatWaPhoneDisplay(phone) : "",
-      waUrl
-    };
-  });
 }

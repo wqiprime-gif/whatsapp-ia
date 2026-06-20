@@ -80,17 +80,19 @@ import {
   topBotsRankingHtml,
   topPlayersRankingHtml
 } from "./ui.js";
-import { buildWaLinkRows, waLinksPage } from "./links-page.js";
+import { waLinksPage } from "./links-page.js";
 import {
   createWaRedirectLink,
   deleteWaRedirectLink,
   getWaRedirectLinkBySlug,
   listWaRedirectLinks,
-  pickBotForRedirect,
-  phoneForBotInLink,
+  pickTargetForRedirect,
+  phoneForTargetInLink,
+  pruneRedirectLinksForBot,
   recordRedirectClick,
   resetWaRedirectLinkCounts,
-  updateWaRedirectLink
+  updateWaRedirectLink,
+  type WaRedirectTarget
 } from "../lib/wa-redirect-links.js";
 import { panelUserLabel } from "./layout.js";
 
@@ -304,26 +306,22 @@ function flashRedirect(path: string, message: string, type: "ok" | "err" = "ok")
   return `${path}?${new URLSearchParams({ msg: message, t: type }).toString()}`;
 }
 
-function parseFormBotIds(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
-  if (typeof raw === "string" && raw.trim()) return [raw.trim()];
-  return [];
-}
-
-function parseFormPhones(body: Record<string, unknown>, botIds: string[]): Record<string, string> {
-  const phones: Record<string, string> = {};
-  for (const [key, val] of Object.entries(body)) {
-    if (!key.startsWith("phone_")) continue;
-    const id = key.slice("phone_".length);
-    if (id) phones[id] = String(val ?? "").trim();
+function parseFormTargets(body: Record<string, unknown>): WaRedirectTarget[] {
+  const indices = new Set<number>();
+  for (const key of Object.keys(body)) {
+    const m = key.match(/^target_phone_(\d+)$/);
+    if (m) indices.add(Number(m[1]));
   }
-  for (const id of botIds) {
-    if (!phones[id]) {
-      const direct = body[`phone_${id}`];
-      if (direct != null) phones[id] = String(direct).trim();
-    }
+  const sorted = [...indices].sort((a, b) => a - b);
+  const targets: WaRedirectTarget[] = [];
+  for (const i of sorted) {
+    const phone = String(body[`target_phone_${i}`] ?? "").trim();
+    const label = String(body[`target_label_${i}`] ?? "").trim();
+    const id = String(body[`target_id_${i}`] ?? "").trim();
+    if (!phone) continue;
+    targets.push({ id, label, phone });
   }
-  return phones;
+  return targets;
 }
 
 function errorMessage(error: unknown) {
@@ -1213,10 +1211,6 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
-    const bots = await loadBots(user.id);
-    const statuses = await getWaLiveStatuses(bots);
-    const phones = await getWaPhonesForBots(bots);
-    const rows = buildWaLinkRows(bots, statuses, phones);
     const links = await listWaRedirectLinks(user.id);
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
@@ -1229,7 +1223,7 @@ export async function registerPanelRoutes(
     };
     return reply
       .type("text/html")
-      .send(waLinksPage(rows, links, base, aiInfo, isPartial(request), panelUserLabel(user), flash));
+      .send(waLinksPage(links, base, aiInfo, isPartial(request), panelUserLabel(user), flash));
   });
 
   app.post("/links", async (request, reply) => {
@@ -1239,10 +1233,9 @@ export async function registerPanelRoutes(
     const name = String(body.name ?? "").trim();
     const slug = String(body.slug ?? "").trim();
     const initialMessage = String(body.initialMessage ?? "").trim();
-    const botIds = parseFormBotIds(body.botIds);
-    const phones = parseFormPhones(body, botIds);
+    const targets = parseFormTargets(body);
     try {
-      await createWaRedirectLink({ userId: user.id, name, slug, initialMessage, botIds, phones });
+      await createWaRedirectLink({ userId: user.id, name, slug, initialMessage, targets });
       return reply.redirect(flashRedirect("/links", "Link criado!"));
     } catch (error) {
       return reply.redirect(flashRedirect("/links", errorMessage(error), "err"));
@@ -1255,13 +1248,11 @@ export async function registerPanelRoutes(
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = request.body as Record<string, unknown>;
     try {
-      const botIds = parseFormBotIds(body.botIds);
       await updateWaRedirectLink(id, user.id, {
         name: String(body.name ?? "").trim(),
         slug: String(body.slug ?? "").trim(),
         initialMessage: String(body.initialMessage ?? "").trim(),
-        botIds,
-        phones: parseFormPhones(body, botIds)
+        targets: parseFormTargets(body)
       });
       return reply.redirect(flashRedirect("/links", "Link salvo!"));
     } catch (error) {
@@ -1301,19 +1292,19 @@ export async function registerPanelRoutes(
         "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Link não encontrado</h1></body></html>"
       );
     }
-    const pickId = pickBotForRedirect(link);
-    if (!pickId) {
+    const pick = pickTargetForRedirect(link);
+    if (!pick) {
       return reply.code(503).type("text/html").send(
         "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum número configurado neste rodízio. Edite o link no painel.</p></body></html>"
       );
     }
-    const phone = phoneForBotInLink(link, pickId);
+    const phone = phoneForTargetInLink(link, pick.id);
     if (!phone) {
       return reply.code(503).type("text/html").send(
         "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Número inválido no rodízio.</p></body></html>"
       );
     }
-    void recordRedirectClick(link.id, pickId);
+    void recordRedirectClick(link.id, pick.id);
     const url = buildWaMeUrl(phone, link.initialMessage);
     return reply.redirect(url);
   });
@@ -1633,6 +1624,7 @@ export async function registerPanelRoutes(
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);
       await purgeWaInstanceData(params.id);
+      await pruneRedirectLinksForBot(user.id, params.id);
       await deleteBot(params.id, user.id);
       hooks.restartBots();
       return reply.redirect(flashRedirect("/instances", "Instância removida com sessão WhatsApp apagada."));

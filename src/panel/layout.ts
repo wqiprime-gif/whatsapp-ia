@@ -204,6 +204,13 @@ export function appLayout(
       <footer class="footer">© 2026 ZapManager · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
     </div>
   </div>
+  <nav class="mobile-tabbar" aria-label="Navegação mobile">
+    <a href="/" class="mobile-tab${is("dashboard") ? " active" : ""}" data-nav="dashboard">${icons.dashboard}<span>Home</span></a>
+    <a href="/instances" class="mobile-tab${is("instances") || is("new") ? " active" : ""}" data-nav="instances">${icons.layers}<span>Bots</span></a>
+    <a href="/links" class="mobile-tab${is("links") ? " active" : ""}" data-nav="links">${icons.link}<span>Links</span></a>
+    <a href="/leads" class="mobile-tab${is("leads") ? " active" : ""}" data-nav="leads">${icons.users}<span>Leads</span></a>
+    <a href="/settings" class="mobile-tab${is("settings") || is("profile") ? " active" : ""}" data-nav="settings">${icons.settings}<span>Mais</span></a>
+  </nav>
   <div id="panel-toasts" class="panel-toasts"></div>
   <div id="sale-popup-root" class="sale-popup-root" aria-live="polite"></div>
 ${panelClientScript}

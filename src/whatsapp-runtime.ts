@@ -68,26 +68,32 @@ export function markWaForceQr(botId: string) {
 }
 
 async function purgeAllWaSessionDirs(botId: string) {
-  const authDir = path.join(env.DATA_DIR, "wwebjs_auth");
+  const authDirs = [
+    path.join(env.DATA_DIR, "wwebjs_auth"),
+    path.join(hotbotDir, ".wwebjs_auth")
+  ];
   const compact = botId.replace(/-/g, "");
   const clientId = waClientIdForBot(botId);
-  const targets = new Set<string>([
-    path.join(authDir, `session-${clientId}`),
-    path.join(authDir, `session-wa-${compact.slice(0, 8)}`),
-    path.join(authDir, `session-${compact.slice(0, 8)}`)
-  ]);
-  try {
-    const entries = await fs.readdir(authDir);
-    for (const name of entries) {
-      if (!name.startsWith("session-")) continue;
-      const sid = name.slice("session-".length);
-      if (sid.includes(compact) || compact.includes(sid.replace(/^wa[-_]?/, ""))) {
-        targets.add(path.join(authDir, name));
+  const targets = new Set<string>();
+
+  for (const authDir of authDirs) {
+    targets.add(path.join(authDir, `session-${clientId}`));
+    targets.add(path.join(authDir, `session-wa-${compact.slice(0, 8)}`));
+    targets.add(path.join(authDir, `session-${compact.slice(0, 8)}`));
+    try {
+      const entries = await fs.readdir(authDir);
+      for (const name of entries) {
+        if (!name.startsWith("session-")) continue;
+        const sid = name.slice("session-".length);
+        if (sid.includes(compact) || compact.includes(sid.replace(/^wa[-_]?/, ""))) {
+          targets.add(path.join(authDir, name));
+        }
       }
+    } catch {
+      // auth dir may not exist yet
     }
-  } catch {
-    // auth dir may not exist yet
   }
+
   for (const dir of targets) {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }

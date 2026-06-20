@@ -6,14 +6,22 @@ import { getPool, useDatabase } from "../db/index.js";
 
 import { normalizeWaPhone } from "./wa-links.js";
 
+export type WaRedirectTarget = {
+  id: string;
+  label: string;
+  phone: string;
+};
+
 export type WaRedirectLink = {
   id: string;
   userId: string;
   name: string;
   slug: string;
   initialMessage: string;
+  /** Números no rodízio — independentes das instâncias. */
+  targets: WaRedirectTarget[];
+  /** Legado — mantido só para migração. */
   botIds: string[];
-  /** Número manual por instância (botId → dígitos E.164). */
   phones: Record<string, string>;
   clickCounts: Record<string, number>;
   createdAt: string;
@@ -29,10 +37,7 @@ async function loadFile(): Promise<FileStore> {
     const raw = await fs.readFile(filePath, "utf8");
     const data = JSON.parse(raw) as FileStore;
     return {
-      links: (data.links ?? []).map((l) => ({
-        ...l,
-        phones: l.phones && typeof l.phones === "object" ? l.phones : {}
-      }))
+      links: (data.links ?? []).map((l) => normalizeStoredLink(l))
     };
   } catch {
     return { links: [] };
@@ -56,14 +61,56 @@ export function normalizeLinkSlug(raw: string): string {
     .slice(0, 48);
 }
 
+function normalizeStoredLink(raw: Partial<WaRedirectLink> & { id: string; userId: string }): WaRedirectLink {
+  const botIds = Array.isArray(raw.botIds) ? raw.botIds : [];
+  const phones = raw.phones && typeof raw.phones === "object" ? raw.phones : {};
+  const clickCounts = raw.clickCounts && typeof raw.clickCounts === "object" ? raw.clickCounts : {};
+  let targets = Array.isArray(raw.targets) ? raw.targets.filter((t) => t && t.phone) : [];
+
+  if (targets.length === 0) {
+    for (const [key, val] of Object.entries(phones)) {
+      const phone = normalizeWaPhone(val ?? "");
+      if (!phone) continue;
+      targets.push({
+        id: key,
+        label: "WhatsApp",
+        phone
+      });
+    }
+  }
+
+  targets = targets
+    .map((t) => ({
+      id: t.id || randomUUID(),
+      label: (t.label ?? "").trim() || "WhatsApp",
+      phone: normalizeWaPhone(t.phone ?? "")
+    }))
+    .filter((t) => Boolean(t.phone));
+
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    name: raw.name ?? "",
+    slug: raw.slug ?? "",
+    initialMessage: raw.initialMessage ?? "",
+    targets,
+    botIds: [],
+    phones: {},
+    clickCounts,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? new Date().toISOString()
+  };
+}
+
 function rowToLink(row: {
   id: string;
   user_id: string;
   name: string;
   slug: string;
   initial_message: string | null;
-  bot_ids: string[] | string;
+  bot_ids?: string[] | string;
   phones?: Record<string, string> | string | null;
+  targets?: WaRedirectTarget[] | string | null;
   click_counts: Record<string, number> | string | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -71,11 +118,13 @@ function rowToLink(row: {
   const botIds = typeof row.bot_ids === "string" ? JSON.parse(row.bot_ids) : row.bot_ids ?? [];
   const phonesRaw =
     typeof row.phones === "string" ? JSON.parse(row.phones) : row.phones ?? {};
+  const targetsRaw =
+    typeof row.targets === "string" ? JSON.parse(row.targets) : row.targets ?? [];
   const clickCounts =
     typeof row.click_counts === "string"
       ? JSON.parse(row.click_counts)
       : row.click_counts ?? {};
-  return {
+  return normalizeStoredLink({
     id: row.id,
     userId: row.user_id,
     name: row.name,
@@ -83,10 +132,11 @@ function rowToLink(row: {
     initialMessage: row.initial_message ?? "",
     botIds: Array.isArray(botIds) ? botIds : [],
     phones: phonesRaw && typeof phonesRaw === "object" ? (phonesRaw as Record<string, string>) : {},
+    targets: Array.isArray(targetsRaw) ? targetsRaw : [],
     clickCounts: clickCounts && typeof clickCounts === "object" ? clickCounts : {},
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
-  };
+  });
 }
 
 export async function initWaRedirectLinksSchema() {
@@ -105,19 +155,78 @@ export async function initWaRedirectLinksSchema() {
     );
     CREATE INDEX IF NOT EXISTS wa_redirect_links_user_idx ON wa_redirect_links (user_id);
     ALTER TABLE wa_redirect_links ADD COLUMN IF NOT EXISTS phones JSONB NOT NULL DEFAULT '{}';
+    ALTER TABLE wa_redirect_links ADD COLUMN IF NOT EXISTS targets JSONB NOT NULL DEFAULT '[]';
   `);
 }
 
+async function persistLink(link: WaRedirectLink) {
+  if (useDatabase()) {
+    await getPool().query(
+      `UPDATE wa_redirect_links SET bot_ids='[]'::jsonb, phones='{}'::jsonb, targets=$1::jsonb, click_counts=$2::jsonb, updated_at=$3 WHERE id=$4`,
+      [JSON.stringify(link.targets), JSON.stringify(link.clickCounts), link.updatedAt, link.id]
+    );
+    return;
+  }
+  const store = await loadFile();
+  const idx = store.links.findIndex((l) => l.id === link.id);
+  if (idx >= 0) {
+    store.links[idx] = link;
+    await saveFile(store);
+  }
+}
+
+export function sanitizeTargets(targets: WaRedirectTarget[]): WaRedirectTarget[] {
+  const out: WaRedirectTarget[] = [];
+  const seen = new Set<string>();
+  for (const raw of targets) {
+    const phone = normalizeWaPhone(raw.phone ?? "");
+    if (!phone || seen.has(phone)) continue;
+    seen.add(phone);
+    out.push({
+      id: raw.id?.trim() || randomUUID(),
+      label: (raw.label ?? "").trim() || `Número ${out.length + 1}`,
+      phone
+    });
+  }
+  return out;
+}
+
+export function validateTargets(targets: WaRedirectTarget[]) {
+  const clean = sanitizeTargets(targets);
+  if (clean.length === 0) {
+    throw new Error("Adicione pelo menos um número WhatsApp com DDI (ex: 5511999999999).");
+  }
+  return clean;
+}
+
 export async function listWaRedirectLinks(userId: string): Promise<WaRedirectLink[]> {
+  let links: WaRedirectLink[];
   if (useDatabase()) {
     const { rows } = await getPool().query(
       `SELECT * FROM wa_redirect_links WHERE user_id = $1 ORDER BY created_at DESC`,
       [userId]
     );
-    return rows.map(rowToLink);
+    links = rows.map(rowToLink);
+  } else {
+    const store = await loadFile();
+    links = store.links
+      .filter((l) => l.userId === userId)
+      .map(normalizeStoredLink)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  const store = await loadFile();
-  return store.links.filter((l) => l.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  for (const link of links) {
+    const normalized = normalizeStoredLink(link);
+    if (
+      JSON.stringify(normalized.targets) !== JSON.stringify(link.targets) ||
+      link.botIds.length > 0 ||
+      Object.keys(link.phones).length > 0
+    ) {
+      normalized.updatedAt = new Date().toISOString();
+      await persistLink(normalized);
+    }
+  }
+  return links.map(normalizeStoredLink);
 }
 
 export async function getWaRedirectLinkBySlug(slug: string): Promise<WaRedirectLink | null> {
@@ -127,10 +236,11 @@ export async function getWaRedirectLinkBySlug(slug: string): Promise<WaRedirectL
     const { rows } = await getPool().query(`SELECT * FROM wa_redirect_links WHERE slug = $1 LIMIT 1`, [
       normalized
     ]);
-    return rows[0] ? rowToLink(rows[0]) : null;
+    return rows[0] ? normalizeStoredLink(rowToLink(rows[0])) : null;
   }
   const store = await loadFile();
-  return store.links.find((l) => l.slug === normalized) ?? null;
+  const link = store.links.find((l) => l.slug === normalized);
+  return link ? normalizeStoredLink(link) : null;
 }
 
 export async function getWaRedirectLinkById(id: string, userId: string): Promise<WaRedirectLink | null> {
@@ -139,10 +249,11 @@ export async function getWaRedirectLinkById(id: string, userId: string): Promise
       `SELECT * FROM wa_redirect_links WHERE id = $1 AND user_id = $2 LIMIT 1`,
       [id, userId]
     );
-    return rows[0] ? rowToLink(rows[0]) : null;
+    return rows[0] ? normalizeStoredLink(rowToLink(rows[0])) : null;
   }
   const store = await loadFile();
-  return store.links.find((l) => l.id === id && l.userId === userId) ?? null;
+  const link = store.links.find((l) => l.id === id && l.userId === userId);
+  return link ? normalizeStoredLink(link) : null;
 }
 
 async function slugTaken(slug: string, excludeId?: string): Promise<boolean> {
@@ -159,22 +270,34 @@ async function slugTaken(slug: string, excludeId?: string): Promise<boolean> {
   return store.links.some((l) => l.slug === slug && l.id !== excludeId);
 }
 
-export function sanitizeLinkPhones(botIds: string[], phones: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const id of botIds) {
-    const digits = normalizeWaPhone(phones[id] ?? "");
-    if (digits) out[id] = digits;
-  }
-  return out;
-}
+/** Remove referências de instância excluída e preserva números como targets manuais. */
+export async function pruneRedirectLinksForBot(userId: string, botId: string) {
+  const links = await listWaRedirectLinks(userId);
+  for (const link of links) {
+    let changed = false;
+    const next = normalizeStoredLink(link);
+    const orphanPhone = normalizeWaPhone(link.phones?.[botId] ?? "");
 
-export function validateLinkTargets(botIds: string[], phones: Record<string, string>) {
-  if (botIds.length === 0) throw new Error("Selecione pelo menos uma instância no rodízio.");
-  const clean = sanitizeLinkPhones(botIds, phones);
-  if (Object.keys(clean).length === 0) {
-    throw new Error("Informe o número WhatsApp (com DDI) de pelo menos uma instância marcada.");
+    if (orphanPhone && !next.targets.some((t) => t.phone === orphanPhone)) {
+      next.targets.push({
+        id: randomUUID(),
+        label: "WhatsApp",
+        phone: orphanPhone
+      });
+      changed = true;
+    }
+
+    if (link.botIds?.includes(botId)) changed = true;
+    if (link.clickCounts?.[botId] !== undefined) {
+      delete next.clickCounts[botId];
+      changed = true;
+    }
+
+    if (changed) {
+      next.updatedAt = new Date().toISOString();
+      await persistLink(next);
+    }
   }
-  return clean;
 }
 
 export async function createWaRedirectLink(input: {
@@ -182,14 +305,12 @@ export async function createWaRedirectLink(input: {
   name: string;
   slug: string;
   initialMessage?: string;
-  botIds: string[];
-  phones: Record<string, string>;
+  targets: WaRedirectTarget[];
 }): Promise<WaRedirectLink> {
   const slug = normalizeLinkSlug(input.slug || input.name);
   if (!slug) throw new Error("Slug inválido.");
   if (await slugTaken(slug)) throw new Error("Este slug já está em uso. Escolha outro.");
-  const botIds = [...new Set(input.botIds)];
-  const phones = validateLinkTargets(botIds, input.phones);
+  const targets = validateTargets(input.targets);
 
   const now = new Date().toISOString();
   const link: WaRedirectLink = {
@@ -198,8 +319,9 @@ export async function createWaRedirectLink(input: {
     name: input.name.trim() || slug,
     slug,
     initialMessage: (input.initialMessage ?? "").trim(),
-    botIds,
-    phones,
+    targets,
+    botIds: [],
+    phones: {},
     clickCounts: {},
     createdAt: now,
     updatedAt: now
@@ -207,16 +329,15 @@ export async function createWaRedirectLink(input: {
 
   if (useDatabase()) {
     await getPool().query(
-      `INSERT INTO wa_redirect_links (id, user_id, name, slug, initial_message, bot_ids, phones, click_counts, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10)`,
+      `INSERT INTO wa_redirect_links (id, user_id, name, slug, initial_message, bot_ids, phones, targets, click_counts, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,'[]'::jsonb,'{}'::jsonb,$6::jsonb,$7::jsonb,$8,$9)`,
       [
         link.id,
         link.userId,
         link.name,
         link.slug,
         link.initialMessage,
-        JSON.stringify(link.botIds),
-        JSON.stringify(link.phones),
+        JSON.stringify(link.targets),
         JSON.stringify(link.clickCounts),
         link.createdAt,
         link.updatedAt
@@ -234,35 +355,34 @@ export async function createWaRedirectLink(input: {
 export async function updateWaRedirectLink(
   id: string,
   userId: string,
-  input: { name: string; slug: string; initialMessage?: string; botIds: string[]; phones: Record<string, string> }
+  input: { name: string; slug: string; initialMessage?: string; targets: WaRedirectTarget[] }
 ): Promise<WaRedirectLink> {
   const existing = await getWaRedirectLinkById(id, userId);
   if (!existing) throw new Error("Link não encontrado.");
   const slug = normalizeLinkSlug(input.slug || input.name);
   if (!slug) throw new Error("Slug inválido.");
   if (await slugTaken(slug, id)) throw new Error("Este slug já está em uso.");
-  const botIds = [...new Set(input.botIds)];
-  const phones = validateLinkTargets(botIds, input.phones);
+  const targets = validateTargets(input.targets);
 
   const updated: WaRedirectLink = {
     ...existing,
     name: input.name.trim() || slug,
     slug,
     initialMessage: (input.initialMessage ?? "").trim(),
-    botIds,
-    phones,
+    targets,
+    botIds: [],
+    phones: {},
     updatedAt: new Date().toISOString()
   };
 
   if (useDatabase()) {
     await getPool().query(
-      `UPDATE wa_redirect_links SET name=$1, slug=$2, initial_message=$3, bot_ids=$4::jsonb, phones=$5::jsonb, updated_at=$6 WHERE id=$7 AND user_id=$8`,
+      `UPDATE wa_redirect_links SET name=$1, slug=$2, initial_message=$3, bot_ids='[]'::jsonb, phones='{}'::jsonb, targets=$4::jsonb, updated_at=$5 WHERE id=$6 AND user_id=$7`,
       [
         updated.name,
         updated.slug,
         updated.initialMessage,
-        JSON.stringify(updated.botIds),
-        JSON.stringify(updated.phones),
+        JSON.stringify(updated.targets),
         updated.updatedAt,
         id,
         userId
@@ -309,41 +429,52 @@ export async function resetWaRedirectLinkCounts(id: string, userId: string) {
 }
 
 /** Escolhe o número com menos cliques (rodízio justo). */
-export function pickBotForRedirect(link: WaRedirectLink): string | null {
-  const eligible = link.botIds.filter((id) => Boolean(normalizeWaPhone(link.phones[id] ?? "")));
-  if (eligible.length === 0) return null;
-  let pick = eligible[0]!;
-  let min = link.clickCounts[pick] ?? 0;
-  for (const id of eligible) {
-    const count = link.clickCounts[id] ?? 0;
+export function pickTargetForRedirect(link: WaRedirectLink): WaRedirectTarget | null {
+  const targets = sanitizeTargets(link.targets);
+  if (targets.length === 0) return null;
+  let pick = targets[0]!;
+  let min = link.clickCounts[pick.id] ?? 0;
+  for (const t of targets) {
+    const count = link.clickCounts[t.id] ?? 0;
     if (count < min) {
       min = count;
-      pick = id;
+      pick = t;
     }
   }
   return pick;
 }
 
-export function phoneForBotInLink(link: WaRedirectLink, botId: string): string | null {
-  const digits = normalizeWaPhone(link.phones[botId] ?? "");
+/** @deprecated use pickTargetForRedirect */
+export function pickBotForRedirect(link: WaRedirectLink): string | null {
+  return pickTargetForRedirect(link)?.id ?? null;
+}
+
+export function phoneForTargetInLink(link: WaRedirectLink, targetId: string): string | null {
+  const t = link.targets.find((x) => x.id === targetId);
+  const digits = normalizeWaPhone(t?.phone ?? "");
   return digits || null;
 }
 
-export async function recordRedirectClick(linkId: string, botId: string) {
+/** @deprecated */
+export function phoneForBotInLink(link: WaRedirectLink, botId: string): string | null {
+  return phoneForTargetInLink(link, botId);
+}
+
+export async function recordRedirectClick(linkId: string, targetId: string) {
   if (useDatabase()) {
     await getPool().query(
       `UPDATE wa_redirect_links
        SET click_counts = click_counts || jsonb_build_object($2::text, COALESCE((click_counts->>$2)::int, 0) + 1),
            updated_at = NOW()
        WHERE id = $1`,
-      [linkId, botId]
+      [linkId, targetId]
     );
     return;
   }
   const store = await loadFile();
   const link = store.links.find((l) => l.id === linkId);
   if (!link) return;
-  link.clickCounts[botId] = (link.clickCounts[botId] ?? 0) + 1;
+  link.clickCounts[targetId] = (link.clickCounts[targetId] ?? 0) + 1;
   link.updatedAt = new Date().toISOString();
   await saveFile(store);
 }
