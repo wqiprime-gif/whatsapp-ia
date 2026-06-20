@@ -274,6 +274,14 @@ export const panelClientScript = `
       const cursor = chart.querySelector(".shark-chart-cursor");
       if (!stage || !svg || !tooltip || points.length === 0) return;
 
+      const curve = svg.querySelector(".shark-chart-curve");
+      if (curve && typeof curve.getTotalLength === "function") {
+        try {
+          const len = curve.getTotalLength();
+          curve.style.setProperty("--chart-path-len", String(len));
+        } catch (_) {}
+      }
+
       const vbW = Number(chart.getAttribute("data-chart-w") || 560);
       const vbH = Number(chart.getAttribute("data-chart-h") || 220);
       const padT = Number(chart.getAttribute("data-pad-t") || 36);

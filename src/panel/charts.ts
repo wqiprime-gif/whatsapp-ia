@@ -257,7 +257,7 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
       <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>
       <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="10" stroke-linecap="round"
         stroke-dasharray="${dash.toFixed(2)} ${half.toFixed(2)}" />
-      <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="800">${clamped.toFixed(0)}%</text>
+      <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="500">${clamped.toFixed(0)}%</text>
     </svg>
     <span class="conv-gauge-sub">${subtitle}</span>
   </div>`;
@@ -294,11 +294,11 @@ export function sharkPerformanceChartHtml(
   const values = days.map((day) => points.find((p) => p.day === day)?.totalCents ?? 0);
   const max = Math.max(...values, 1);
   const w = 879;
-  const h = 150;
+  const h = 220;
   const padL = 16;
   const padR = 16;
-  const padT = 18;
-  const padB = 28;
+  const padT = 22;
+  const padB = 32;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const baseY = padT + chartH;
@@ -313,7 +313,7 @@ export function sharkPerformanceChartHtml(
   const gridLines = [0.25, 0.5, 0.75]
     .map((frac) => {
       const gy = padT + chartH * (1 - frac);
-      return `<line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3 6" pointer-events="none" opacity="0.08"/>`;
+      return `<line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="2 10" pointer-events="none" opacity="0.5"/>`;
     })
     .join("");
   const dots = coords
@@ -354,15 +354,15 @@ export function sharkPerformanceChartHtml(
       <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.35"/>
-            <stop offset="55%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.12"/>
+            <stop offset="0%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.18"/>
+            <stop offset="55%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0.06"/>
             <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
         </defs>
         <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.7)" stroke-width="1" opacity="0"/>
         ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
-        <path class="shark-chart-curve" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
+        <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
         ${dots}
         ${labels}
         ${hits}

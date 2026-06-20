@@ -60,7 +60,9 @@ html { scroll-behavior: smooth; scrollbar-gutter: stable; }
 
 body {
   font-family: var(--font);
-  background: var(--bg);
+  background:
+    radial-gradient(circle at top center, rgba(0, 40, 120, 0.08), transparent 40%),
+    #050505;
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
@@ -361,14 +363,19 @@ button, input, textarea, select { font-family: inherit; }
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.06);
+  transform: translateX(2px);
 }
+.nav a:hover svg, .nav button.nav-btn:hover svg {
+  transform: scale(1.08);
+  opacity: 1;
+}
+.nav svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.9; transition: transform 0.2s ease, opacity 0.2s ease; }
 .nav a.active {
   background: linear-gradient(90deg, rgba(10, 92, 255, 0.18), rgba(10, 92, 255, 0.04));
   color: var(--primary);
   border-color: rgba(10, 92, 255, 0.25);
   box-shadow: inset 3px 0 0 var(--primary), 0 0 24px rgba(10, 92, 255, 0.08);
 }
-.nav svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.9; }
 
 .sidebar-plan {
   margin-top: auto;
@@ -594,10 +601,10 @@ button, input, textarea, select { font-family: inherit; }
 .user-pill .name { font-weight: 700; font-size: 0.84rem; }
 .user-pill .role { font-size: 0.7rem; color: var(--muted); }
 
-.content { padding: 22px 28px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: var(--bg); }
-.page-shell { background: var(--bg); min-height: 100%; }
+.content { padding: 22px 36px 44px; flex: 1; width: 100%; max-width: none; transition: opacity 0.2s var(--ease); background: transparent; }
+.page-shell { background: transparent; min-height: 100%; }
 .content:has(.page-form-shell),
-.content:has(.dash-shell) { padding: 24px 28px 48px; }
+.content:has(.dash-shell) { padding: 28px 36px 48px; }
 
 /* Stats */
 .stats-row {

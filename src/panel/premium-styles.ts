@@ -1394,22 +1394,40 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-security-form { display: grid; gap: 12px; }
 
 /* —— SHARK DASHBOARD —— */
-.shark-dash { display: flex; flex-direction: column; gap: 18px; }
+.shark-dash { display: flex; flex-direction: column; gap: 20px; }
+.shark-dash > * {
+  animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.shark-dash > *:nth-child(1) { animation-delay: 0.04s; }
+.shark-dash > *:nth-child(2) { animation-delay: 0.08s; }
+.shark-dash > *:nth-child(3) { animation-delay: 0.12s; }
+.shark-dash > *:nth-child(4) { animation-delay: 0.16s; }
+.shark-dash .shark-kpi-grid .shark-kpi-card:nth-child(1) { animation-delay: 0.14s; }
+.shark-dash .shark-kpi-grid .shark-kpi-card:nth-child(2) { animation-delay: 0.18s; }
+.shark-dash .shark-kpi-grid .shark-kpi-card:nth-child(3) { animation-delay: 0.22s; }
+.shark-dash .shark-kpi-grid .shark-kpi-card:nth-child(4) { animation-delay: 0.26s; }
 .shark-dash .dash-glow-card {
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background:
-    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.12), transparent 75%),
-    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.05), transparent 62%),
-    #090909;
+  background: #090909;
+  box-shadow: inset 0 -72px 64px -56px rgba(0, 80, 200, 0.035);
+}
+.shark-dash .dash-glow-card::before,
+.shark-dash .dash-glow-card::after,
+.shark-dash .shark-kpi-card::before,
+.shark-dash .shark-kpi-card::after {
+  display: none !important;
+  content: none !important;
 }
 .shark-dash .dash-glow-card.card-premium {
-  background:
-    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.12), transparent 75%),
-    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.05), transparent 62%),
-    #090909 !important;
+  background: #090909 !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  box-shadow: none !important;
+  box-shadow: inset 0 -72px 64px -56px rgba(0, 80, 200, 0.035) !important;
   backdrop-filter: none !important;
+}
+.shark-dash .dash-glow-card.card-premium::before,
+.shark-dash .dash-glow-card.card-premium::after {
+  display: none !important;
+  content: none !important;
 }
 .shark-dash .dash-glow-card.card-premium .card-head {
   background: transparent !important;
@@ -1424,12 +1442,20 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-dash .dash-glow-card.card-premium .card-body {
   padding: 8px 24px 24px !important;
 }
+.shark-dash .shark-card.dash-glow-card {
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+}
 .shark-dash .shark-card.dash-glow-card:hover {
-  background:
-    radial-gradient(ellipse 90% 72% at 50% 108%, rgba(0, 100, 255, 0.15), transparent 75%),
-    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(0, 100, 255, 0.07), transparent 62%),
-    #0d0d0d !important;
+  background: #0c0c0c !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
+  transform: translateY(-2px);
+  box-shadow: inset 0 -72px 64px -56px rgba(0, 80, 200, 0.05);
+}
+.shark-dash .shark-chart-card--pro.dash-glow-card {
+  box-shadow: inset 0 -72px 64px -56px rgba(0, 80, 200, 0.018) !important;
+}
+.shark-dash .shark-chart-card--pro.dash-glow-card:hover {
+  box-shadow: inset 0 -72px 64px -56px rgba(0, 80, 200, 0.028) !important;
 }
 .shark-dash .shark-chart-card--pro {
   min-height: 0;
@@ -1460,8 +1486,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-greeting--topbar .shark-greeting-name {
   color: var(--blue-bright);
-  font-weight: 600;
-  text-shadow: 0 0 16px rgba(10, 92, 255, 0.22);
+  font-weight: 500;
+  text-shadow: none;
 }
 .shark-greeting--topbar .shark-greeting-date {
   font-size: 0.62rem;
@@ -1526,14 +1552,14 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-fat-icon svg { width: 20px; height: 20px; }
 .shark-fat-label {
-  font-size: 0.625rem; font-weight: 700;
+  font-size: 0.625rem; font-weight: 500;
   text-transform: uppercase; letter-spacing: 0.14em;
   color: #a1a1aa;
   font-family: var(--font-mono, ui-monospace, monospace);
 }
 .shark-fat-value {
   font-family: var(--font-display);
-  font-size: 0.875rem; font-weight: 700;
+  font-size: 0.875rem; font-weight: 500;
   letter-spacing: -0.02em;
   color: #fff;
   margin: 0;
@@ -1566,8 +1592,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-greeting-name {
   color: var(--blue-bright);
-  font-weight: 600;
-  text-shadow: 0 0 14px rgba(10, 92, 255, 0.22);
+  font-weight: 500;
+  text-shadow: none;
 }
 .shark-greeting-date {
   font-size: 0.65rem;
@@ -1663,9 +1689,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 @media (min-width: 640px) {
   .shark-period-tab { font-size: 0.8125rem; padding: 9px 16px; }
 }
+.shark-period-tab {
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+}
 .shark-period-tab:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
 }
 .shark-period-tab:active { transform: scale(0.95); }
 .shark-period-tab--active {
@@ -1749,17 +1779,17 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-color: rgba(34, 197, 94, 0.3);
 }
 .shark-icon-box.shark-icon-box--money {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   color: #4ade80;
-  background: rgba(6, 78, 59, 0.55);
-  border: 1px solid rgba(34, 197, 94, 0.38);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.08);
+  background: rgba(6, 78, 59, 0.45);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  box-shadow: none;
 }
 .shark-icon-box.shark-icon-box--money svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 .shark-icon-box.shark-icon-box--yellow {
   color: #facc15;
@@ -1813,8 +1843,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-kpi-value {
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-  font-weight: 700;
+  font-size: clamp(1.65rem, 2.8vw, 2rem);
+  font-weight: 500;
   letter-spacing: -0.03em;
   color: #fff;
   line-height: 1.15;
@@ -1861,11 +1891,11 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 4px 24px 22px !important;
+  padding: 4px 24px 28px !important;
   min-height: 0 !important;
 }
 .shark-chart-header {
-  padding: 22px 24px 8px;
+  padding: 22px 24px 10px;
   flex-shrink: 0;
 }
 .shark-chart-header h3 {
@@ -1873,9 +1903,10 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   font-size: 0.9rem;
 }
 .shark-chart-card--pro .shark-chart-sub {
-  color: rgba(59, 130, 246, 0.75);
+  color: rgba(161, 161, 170, 0.85);
   font-size: 0.62rem;
   letter-spacing: 0.12em;
+  font-weight: 500;
 }
 
 .shark-bottom-grid {
@@ -1947,16 +1978,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   font-weight: 500;
 }
 .shark-chart-legend-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: #3B82F6;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
+  box-shadow: none;
   flex-shrink: 0;
 }
 .shark-chart-divider {
   height: 1px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.12);
-  margin: 10px 0 12px;
+  background: rgba(255, 255, 255, 0.05);
+  margin: 10px 0 16px;
   flex-shrink: 0;
   display: block;
 }
@@ -1964,17 +1995,25 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 200px;
+  min-height: 240px;
 }
 .shark-chart-svg {
   width: 100%;
   height: 100%;
-  min-height: 200px;
+  min-height: 240px;
   display: block;
   overflow: visible;
 }
 .shark-chart-curve {
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.45));
+  filter: none;
+}
+.shark-chart-curve--draw {
+  stroke-dasharray: var(--chart-path-len, 1200);
+  stroke-dashoffset: var(--chart-path-len, 1200);
+  animation: shark-chart-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes shark-chart-draw {
+  to { stroke-dashoffset: 0; }
 }
 .shark-chart-dot {
   cursor: pointer;
@@ -2038,7 +2077,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-instances-count {
   font-family: var(--font-display);
   font-size: 2.5rem;
-  font-weight: 800;
+  font-weight: 500;
   color: #fff;
   letter-spacing: -0.03em;
   line-height: 1;
