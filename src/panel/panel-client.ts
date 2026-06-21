@@ -949,6 +949,7 @@ export const panelClientScript = `
         chart.innerHTML = data.chartSvg;
         chart.setAttribute("data-chart-fp", fp);
         bindSharkCharts(chart);
+        window.dispatchEvent(new Event("shark-charts-refresh"));
       }
     }
     const periodLbl = document.querySelector("[data-live=chart-period-label]");
@@ -985,15 +986,15 @@ export const panelClientScript = `
     scope.querySelectorAll(".shark-dash .dash-glow-card").forEach((card) => {
       if (card.dataset.glowBound) return;
       card.dataset.glowBound = "1";
-      if (!card.querySelector(".dash-stripe-ring")) {
+      if (!card.querySelector(".shark-edge-glow")) {
         const ring = document.createElement("div");
-        ring.className = "dash-stripe-ring";
+        ring.className = "shark-edge-glow";
         ring.setAttribute("aria-hidden", "true");
         ring.innerHTML =
-          '<span class="dash-stripe dash-stripe--t"></span>' +
-          '<span class="dash-stripe dash-stripe--r"></span>' +
-          '<span class="dash-stripe dash-stripe--b"></span>' +
-          '<span class="dash-stripe dash-stripe--l"></span>';
+          '<span class="shark-edge-glow--t"></span>' +
+          '<span class="shark-edge-glow--r"></span>' +
+          '<span class="shark-edge-glow--b"></span>' +
+          '<span class="shark-edge-glow--l"></span>';
         card.insertBefore(ring, card.firstChild);
       }
       if (!card.querySelector(".dash-mouse-glow")) {

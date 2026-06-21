@@ -1463,18 +1463,16 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: relative;
   isolation: isolate;
 }
-.shark-dash .dash-glow-card,
-.shark-dash .shark-kpi-card {
-  background-color: #090909;
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent,
-    transparent 10px,
-    rgba(255, 255, 255, 0.022) 10px,
-    rgba(255, 255, 255, 0.022) 11px
-  );
+.shark-dash .dash-glow-card::before,
+.shark-dash .dash-glow-card::after,
+.shark-dash .shark-kpi-card::before,
+.shark-dash .shark-kpi-card::after,
+.shark-dash .dash-glow-card.card-premium::before,
+.shark-dash .dash-glow-card.card-premium::after {
+  display: none !important;
+  content: none !important;
 }
-.dash-stripe-ring {
+.shark-edge-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -1482,63 +1480,76 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   overflow: hidden;
   border-radius: inherit;
 }
-.dash-stripe-ring span {
+.shark-edge-glow span {
   position: absolute;
-  opacity: 0.9;
   pointer-events: none;
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.55));
+  z-index: 20;
 }
-.dash-stripe--t,
-.dash-stripe--b {
-  height: 2px;
-  width: 42%;
-  background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 1), transparent);
+.shark-edge-glow--t,
+.shark-edge-glow--b {
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(10, 92, 255, 0.2) 20%,
+    #0a5cff 40%,
+    #3b82f6 50%,
+    #0a5cff 60%,
+    rgba(10, 92, 255, 0.2) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shark-line-sweep 4s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
 }
-.dash-stripe--r,
-.dash-stripe--l {
-  width: 2px;
-  height: 42%;
-  background: linear-gradient(180deg, transparent, rgba(147, 197, 253, 1), transparent);
-}
-.dash-stripe--t {
+.shark-edge-glow--t {
   top: 0;
-  left: -32%;
-  animation: dash-stripe-h var(--glow-cycle, 8.5s) linear infinite;
   animation-delay: var(--glow-delay, 0s);
 }
-.dash-stripe--r {
-  top: -32%;
-  right: 0;
-  animation: dash-stripe-v var(--glow-cycle, 8.5s) linear infinite;
-  animation-delay: calc(var(--glow-delay, 0s) + 2.1s);
-}
-.dash-stripe--b {
+.shark-edge-glow--b {
   bottom: 0;
-  right: -32%;
-  animation: dash-stripe-h-rev var(--glow-cycle, 8.5s) linear infinite;
-  animation-delay: calc(var(--glow-delay, 0s) + 4.2s);
+  animation: shark-line-sweep 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
+  animation-delay: calc(var(--glow-delay, 0s) + 2s);
 }
-.dash-stripe--l {
-  bottom: -32%;
+.shark-edge-glow--l,
+.shark-edge-glow--r {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(10, 92, 255, 0.2) 20%,
+    #0a5cff 40%,
+    #3b82f6 50%,
+    #0a5cff 60%,
+    rgba(10, 92, 255, 0.2) 80%,
+    transparent 100%
+  );
+  background-size: 100% 200%;
+  animation: shark-line-sweep-v 4s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
+}
+.shark-edge-glow--l {
   left: 0;
-  animation: dash-stripe-v-rev var(--glow-cycle, 8.5s) linear infinite;
-  animation-delay: calc(var(--glow-delay, 0s) + 6.3s);
+  animation-delay: calc(var(--glow-delay, 0s) + 1s);
 }
-@keyframes dash-stripe-h {
-  0% { left: -32%; }
-  100% { left: 100%; }
+.shark-edge-glow--r {
+  right: 0;
+  animation: shark-line-sweep-v 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
+  animation-delay: calc(var(--glow-delay, 0s) + 3s);
 }
-@keyframes dash-stripe-h-rev {
-  0% { right: -32%; }
-  100% { right: 100%; }
+@keyframes shark-line-sweep-v {
+  0% { background-position: 0 -200%; }
+  100% { background-position: 0 200%; }
 }
-@keyframes dash-stripe-v {
-  0% { top: -32%; }
-  100% { top: 100%; }
-}
-@keyframes dash-stripe-v-rev {
-  0% { bottom: -32%; }
-  100% { bottom: 100%; }
+.dash-stripe-ring,
+.dash-stripe-ring span,
+.dash-stripe--t,
+.dash-stripe--b,
+.dash-stripe--r,
+.dash-stripe--l {
+  display: none !important;
 }
 .shark-dash .dash-glow-card > *,
 .shark-dash .shark-kpi-card > * {
@@ -2082,6 +2093,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+  align-items: stretch;
+}
+.shark-bottom-grid > .dash-glow-card {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 @media (max-width: 1100px) {
   .shark-bottom-grid { grid-template-columns: 1fr; }
@@ -2098,8 +2115,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-log-card .card-head h3 { flex-direction: column; align-items: flex-start; }
 .shark-log-card .card-body,
 .shark-players-card .card-body,
-.shark-award-card .card-body {
-  min-height: 260px;
+.shark-award-card .card-body,
+.shark-instances-card .card-body {
+  min-height: 340px;
+  flex: 1;
+}
+.shark-log-card .activity-feed-live {
+  max-height: none;
+  min-height: 300px;
+  flex: 1;
 }
 .shark-award-body {
   display: grid;
@@ -2171,9 +2195,21 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: absolute;
   inset: 0;
   display: flex;
-  z-index: 12;
+  z-index: 30;
   cursor: crosshair;
   touch-action: none;
+}
+.shark-chart-tooltip {
+  position: absolute;
+  top: 8px;
+  min-width: 148px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(12, 12, 12, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  z-index: 60;
 }
 .shark-chart-col {
   flex: 1;
@@ -2210,18 +2246,6 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   transition: r 0.15s;
 }
 .shark-chart-dot:hover { r: 7; }
-.shark-chart-tooltip {
-  position: absolute;
-  top: 8px;
-  min-width: 148px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(12, 12, 12, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
-  pointer-events: none;
-  z-index: 50;
-}
 .shark-chart-tooltip-day {
   display: block;
   font-size: 0.72rem;
@@ -2255,7 +2279,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-chart-hit { pointer-events: all; }
 
 /* Instâncias ativas — card dashboard */
-.shark-instances-card .card-body { min-height: 260px; display: flex; flex-direction: column; gap: 14px; }
+.shark-instances-card .card-body { min-height: 340px; display: flex; flex-direction: column; gap: 14px; }
 .shark-instances-hero {
   display: flex;
   align-items: baseline;

@@ -7,7 +7,7 @@ import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-f
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
-import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
+import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml, sharkChartBootScript } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
@@ -42,11 +42,11 @@ function glowStyle(i: number) {
 }
 
 function dashStripeRingHtml() {
-  return `<div class="dash-stripe-ring" aria-hidden="true">
-    <span class="dash-stripe dash-stripe--t"></span>
-    <span class="dash-stripe dash-stripe--r"></span>
-    <span class="dash-stripe dash-stripe--b"></span>
-    <span class="dash-stripe dash-stripe--l"></span>
+  return `<div class="shark-edge-glow" aria-hidden="true">
+    <span class="shark-edge-glow--t"></span>
+    <span class="shark-edge-glow--r"></span>
+    <span class="shark-edge-glow--b"></span>
+    <span class="shark-edge-glow--l"></span>
   </div>`;
 }
 
@@ -529,7 +529,8 @@ export function dashboardPage(
       tick();
       setInterval(tick, 60000);
     })();
-    </script>`;
+    </script>
+    <script>${sharkChartBootScript()}</script>`;
 
   return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill, topbarGreeting);
 }

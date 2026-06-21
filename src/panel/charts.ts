@@ -359,6 +359,7 @@ export function sharkPerformanceChartHtml(
   const chartJsonB64 = Buffer.from(chartDataJson, "utf8").toString("base64");
 
   return `<div class="shark-perf-chart" data-chart-json="${chartJsonB64}" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
+    <div class="shark-chart-data" hidden>${chartDataJson}</div>
     <div class="shark-chart-legend">
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
@@ -392,4 +393,120 @@ export function sharkPerformanceChartHtml(
       </div>
     </div>
   </div>`;
+}
+
+/** Script inline no dashboard — hover do gráfico independente do panel-client. */
+export function sharkChartBootScript() {
+  return `(function(){
+  if (window.__sharkChartV2) return;
+  window.__sharkChartV2 = true;
+
+  function parsePoints(chart) {
+    try {
+      var el = chart.querySelector(".shark-chart-data");
+      if (el && el.textContent) return JSON.parse(el.textContent);
+      var b64 = chart.getAttribute("data-chart-json") || "";
+      if (b64) return JSON.parse(atob(b64));
+    } catch (e) {}
+    return [];
+  }
+
+  function money(cents) {
+    return "R$ " + (Number(cents) / 100).toFixed(2).replace(".", ",");
+  }
+
+  function chartFromTarget(t) {
+    var stage = t.closest(".shark-chart-stage");
+    if (!stage) return null;
+    var chart = stage.closest(".shark-perf-chart");
+    if (!chart) return null;
+    if (!chart.__pts || !chart.__pts.length) chart.__pts = parsePoints(chart);
+    if (!chart.__pts || !chart.__pts.length) return null;
+    return { chart: chart, stage: stage, svg: chart.querySelector(".shark-chart-svg"), tooltip: chart.querySelector(".shark-chart-tooltip"), points: chart.__pts };
+  }
+
+  function showTip(ctx, i) {
+    var p = ctx.points[i];
+    if (!p || !ctx.tooltip || !ctx.svg) return;
+    var dayEl = ctx.tooltip.querySelector(".shark-chart-tooltip-day");
+    var valEl = ctx.tooltip.querySelector(".shark-chart-tooltip-val");
+    var label = p.label || p.short || "";
+    if (dayEl) dayEl.textContent = label + " / Receita";
+    if (valEl) valEl.textContent = money(p.cents);
+    ctx.tooltip.removeAttribute("hidden");
+    ctx.tooltip.style.display = "block";
+    ctx.stage.classList.add("shark-chart-stage--hover");
+    var cursor = ctx.svg.querySelector(".shark-chart-cursor");
+    var vbW = Number(ctx.chart.getAttribute("data-chart-w") || 879);
+    var vbH = Number(ctx.chart.getAttribute("data-chart-h") || 220);
+    ctx.svg.querySelectorAll(".shark-chart-dot").forEach(function(d) {
+      var active = d.getAttribute("data-idx") === String(i);
+      d.setAttribute("r", active ? "6" : "0");
+      d.setAttribute("opacity", active ? "1" : "0");
+    });
+    var lineX = p.cx != null ? String(p.cx) : null;
+    var dot = ctx.svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
+    if (!lineX && dot) lineX = dot.getAttribute("cx");
+    if (cursor && lineX) {
+      cursor.setAttribute("x1", lineX);
+      cursor.setAttribute("x2", lineX);
+      cursor.setAttribute("opacity", "1");
+    }
+    var rect = ctx.stage.getBoundingClientRect();
+    var px = Number(lineX || 0);
+    var py = Number(p.cy != null ? p.cy : (dot && dot.getAttribute("cy")) || 0);
+    var left = (px / vbW) * rect.width - 74;
+    var top = Math.max(4, (py / vbH) * rect.height - 58);
+    ctx.tooltip.style.left = Math.min(Math.max(left, 6), rect.width - 160) + "px";
+    ctx.tooltip.style.top = top + "px";
+  }
+
+  function hideTip(ctx) {
+    if (!ctx || !ctx.tooltip) return;
+    ctx.tooltip.setAttribute("hidden", "");
+    ctx.tooltip.style.display = "none";
+    ctx.stage.classList.remove("shark-chart-stage--hover");
+    var cursor = ctx.svg && ctx.svg.querySelector(".shark-chart-cursor");
+    if (cursor) cursor.setAttribute("opacity", "0");
+    if (ctx.svg) ctx.svg.querySelectorAll(".shark-chart-dot").forEach(function(d) {
+      d.setAttribute("r", "0");
+      d.setAttribute("opacity", "0");
+    });
+  }
+
+  function idxFromX(ctx, clientX) {
+    var rect = ctx.stage.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    return Math.max(0, Math.min(ctx.points.length - 1, Math.round(((clientX - rect.left) / rect.width) * (ctx.points.length - 1))));
+  }
+
+  var activeCtx = null;
+
+  function onMove(e) {
+    var ctx = chartFromTarget(e.target);
+    if (!ctx) {
+      if (activeCtx) { hideTip(activeCtx); activeCtx = null; }
+      return;
+    }
+    activeCtx = ctx;
+    var x = e.clientX != null ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    showTip(ctx, idxFromX(ctx, x));
+  }
+
+  document.addEventListener("mousemove", onMove, true);
+  document.addEventListener("touchstart", onMove, { passive: true, capture: true });
+  document.addEventListener("touchmove", onMove, { passive: true, capture: true });
+  document.addEventListener("click", onMove, true);
+  document.addEventListener("mouseleave", function(e) {
+    if (!activeCtx) return;
+    if (!e.relatedTarget || !activeCtx.stage.contains(e.relatedTarget)) {
+      hideTip(activeCtx);
+      activeCtx = null;
+    }
+  }, true);
+
+  window.addEventListener("shark-charts-refresh", function() {
+    document.querySelectorAll(".shark-perf-chart").forEach(function(c) { delete c.__pts; });
+  });
+})();`;
 }
