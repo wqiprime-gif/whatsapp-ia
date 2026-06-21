@@ -95,6 +95,8 @@ export async function initUsersSchema() {
     `);
 
     await migrateFileUsersToPostgres();
+    const { initNotificationPrefsSchema } = await import("./notification-prefs.js");
+    await initNotificationPrefsSchema();
     return;
   }
 

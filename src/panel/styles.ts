@@ -301,8 +301,8 @@ button, input, textarea, select { font-family: inherit; }
   margin: 0;
   justify-content: flex-start;
   padding: 10px 12px;
-  opacity: 0.88;
-  color: rgba(255, 255, 255, 0.82);
+  opacity: 1;
+  color: #fff;
 }
 .sidebar:hover .nav a:hover,
 .sidebar:hover .nav button.nav-btn:hover,
@@ -329,6 +329,8 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar .nav-text {
   white-space: nowrap;
   margin-left: 2px;
+  color: #fff;
+  font-weight: 500;
 }
 .sidebar-brand { padding: 2px 6px 22px; }
 .btn-new {
@@ -353,7 +355,7 @@ button, input, textarea, select { font-family: inherit; }
 .nav a, .nav button.nav-btn {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 12px; border-radius: 0;
-  color: rgba(255, 255, 255, 0.78); font-weight: 500; font-size: 0.86rem;
+  color: #fff; font-weight: 500; font-size: 0.86rem;
   border: 1px solid transparent; background: transparent;
   width: 100%; text-align: left; cursor: pointer;
   transition: all var(--ease);

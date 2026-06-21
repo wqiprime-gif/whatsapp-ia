@@ -28,6 +28,43 @@ export const panelClientScript = `
   const LS_SEEN_EVENTS = "panelSeenEventIds";
   const LS_DAILY_SUMMARY = "panelDailySummaryDate";
   const LS_EXTRA_BELL = "panelExtraBellItems";
+  const LS_NOTIFY_PREFS = "panelNotifyPrefs";
+  let notifyPrefs = {
+    enabled: true,
+    sales: true,
+    leads: true,
+    instances: true,
+    dailySummary: true,
+    desktop: true
+  };
+
+  function loadNotifyPrefs() {
+    try {
+      const raw = localStorage.getItem(LS_NOTIFY_PREFS);
+      if (raw) notifyPrefs = JSON.parse(raw);
+    } catch (_) {}
+  }
+
+  function saveNotifyPrefs(prefs) {
+    if (!prefs) return;
+    notifyPrefs = prefs;
+    localStorage.setItem(LS_NOTIFY_PREFS, JSON.stringify(prefs));
+  }
+
+  function canNotify(kind) {
+    if (!notifyPrefs || notifyPrefs.enabled === false) return false;
+    if (kind === "sale") return notifyPrefs.sales !== false;
+    if (kind === "lead") return notifyPrefs.leads !== false;
+    if (kind === "wa_down" || kind === "wa_up") return notifyPrefs.instances !== false;
+    if (kind === "daily") return notifyPrefs.dailySummary !== false;
+    return true;
+  }
+
+  function canDesktopNotify() {
+    return notifyPrefs && notifyPrefs.enabled !== false && notifyPrefs.desktop !== false;
+  }
+
+  loadNotifyPrefs();
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
   let navigating = false;
@@ -268,21 +305,24 @@ export const panelClientScript = `
   function bindSharkCharts(root) {
     const scope = root || document;
     scope.querySelectorAll(".shark-perf-chart").forEach((chart) => {
-      if (chart.dataset.bound) return;
-      chart.dataset.bound = "1";
+      if (chart.dataset.chartBound === "1") return;
+      chart.dataset.chartBound = "1";
       let points = [];
       try {
-        const raw = chart.getAttribute("data-chart-points") || "";
-        if (raw.indexOf("%") >= 0) {
-          points = JSON.parse(decodeURIComponent(raw));
+        const dataEl = chart.querySelector(".shark-chart-data");
+        if (dataEl && dataEl.textContent) {
+          points = JSON.parse(dataEl.textContent);
         } else {
-          points = JSON.parse(raw.replace(/&#39;/g, "'"));
+          const raw = chart.getAttribute("data-chart-points") || "";
+          if (raw.indexOf("%") >= 0) points = JSON.parse(decodeURIComponent(raw));
+          else if (raw) points = JSON.parse(raw.replace(/&#39;/g, "'"));
         }
       } catch (_) {}
       const stage = chart.querySelector(".shark-chart-stage");
       const svg = chart.querySelector(".shark-chart-svg");
       const tooltip = chart.querySelector(".shark-chart-tooltip");
-      const cursor = chart.querySelector(".shark-chart-cursor");
+      const cursor = svg && svg.querySelector(".shark-chart-cursor");
+      const hoverLayer = chart.querySelector(".shark-chart-hover-layer");
       if (!stage || !svg || !tooltip || points.length === 0) return;
 
       const curve = svg.querySelector(".shark-chart-curve");
@@ -294,61 +334,45 @@ export const panelClientScript = `
       }
 
       const vbW = Number(chart.getAttribute("data-chart-w") || 879);
-      const padT = Number(chart.getAttribute("data-pad-t") || 22);
-
-      function nearestIdx(clientX) {
-        const stageRect = stage.getBoundingClientRect();
-        const relX = clientX - stageRect.left;
-        const svgX = (relX / stageRect.width) * vbW;
-        let best = 0;
-        let bestDist = Infinity;
-        points.forEach((p, i) => {
-          const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
-          if (!dot) return;
-          const cx = Number(dot.getAttribute("cx"));
-          const d = Math.abs(cx - svgX);
-          if (d < bestDist) {
-            bestDist = d;
-            best = i;
-          }
-        });
-        return best;
-      }
+      const vbH = Number(chart.getAttribute("data-chart-h") || 220);
 
       function showTip(i) {
         const p = points[i];
         if (!p) return;
-        const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
         const dayEl = tooltip.querySelector(".shark-chart-tooltip-day");
         const valEl = tooltip.querySelector(".shark-chart-tooltip-val");
-        if (dayEl) dayEl.textContent = p.label || p.short || "";
+        const label = p.label || p.short || "";
+        if (dayEl) dayEl.textContent = label;
         if (valEl) valEl.textContent = money(p.cents);
-        tooltip.hidden = false;
+        tooltip.removeAttribute("hidden");
+        tooltip.style.display = "block";
         stage.classList.add("shark-chart-stage--hover");
         svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
           const active = d.getAttribute("data-idx") === String(i);
           d.setAttribute("r", active ? "6" : "0");
           d.setAttribute("opacity", active ? "1" : "0");
         });
-        if (cursor && dot) {
-          const cx = dot.getAttribute("cx");
-          cursor.setAttribute("x1", cx);
-          cursor.setAttribute("x2", cx);
+        const cx = p.cx != null ? String(p.cx) : null;
+        const cy = p.cy != null ? String(p.cy) : null;
+        const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
+        const lineX = cx || (dot && dot.getAttribute("cx"));
+        if (cursor && lineX) {
+          cursor.setAttribute("x1", lineX);
+          cursor.setAttribute("x2", lineX);
           cursor.setAttribute("opacity", "1");
         }
-        if (dot) {
-          const stageRect = stage.getBoundingClientRect();
-          const cx = Number(dot.getAttribute("cx"));
-          const cy = Number(dot.getAttribute("cy"));
-          const left = (cx / vbW) * stageRect.width - 74;
-          const top = Math.max(4, (cy / Number(chart.getAttribute("data-chart-h") || 220)) * stageRect.height - 58);
-          tooltip.style.left = Math.min(Math.max(left, 6), stageRect.width - 160) + "px";
-          tooltip.style.top = top + "px";
-        }
+        const stageRect = stage.getBoundingClientRect();
+        const px = Number(lineX || 0);
+        const py = Number(cy || (dot && dot.getAttribute("cy")) || 0);
+        const left = (px / vbW) * stageRect.width - 74;
+        const top = Math.max(4, (py / vbH) * stageRect.height - 58);
+        tooltip.style.left = Math.min(Math.max(left, 6), stageRect.width - 160) + "px";
+        tooltip.style.top = top + "px";
       }
 
       function hideTip() {
-        tooltip.hidden = true;
+        tooltip.setAttribute("hidden", "");
+        tooltip.style.display = "none";
         stage.classList.remove("shark-chart-stage--hover");
         if (cursor) cursor.setAttribute("opacity", "0");
         svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
@@ -357,15 +381,29 @@ export const panelClientScript = `
         });
       }
 
+      function bindCol(col) {
+        const idx = Number(col.getAttribute("data-idx"));
+        col.addEventListener("mouseenter", () => showTip(idx));
+        col.addEventListener("mousemove", () => showTip(idx));
+      }
+
+      if (hoverLayer) {
+        hoverLayer.querySelectorAll(".shark-chart-col").forEach(bindCol);
+        hoverLayer.addEventListener("mousemove", (e) => {
+          const cols = hoverLayer.querySelectorAll(".shark-chart-col");
+          if (!cols.length) return;
+          const rect = hoverLayer.getBoundingClientRect();
+          const rel = Math.max(0, Math.min(cols.length - 1, Math.floor(((e.clientX - rect.left) / rect.width) * cols.length)));
+          showTip(rel);
+        });
+      }
+
       stage.addEventListener("mousemove", (e) => {
-        showTip(nearestIdx(e.clientX));
+        const rect = stage.getBoundingClientRect();
+        const rel = Math.max(0, Math.min(points.length - 1, Math.round(((e.clientX - rect.left) / rect.width) * (points.length - 1))));
+        showTip(rel);
       });
       stage.addEventListener("mouseleave", hideTip);
-
-      svg.querySelectorAll(".shark-chart-hit").forEach((hit) => {
-        hit.addEventListener("mouseenter", () => showTip(Number(hit.getAttribute("data-idx"))));
-        hit.addEventListener("mousemove", () => showTip(Number(hit.getAttribute("data-idx"))));
-      });
     });
   }
 
@@ -387,6 +425,7 @@ export const panelClientScript = `
       }
       pill.dataset.avatar = next;
       const initials = label.slice(0, 2).toUpperCase();
+      if (me.notificationPrefs) saveNotifyPrefs(me.notificationPrefs);
       const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
       const cached = localStorage.getItem(LS_AVATAR) || "";
       const avatarSrc = resolveAvatarSrc(preview, cached, next, true);
@@ -572,6 +611,7 @@ export const panelClientScript = `
   }
 
   function showToast(title, body, kind) {
+    if (!canNotify(kind || "sale")) return;
     if (!toastRoot) return;
     const el = document.createElement("div");
     el.className = "panel-toast" + (kind ? " panel-toast--" + kind : "");
@@ -583,7 +623,8 @@ export const panelClientScript = `
     pushBellBadge();
   }
 
-  function desktopNotify(title, body) {
+  function desktopNotify(title, body, kind) {
+    if (!canDesktopNotify() || !canNotify(kind || "sale")) return;
     if (Notification && Notification.permission === "granted") {
       try { new Notification(title, { body: body }); } catch (_) {}
     }
@@ -597,7 +638,7 @@ export const panelClientScript = `
   }
 
   function showSalePopup(sale) {
-    if (!salePopupRoot || !sale) return;
+    if (!salePopupRoot || !sale || !canNotify("sale")) return;
     const amount = sale.amountCents != null
       ? money(Number(sale.amountCents))
       : (sale.amount || "");
@@ -619,7 +660,7 @@ export const panelClientScript = `
     setTimeout(() => el.classList.add("show"), 16);
     setTimeout(() => dismissSalePopup(el), 7000);
     showToast("Venda confirmada!", subtitle, "sale");
-    desktopNotify("Venda confirmada!", amount + " · " + subtitle);
+    desktopNotify("Venda confirmada!", amount + " · " + subtitle, "sale");
   }
 
   function handleLatestSale(latest) {
@@ -661,7 +702,7 @@ export const panelClientScript = `
     document.addEventListener("click", () => bellMenu.classList.remove("open"));
   }
 
-  if (Notification && Notification.permission === "default") {
+  if (Notification && Notification.permission === "default" && canDesktopNotify()) {
     Notification.requestPermission().catch(() => {});
   }
 
@@ -703,9 +744,9 @@ export const panelClientScript = `
         if (!item || !item.id) continue;
         if (seen.has(item.id)) continue;
         seen.add(item.id);
-        if (liveNotificationsReady && item.kind === "lead") {
+        if (liveNotificationsReady && item.kind === "lead" && canNotify("lead")) {
           showToast("Nova conversa", item.subtitle, "lead");
-          desktopNotify("Nova conversa", item.subtitle);
+          desktopNotify("Nova conversa", item.subtitle, "lead");
         }
       }
       lastBellItems = data.bellItems;
@@ -724,10 +765,10 @@ export const panelClientScript = `
         const name = data.botNames[id] || "Instância";
         const eventKey = "wa-" + id + "-" + st;
         if (liveNotificationsReady && was !== undefined && was !== st) {
-          if (waConnected(was) && !waConnected(st)) {
+          if (waConnected(was) && !waConnected(st) && canNotify("wa_down")) {
             if (!seen.has(eventKey)) {
               showToast("Instância caiu", name + " desconectou", "wa_down");
-              desktopNotify("Instância offline", name + " desconectou");
+              desktopNotify("Instância offline", name + " desconectou", "wa_down");
               prependExtraBell({
                 id: eventKey,
                 kind: "wa_down",
@@ -737,7 +778,7 @@ export const panelClientScript = `
               });
               seen.add(eventKey);
             }
-          } else if (!waConnected(was) && waConnected(st)) {
+          } else if (!waConnected(was) && waConnected(st) && canNotify("wa_up")) {
             showToast("Instância online", name + " reconectou", "wa_up");
             prependExtraBell({
               id: "wa-up-" + id + "-" + Date.now(),
@@ -759,9 +800,9 @@ export const panelClientScript = `
         const total = money(data.todayStats.salesTotalCents || 0);
         const count = data.todayStats.salesCount || 0;
         const summaryKey = "daily-" + day;
-        if (!seen.has(summaryKey)) {
+        if (!seen.has(summaryKey) && canNotify("daily")) {
           showToast("Faturamento do dia", total + " · " + count + " venda(s)", "daily");
-          desktopNotify("Faturamento do dia", total + " · " + count + " venda(s)");
+          desktopNotify("Faturamento do dia", total + " · " + count + " venda(s)", "daily");
           prependExtraBell({
             id: summaryKey,
             kind: "daily",

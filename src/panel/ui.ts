@@ -1,6 +1,7 @@
 import type { BotConfig } from "../bots.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import type { ActivityItem, BotSalesRank, UserSalesRank } from "../db/events.js";
+import type { NotificationPrefs } from "../db/notification-prefs.js";
 import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
@@ -38,6 +39,15 @@ const GLOW_SEQ = [
 function glowStyle(i: number) {
   const t = GLOW_SEQ[i % GLOW_SEQ.length];
   return `--glow-delay:${t.delay};--glow-cycle:${t.cycle}`;
+}
+
+function dashStripeRingHtml() {
+  return `<div class="dash-stripe-ring" aria-hidden="true">
+    <span class="dash-stripe dash-stripe--t"></span>
+    <span class="dash-stripe dash-stripe--r"></span>
+    <span class="dash-stripe dash-stripe--b"></span>
+    <span class="dash-stripe dash-stripe--l"></span>
+  </div>`;
 }
 
 type SharkIconTone = "blue" | "green" | "yellow" | "money";
@@ -291,7 +301,7 @@ export function activeInstancesCardHtml(bots: BotConfig[], statuses: Record<stri
             const on = st === "connected" || st === "meta_ready";
             const label = statusLabel[st] || st;
             return `<div class="shark-instance-row">
-              <span class="shark-instance-dot${on ? " shark-instance-dot--on" : ""}"></span>
+              <span class="shark-instance-icon${on ? " shark-instance-icon--on" : ""}" aria-hidden="true">${on ? icons.smartphone : '<span class="shark-instance-dot"></span>'}</span>
               <span class="shark-instance-name">${escapeHtml(b.name)}</span>
               <span class="shark-instance-status${on ? " shark-instance-status--on" : ""}">${label}</span>
             </div>`;
@@ -338,6 +348,7 @@ export function dashboardPage(
 
   const topbarFatPill = `
       <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
+        ${dashStripeRingHtml()}
         ${sharkIconBox(icons.dollar, true, true, "money")}
         <div class="shark-fat-body">
           <div class="shark-fat-top">
@@ -380,6 +391,7 @@ export function dashboardPage(
     <div class="shark-main-grid">
       <div class="shark-kpi-grid">
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(1)}">
+          ${dashStripeRingHtml()}
           <div class="shark-kpi-head">
             ${sharkIconBox(icons.dollar, false, false, "blue")}
             <h3 class="shark-kpi-title">Vendas aprovadas</h3>
@@ -391,6 +403,7 @@ export function dashboardPage(
           </div>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(2)}">
+          ${dashStripeRingHtml()}
           <div class="shark-kpi-head">
             ${sharkIconBox(icons.trending, false, false, "blue")}
             <h3 class="shark-kpi-title">Taxa de conversão</h3>
@@ -398,6 +411,7 @@ export function dashboardPage(
           <div data-live="conv-gauge">${conversionGaugeSvg(convRate, `${data.stats.salesCount} pagos de ${data.stats.leads} leads`)}</div>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(3)}">
+          ${dashStripeRingHtml()}
           <div class="shark-kpi-head">
             ${sharkIconBox(icons.zap, false, false, "blue")}
             <h3 class="shark-kpi-title">Total starts</h3>
@@ -406,6 +420,7 @@ export function dashboardPage(
           <span class="shark-kpi-sub">leads iniciaram conversa</span>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card" style="${glowStyle(4)}">
+          ${dashStripeRingHtml()}
           <div class="shark-kpi-head">
             ${sharkIconBox(icons.receipt, false, false, "blue")}
             <h3 class="shark-kpi-title">Ticket médio</h3>
@@ -415,6 +430,7 @@ export function dashboardPage(
         </div>
       </div>
       <div class="shark-chart-card shark-card dash-glow-card shark-chart-card--pro" style="${glowStyle(5)}">
+        ${dashStripeRingHtml()}
         <div class="shark-chart-header">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity, false, false, "blue")}
@@ -432,6 +448,7 @@ export function dashboardPage(
 
     <div class="shark-bottom-grid">
       <div class="dash-glow-card shark-card card card-premium card-live-feed shark-log-card" style="${glowStyle(0)}">
+        ${dashStripeRingHtml()}
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity)}
@@ -445,6 +462,7 @@ export function dashboardPage(
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
       <div class="dash-glow-card shark-card card card-premium shark-instances-card" style="${glowStyle(1)}">
+        ${dashStripeRingHtml()}
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.layers)}
@@ -457,6 +475,7 @@ export function dashboardPage(
         <div class="card-body" data-live="instances-card">${activeInstancesCardHtml(bots, statuses)}</div>
       </div>
       <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
+        ${dashStripeRingHtml()}
         <div class="card-head">
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.crown, false, false, "yellow")}
@@ -518,6 +537,7 @@ export function dashboardPage(
 export function profilePage(
   user: { id: string; name: string; email: string; avatarUrl?: string; createdAt: string },
   stats: { salesTotalCents: number; salesCount: number; rank: number | null },
+  notificationPrefs: NotificationPrefs,
   message = "",
   isError = false,
   partial = false,
@@ -579,7 +599,40 @@ export function profilePage(
             <div class="profile-stat"><span>Posição global</span><strong>${rankLabel}</strong></div>
           </div>
         </div>
-        <div class="dash-glow-card card card-premium" style="${glowStyle(2)}">
+        <div class="dash-glow-card card card-premium profile-notify-card" style="${glowStyle(2)}">
+          <div class="card-head"><h3>${icons.bell} Notificações</h3></div>
+          <div class="card-body">
+            <p class="profile-notify-desc">Escolha quais alertas você quer receber no painel e no sino.</p>
+            <form method="post" action="/perfil/notificacoes" class="profile-notify-form">
+              <label class="notify-toggle notify-toggle--master">
+                <input type="checkbox" name="enabled" ${notificationPrefs.enabled ? "checked" : ""} />
+                <span><strong>Ativar notificações</strong><em>Controle geral de alertas em tempo real</em></span>
+              </label>
+              <label class="notify-toggle">
+                <input type="checkbox" name="sales" ${notificationPrefs.sales ? "checked" : ""} />
+                <span><strong>Vendas aprovadas</strong><em>Popup e sino quando um PIX for confirmado</em></span>
+              </label>
+              <label class="notify-toggle">
+                <input type="checkbox" name="leads" ${notificationPrefs.leads ? "checked" : ""} />
+                <span><strong>Novas conversas</strong><em>Quando alguém iniciar chat com sua instância</em></span>
+              </label>
+              <label class="notify-toggle">
+                <input type="checkbox" name="instances" ${notificationPrefs.instances ? "checked" : ""} />
+                <span><strong>Status das instâncias</strong><em>Quando uma instância cair ou reconectar</em></span>
+              </label>
+              <label class="notify-toggle">
+                <input type="checkbox" name="dailySummary" ${notificationPrefs.dailySummary ? "checked" : ""} />
+                <span><strong>Resumo do dia</strong><em>Faturamento total após 22h</em></span>
+              </label>
+              <label class="notify-toggle">
+                <input type="checkbox" name="desktop" ${notificationPrefs.desktop ? "checked" : ""} />
+                <span><strong>Notificações do navegador</strong><em>Alertas nativos do sistema operacional</em></span>
+              </label>
+              <button type="submit" class="btn btn-primary btn-block">Salvar notificações</button>
+            </form>
+          </div>
+        </div>
+        <div class="dash-glow-card card card-premium" style="${glowStyle(3)}">
           <div class="card-head"><h3>${icons.lock} Segurança</h3></div>
           <div class="card-body">
             <form method="post" action="/perfil/senha" class="profile-security-form">

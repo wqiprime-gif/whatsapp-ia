@@ -1392,6 +1392,54 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .profile-stat strong { font-size: 1.2rem; }
 .profile-stat strong.accent { color: var(--blue-bright); }
 .profile-security-form { display: grid; gap: 12px; }
+.profile-notify-desc {
+  margin: 0 0 14px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.profile-notify-form { display: grid; gap: 10px; }
+.notify-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+}
+.notify-toggle input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+.notify-toggle span {
+  display: grid;
+  gap: 2px;
+}
+.notify-toggle strong {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #fff;
+}
+.notify-toggle em {
+  font-style: normal;
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.notify-toggle--master {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.06);
+}
+.profile-notify-card .card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* —— SHARK DASHBOARD —— */
 .shark-dash { display: flex; flex-direction: column; gap: 20px; }
@@ -1428,25 +1476,27 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
   overflow: hidden;
+  border-radius: inherit;
 }
 .dash-stripe-ring span {
   position: absolute;
-  opacity: 0.72;
+  opacity: 0.9;
   pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.55));
 }
 .dash-stripe--t,
 .dash-stripe--b {
-  height: 1px;
-  width: 32%;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.85), transparent);
+  height: 2px;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.95), transparent);
 }
 .dash-stripe--r,
 .dash-stripe--l {
-  width: 1px;
-  height: 32%;
-  background: linear-gradient(180deg, transparent, rgba(59, 130, 246, 0.85), transparent);
+  width: 2px;
+  height: 38%;
+  background: linear-gradient(180deg, transparent, rgba(96, 165, 250, 0.95), transparent);
 }
 .dash-stripe--t {
   top: 0;
@@ -2115,11 +2165,17 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   min-height: 240px;
   z-index: 6;
 }
-.shark-chart-stage--interactive {
+.shark-chart-hover-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  z-index: 8;
   cursor: crosshair;
 }
-.shark-chart-stage--hover .shark-chart-curve {
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.35));
+.shark-chart-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 .shark-chart-svg {
   width: 100%;
@@ -2127,6 +2183,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   min-height: 240px;
   display: block;
   overflow: visible;
+  pointer-events: none;
+}
+.shark-chart-stage--interactive {
+  cursor: crosshair;
+}
+.shark-chart-stage--hover .shark-chart-curve {
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.35));
 }
 .shark-chart-curve {
   filter: none;
@@ -2233,6 +2296,25 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .shark-instance-dot--on {
   background: #3b82f6;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+.shark-instance-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+.shark-instance-icon--on {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.18);
+}
+.shark-instance-icon svg {
+  width: 16px;
+  height: 16px;
 }
 .shark-instance-name {
   flex: 1;

@@ -41,6 +41,7 @@ import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } 
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
 import { authenticateUser, createUser, getUserById, updateUserProfile } from "../db/users.js";
+import { getNotificationPrefs, saveNotificationPrefs } from "../db/notification-prefs.js";
 import { encryptSecret } from "../lib/crypto.js";
 import {
   clearSessionCookie,
@@ -761,11 +762,13 @@ export async function registerPanelRoutes(
     if (!user) return;
     const full = await getUserById(user.id);
     const label = panelUserLabel({ name: full?.name ?? "", email: full?.email ?? user.email });
+    const notificationPrefs = await getNotificationPrefs(user.id);
     return reply.send({
       name: full?.name ?? "",
       email: full?.email ?? user.email,
       label,
-      avatarUrl: full?.avatarUrl ?? ""
+      avatarUrl: full?.avatarUrl ?? "",
+      notificationPrefs
     });
   });
 
@@ -1198,6 +1201,7 @@ export async function registerPanelRoutes(
     const ranking = await salesRankingByUser(50);
     const rankIdx = ranking.findIndex((r) => r.userId === user.id);
     const meta = await panelUserMeta(user.id, user.email);
+    const notificationPrefs = await getNotificationPrefs(user.id);
     const html = profilePage(
       full,
       {
@@ -1205,6 +1209,7 @@ export async function registerPanelRoutes(
         salesCount: stats.salesCount,
         rank: rankIdx >= 0 ? rankIdx + 1 : null
       },
+      notificationPrefs,
       query.msg,
       query.t === "err",
       isPartial(request),
@@ -1250,6 +1255,26 @@ export async function registerPanelRoutes(
       }
       await updateUserProfile(user.id, { password: body.password });
       return reply.redirect(flashRedirect("/perfil", "Senha atualizada!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/perfil/notificacoes", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = (request.body ?? {}) as Record<string, string | undefined>;
+      const flag = (v: string | undefined) => v === "on" || v === "true" || v === "1";
+      await saveNotificationPrefs(user.id, {
+        enabled: flag(body.enabled),
+        sales: flag(body.sales),
+        leads: flag(body.leads),
+        instances: flag(body.instances),
+        dailySummary: flag(body.dailySummary),
+        desktop: flag(body.desktop)
+      });
+      return reply.redirect(flashRedirect("/perfil", "Preferências de notificação salvas!"));
     } catch (error) {
       return reply.redirect(flashRedirect("/perfil", `Erro: ${errorMessage(error)}`, "err"));
     }

@@ -260,8 +260,8 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
           <stop offset="100%" stop-color="#3b82f6"/>
         </linearGradient>
       </defs>
-      <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>
-      <path class="conv-gauge-arc conv-gauge-arc--animate" d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="10" stroke-linecap="round"
+      <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14" stroke-linecap="round"/>
+      <path class="conv-gauge-arc conv-gauge-arc--animate" d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="url(#${gid})" stroke-width="14" stroke-linecap="round"
         stroke-dasharray="${half.toFixed(2)} ${half.toFixed(2)}"
         style="--gauge-offset:${(half - dash).toFixed(2)};--gauge-half:${half.toFixed(2)}" />
       <text x="70" y="62" text-anchor="middle" fill="#fff" font-size="22" font-weight="500">${clamped.toFixed(0)}%</text>
@@ -333,27 +333,31 @@ export function sharkPerformanceChartHtml(
   const hits = coords
     .map(
       (c, i) =>
-        `<rect class="shark-chart-hit" data-idx="${i}" x="${(c.x - hitW / 2).toFixed(1)}" y="${padT}" width="${hitW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:crosshair"/>`
+        `<rect class="shark-chart-hit" data-idx="${i}" x="${(c.x - hitW / 2).toFixed(1)}" y="${padT}" width="${hitW.toFixed(1)}" height="${chartH}" fill="transparent"/>`
     )
     .join("");
+  const hoverCols = coords
+    .map((_, i) => `<div class="shark-chart-col" data-idx="${i}" role="presentation"></div>`)
+    .join("");
+  const chartDataJson = JSON.stringify(
+    coords.map((c) => ({
+      day: c.day,
+      label: chartDayLabelTooltip(c.day),
+      short: chartDayLabel(c.day),
+      cents: c.v,
+      cx: c.x,
+      cy: c.y
+    }))
+  );
   const labels = coords
     .map(
       (c) =>
         `<text x="${c.x}" y="${h - 4}" text-anchor="middle" fill="#71717a" font-size="11" font-family="JetBrains Mono, ui-monospace, monospace" pointer-events="none">${chartDayLabel(c.day)}</text>`
     )
     .join("");
-  const dataPayload = encodeURIComponent(
-    JSON.stringify(
-      coords.map((c) => ({
-        day: c.day,
-        label: chartDayLabelTooltip(c.day),
-        short: chartDayLabel(c.day),
-        cents: c.v
-      }))
-    )
-  );
 
-  return `<div class="shark-perf-chart" data-chart-points="${dataPayload}" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
+  return `<div class="shark-perf-chart" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
+    <script type="application/json" class="shark-chart-data">${chartDataJson.replace(/<\//g, "<\\/")}</script>
     <div class="shark-chart-legend">
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
@@ -371,11 +375,12 @@ export function sharkPerformanceChartHtml(
         <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.92)" stroke-width="1" opacity="0"/>
         ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
-        <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
+        <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>
         ${dots}
         ${labels}
         ${hits}
       </svg>
+      <div class="shark-chart-hover-layer" aria-hidden="true">${hoverCols}</div>
       <div class="shark-chart-tooltip" hidden>
         <span class="shark-chart-tooltip-day"></span>
         <div class="shark-chart-tooltip-row">
