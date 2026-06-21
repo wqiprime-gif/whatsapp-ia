@@ -6,6 +6,10 @@ import { getPool, useDatabase } from "./db/index.js";
 import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
+import { parseBotPlatform, type BotPlatform, isTelegramBot, isWhatsAppBot } from "./lib/platform-types.js";
+
+export type { BotPlatform };
+export { isTelegramBot, isWhatsAppBot, parseBotPlatform };
 
 const dataDir = env.DATA_DIR;
 const uploadsDir = path.join(dataDir, "uploads");
@@ -27,14 +31,19 @@ export type BotConfig = {
   id: string;
   userId: string;
   name: string;
-  /** Legado Telegram; no WhatsApp usa placeholder wa-{id}. */
+  /** Legado Telegram; no WhatsApp usa placeholder wa-{id}. No Telegram = token do @BotFather. */
   token: string;
+  /** whatsapp (padrão) ou telegram */
+  platform?: BotPlatform;
   waPort?: number;
   prompt: string;
   pixKey: string;
   pixRecipientName: string;
   messageDelayMs: number;
   previewMediaUrls: string[];
+  /** Apresentação do produto (o que o lead recebe após comprar) — envio único por lead */
+  productPresentationEnabled?: boolean;
+  productPresentationMediaUrls?: string[];
   deliveryMediaUrls: string[];
   audioLibrary: NamedAudio[];
   avatarUrl: string;
@@ -139,12 +148,16 @@ function rowToBot(row: {
   ai_provider?: string | null;
   ai_model?: string | null;
   ai_api_key_encrypted?: string | null;
+  platform?: string | null;
+  product_presentation_enabled?: boolean | null;
+  product_presentation_media_urls?: string[] | string;
 }): BotConfig {
   return {
     id: row.id,
     userId: row.user_id ?? "",
     name: row.name,
     token: row.token,
+    platform: parseBotPlatform(row.platform),
     waPort: row.wa_port ?? undefined,
     waApiProvider: parseWaApiProvider(row.wa_api_provider),
     proxyEnabled: Boolean(row.proxy_enabled),
@@ -160,6 +173,11 @@ function rowToBot(row: {
       typeof row.preview_media_urls === "string"
         ? JSON.parse(row.preview_media_urls)
         : row.preview_media_urls,
+    productPresentationEnabled: Boolean(row.product_presentation_enabled),
+    productPresentationMediaUrls:
+      typeof row.product_presentation_media_urls === "string"
+        ? JSON.parse(row.product_presentation_media_urls)
+        : (row.product_presentation_media_urls ?? []),
     deliveryMediaUrls:
       typeof row.delivery_media_urls === "string"
         ? JSON.parse(row.delivery_media_urls)
@@ -184,8 +202,9 @@ function rowToBot(row: {
   };
 }
 
-const BOT_SELECT = `SELECT id, user_id, name, token, prompt, pix_key, pix_recipient_name, message_delay_ms,
-  preview_media_urls, delivery_media_urls, audio_library, avatar_url, active,
+const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, pix_recipient_name, message_delay_ms,
+  preview_media_urls, product_presentation_enabled, product_presentation_media_urls,
+  delivery_media_urls, audio_library, avatar_url, active,
   payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
   gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
@@ -226,7 +245,10 @@ export async function loadBots(userId?: string) {
     metaVerifyToken: b.metaVerifyToken ?? "",
     aiProvider: normalizeAIProvider(b.aiProvider),
     aiModel: b.aiModel ? sanitizeAIModel(normalizeAIProvider(b.aiProvider), b.aiModel) : undefined,
-    aiApiKeyEncrypted: b.aiApiKeyEncrypted
+    aiApiKeyEncrypted: b.aiApiKeyEncrypted,
+    platform: parseBotPlatform(b.platform),
+    productPresentationEnabled: Boolean(b.productPresentationEnabled),
+    productPresentationMediaUrls: b.productPresentationMediaUrls ?? []
   })) as BotConfig[];
 
   return userId ? normalized.filter((b) => b.userId === userId) : normalized;
@@ -246,23 +268,27 @@ export async function getBotByIdAny(id: string) {
 export async function upsertBot(bot: BotConfig) {
   if (useDatabase()) {
     await getPool().query(
-      `INSERT INTO bots (id, user_id, name, token, prompt, pix_key, pix_recipient_name, message_delay_ms,
-        preview_media_urls, delivery_media_urls, audio_library, avatar_url, active,
+      `INSERT INTO bots (id, user_id, name, token, platform, prompt, pix_key, pix_recipient_name, message_delay_ms,
+        preview_media_urls, product_presentation_enabled, product_presentation_media_urls,
+        delivery_media_urls, audio_library, avatar_url, active,
         payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
         gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
         follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
         ai_provider, ai_model, ai_api_key_encrypted)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
          token = EXCLUDED.token,
+         platform = EXCLUDED.platform,
          prompt = EXCLUDED.prompt,
          pix_key = EXCLUDED.pix_key,
          pix_recipient_name = EXCLUDED.pix_recipient_name,
          message_delay_ms = EXCLUDED.message_delay_ms,
          preview_media_urls = EXCLUDED.preview_media_urls,
+         product_presentation_enabled = EXCLUDED.product_presentation_enabled,
+         product_presentation_media_urls = EXCLUDED.product_presentation_media_urls,
          delivery_media_urls = EXCLUDED.delivery_media_urls,
          audio_library = EXCLUDED.audio_library,
          avatar_url = EXCLUDED.avatar_url,
@@ -293,11 +319,14 @@ export async function upsertBot(bot: BotConfig) {
         bot.userId,
         bot.name,
         bot.token,
+        bot.platform ?? "whatsapp",
         bot.prompt,
         bot.pixKey,
         bot.pixRecipientName,
         bot.messageDelayMs,
         JSON.stringify(bot.previewMediaUrls),
+        Boolean(bot.productPresentationEnabled),
+        JSON.stringify(bot.productPresentationMediaUrls ?? []),
         JSON.stringify(bot.deliveryMediaUrls),
         JSON.stringify(bot.audioLibrary ?? []),
         bot.avatarUrl,

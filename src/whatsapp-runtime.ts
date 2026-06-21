@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { loadBots, uploadsDir, type BotConfig } from "./bots.js";
+import { loadBots, uploadsDir, type BotConfig, isWhatsAppBot } from "./bots.js";
 import { listProducts } from "./db/events.js";
 import { getUserById } from "./db/users.js";
 import { env, rootDir } from "./config.js";
@@ -268,6 +268,8 @@ async function syncBotFiles(bot: BotConfig, port: number) {
     JSON.stringify(
       {
         previewMediaUrls: bot.previewMediaUrls ?? [],
+        productPresentationEnabled: Boolean(bot.productPresentationEnabled),
+        productPresentationMediaUrls: bot.productPresentationMediaUrls ?? [],
         deliveryMediaUrls: bot.deliveryMediaUrls ?? [],
         pixKey: bot.pixKey,
         pixRecipientName: bot.pixRecipientName || bot.name,
@@ -456,7 +458,7 @@ export async function syncWhatsAppBotConfigs() {
   const bots = await loadBots();
   let index = 0;
   for (const bot of bots) {
-    if (!bot.active || isMetaBot(bot)) continue;
+    if (!bot.active || !isWhatsAppBot(bot) || isMetaBot(bot)) continue;
     const port = bot.waPort ?? waPortForBot(bot.id, index);
     index++;
     await syncBotFiles(bot, port);
@@ -516,7 +518,7 @@ let restartInProgress = false;
 function webBotIndex(bots: BotConfig[], botId: string) {
   let index = 0;
   for (const bot of bots) {
-    if (!bot.active || isMetaBot(bot)) continue;
+    if (!bot.active || !isWhatsAppBot(bot) || isMetaBot(bot)) continue;
     if (bot.id === botId) return index;
     index++;
   }
@@ -536,7 +538,7 @@ async function spawnWebBotsStaggered(bots: BotConfig[], skipExisting = false) {
   const toSpawn: { bot: BotConfig; port: number }[] = [];
   let index = 0;
   for (const bot of bots) {
-    if (!bot.active || isMetaBot(bot)) continue;
+    if (!bot.active || !isWhatsAppBot(bot) || isMetaBot(bot)) continue;
     if (skipExisting && processes.has(bot.id)) {
       index++;
       continue;
@@ -594,7 +596,7 @@ export async function ensureWhatsAppBotsRunning() {
     }
 
     const bots = await loadBots();
-    const activeWeb = bots.filter((b) => b.active && !isMetaBot(b));
+    const activeWeb = bots.filter((b) => b.active && isWhatsAppBot(b) && !isMetaBot(b));
     const activeIds = new Set(activeWeb.map((b) => b.id));
 
     for (const [id] of processes) {
@@ -615,7 +617,7 @@ export async function restartSingleWhatsAppBot(botId: string) {
   await killWebBot(botId);
   const bots = await loadBots();
   const bot = bots.find((b) => b.id === botId);
-  if (!bot?.active || isMetaBot(bot)) return;
+  if (!bot?.active || !isWhatsAppBot(bot) || isMetaBot(bot)) return;
   const port = bot.waPort ?? waPortForBot(bot.id, webBotIndex(bots, botId));
   await spawnWebBot(bot, port);
 }

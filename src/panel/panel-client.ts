@@ -170,6 +170,18 @@ export const panelClientScript = `
     }
     if (sel) { sel.addEventListener("change", syncApi); syncApi(); }
     if (proxySel) { proxySel.addEventListener("change", syncProxy); syncProxy(); }
+
+    const platformSel = scope.querySelector("#instance-platform");
+    const tgBlock = scope.querySelector("#telegram-token-block");
+    const waBlocks = scope.querySelector("#wa-platform-blocks");
+    const tgTokenInput = scope.querySelector('input[name="telegramBotToken"]');
+    function syncPlatform() {
+      const isTg = platformSel && platformSel.value === "telegram";
+      if (tgBlock) tgBlock.style.display = isTg ? "" : "none";
+      if (waBlocks) waBlocks.style.display = isTg ? "none" : "";
+      if (tgTokenInput) tgTokenInput.required = Boolean(isTg && !tgTokenInput.placeholder.includes("Atual:"));
+    }
+    if (platformSel) { platformSel.addEventListener("change", syncPlatform); syncPlatform(); }
   }
 
   function runInlineScripts(root) {

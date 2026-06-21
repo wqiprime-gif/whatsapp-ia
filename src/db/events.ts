@@ -181,6 +181,9 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS callhot_api_secret_encrypted TEXT;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_video_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_price_cents INTEGER NOT NULL DEFAULT 1500;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS platform TEXT NOT NULL DEFAULT 'whatsapp';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_enabled BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_media_urls JSONB NOT NULL DEFAULT '[]';
   `);
 }
 

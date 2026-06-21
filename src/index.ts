@@ -14,17 +14,27 @@ import {
   shutdownWhatsAppBots,
   syncWhatsAppBotConfigs
 } from "./whatsapp-runtime.js";
+import {
+  ensureTelegramBotsRunning,
+  restartSingleTelegramBot,
+  restartTelegramBots,
+  shutdownTelegramBots
+} from "./telegram-runtime.js";
 
 export async function restartBots() {
-  await restartWhatsAppBots();
+  await Promise.all([restartWhatsAppBots(), restartTelegramBots()]);
 }
 
 export async function ensureBots() {
-  await ensureWhatsAppBotsRunning();
+  await Promise.all([ensureWhatsAppBotsRunning(), ensureTelegramBotsRunning()]);
 }
 
 export async function syncBots() {
   await syncWhatsAppBotConfigs();
+}
+
+export async function restartBot(botId: string) {
+  await Promise.all([restartSingleWhatsAppBot(botId), restartSingleTelegramBot(botId)]);
 }
 
 const WA_SESSION_BODY_LIMIT = 100 * 1024 * 1024;
@@ -52,7 +62,7 @@ await registerPanelRoutes(app, {
     void restartBots().catch((error) => console.error("Erro ao reiniciar bots:", error));
   },
   restartBot: (botId: string) => {
-    void restartSingleWhatsAppBot(botId).catch((error) =>
+    void restartBot(botId).catch((error) =>
       console.error(`Erro ao reiniciar bot ${botId}:`, error)
     );
   },
@@ -139,7 +149,7 @@ console.log("[startup] Instâncias cadastradas:", botsOnStart);
 console.log("[startup] Painel:", `${localBase}/login`);
 console.log("[startup] Health:", `${localBase}/health`);
 
-void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias WA:", error));
+void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias (WA + Telegram):", error));
 
 const { processDueScheduledCampaigns } = await import("./lib/scheduled-campaigns.js");
 setInterval(() => {
@@ -158,7 +168,7 @@ async function onShutdownSignal(signal: string) {
   appShuttingDown = true;
   console.log(`[shutdown] ${signal} — salvando sessões WhatsApp antes de encerrar...`);
   try {
-    await shutdownWhatsAppBots();
+    await Promise.all([shutdownWhatsAppBots(), shutdownTelegramBots()]);
   } catch (error) {
     console.error("[shutdown] Erro ao encerrar bots:", error);
   }

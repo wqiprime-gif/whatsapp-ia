@@ -309,7 +309,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, products: [] };
+  return { previewMediaUrls: [], productPresentationEnabled: false, productPresentationMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, products: [] };
 }
 
 const halfPriceOffered = {};
@@ -495,6 +495,48 @@ function hydratePreviewSentFromDisk() {
   if (Object.keys(store).length > 0) {
     console.log(`📎 Prévias já enviadas (persistidas): ${Object.keys(store).length} contato(s)`);
   }
+}
+
+const presentationSentPath = path.join(instancesDataDir, 'presentation-sent.json');
+
+function loadPresentationSentStore() {
+  try {
+    if (fs.existsSync(presentationSentPath)) {
+      const data = JSON.parse(fs.readFileSync(presentationSentPath, 'utf8'));
+      return data && typeof data === 'object' ? data : {};
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao carregar presentation-sent.json:', error.message);
+  }
+  return {};
+}
+
+function hasPresentationBeenSent(jid) {
+  return Boolean(hasSentApresentacao[jid]);
+}
+
+function markPresentationSent(jid) {
+  hasSentApresentacao[jid] = true;
+  try {
+    const store = loadPresentationSentStore();
+    store[jid] = new Date().toISOString();
+    fs.writeFileSync(presentationSentPath, JSON.stringify(store, null, 2));
+  } catch (error) {
+    console.warn('⚠️ Erro ao salvar presentation-sent.json:', error.message);
+  }
+}
+
+function hydratePresentationSentFromDisk() {
+  const store = loadPresentationSentStore();
+  for (const jid of Object.keys(store)) {
+    hasSentApresentacao[jid] = true;
+  }
+}
+
+function hasPresentationMedia() {
+  const config = loadBotConfig();
+  if (!config.productPresentationEnabled) return false;
+  return (config.productPresentationMediaUrls || []).filter(Boolean).length > 0;
 }
 
 async function resolveMediaLocalPath(url) {
@@ -1040,8 +1082,10 @@ function scheduleSaveConversations() {
 
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
+const hasSentApresentacao = {};
 const hasSentNaoSouFake = {};
 hydratePreviewSentFromDisk();
+hydratePresentationSentFromDisk();
 const arrayImport = require('./arrayImport');
 const messageBuffers = {};
 const bufferTimers = {};
@@ -1068,7 +1112,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_apresentacao_produto|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 function parsePromptActions(text) {
   const actions = [];
@@ -1151,6 +1195,9 @@ async function executePromptActions(client, messageFrom, actions) {
     if (action === 'send_amostra_gratis' && !hasPreviewBeenSent(messageFrom)) {
       const ok = await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
       if (ok) markPreviewSent(messageFrom);
+    } else if (action === 'send_apresentacao_produto' && !hasPresentationBeenSent(messageFrom)) {
+      const ok = await functionCalls.send_apresentacao_produto(client, messageFrom, conversation);
+      if (ok) markPresentationSent(messageFrom);
     } else if (action === 'send_informacoes' && !hasSentInformacoes[messageFrom]) {
       hasSentInformacoes[messageFrom] = true;
       await functionCalls.send_informacoes(client, messageFrom, conversation);
@@ -1197,6 +1244,14 @@ async function runCompletion(userNumber, message) {
         function: {
           name: 'send_amostra_gratis',
           description: 'Envia uma foto de amostra gratuita para o lead. Use quando pedirem prévia, foto, amostra ou teste grátis.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'send_apresentacao_produto',
+          description: 'Mostra foto ou video do produto que o lead recebe apos comprar. Use quando perguntarem o que vem no pack ou antes de fechar venda.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -1264,6 +1319,20 @@ async function runCompletion(userNumber, message) {
       return await generatePersonaReply(
         userNumber,
         'O lead pediu outra prévia mas você já enviou uma. Recuse com carinho e diga que só libera comprando.'
+      );
+    }
+
+    if (hasPresentationBeenSent(userNumber) && fnName === 'send_apresentacao_produto') {
+      return await generatePersonaReply(
+        userNumber,
+        'Voce ja mostrou o produto para este lead. Diga que e so comprar para receber tudo.'
+      );
+    }
+
+    if (!hasPresentationMedia() && fnName === 'send_apresentacao_produto') {
+      return await generatePersonaReply(
+        userNumber,
+        'Apresentacao do produto nao esta configurada no painel. Explique verbalmente o que o lead recebe.'
       );
     }
 
@@ -1335,6 +1404,7 @@ const functionCalls = {
     await sendInformacoes(client, messageFrom, conversation);
   },
   send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
+  send_apresentacao_produto: async (client, messageFrom, conversation) => sendApresentacaoProduto(client, messageFrom, conversation),
   send_chave_pix: async (client, messageFrom, conversation) => enviarChavePix(messageFrom, conversation),
   chamada_video: async (client, messageFrom, conversation) => { await chamadaVideo(client, messageFrom, conversation); },
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
@@ -1795,6 +1865,69 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
     return true;
   } catch (error) {
     console.error('Error sending Amostra Gratis:', error.message);
+    isProcessing[messageFrom] = false;
+    return false;
+  }
+}
+
+async function sendApresentacaoProduto(client, messageFrom, conversation) {
+  try {
+    isProcessing[messageFrom] = true;
+
+    const config = loadBotConfig();
+    if (!config.productPresentationEnabled) {
+      isProcessing[messageFrom] = false;
+      return false;
+    }
+
+    const urls = (config.productPresentationMediaUrls || []).filter(Boolean);
+    if (urls.length === 0) {
+      console.error('❌ Apresentacao do produto nao configurada. Ative e faca upload em Instancias → Editar.');
+      isProcessing[messageFrom] = false;
+      return false;
+    }
+
+    const chat = await client.getChatById(messageFrom);
+    let sentCount = 0;
+
+    await sendTextHuman(client, messageFrom, 'Olha o que voce vai receber depois de comprar 😘');
+
+    for (const url of urls) {
+      const localPath = await resolveMediaLocalPath(url);
+      if (!localPath) {
+        console.error(`❌ Midia apresentacao nao encontrada: ${url}`);
+        continue;
+      }
+
+      const media = MessageMedia.fromFilePath(localPath);
+      if (!media) continue;
+
+      const sent = await sendMediaWithTyping(client, messageFrom, media);
+      if (sent) {
+        sentCount++;
+        console.log(`✅ Apresentacao produto enviada (${url}) para ${messageFrom}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    if (sentCount === 0) {
+      isProcessing[messageFrom] = false;
+      return false;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const response = await generatePersonaReply(
+      messageFrom,
+      'Voce acabou de mostrar o que o lead recebe apos comprar. Pergunte em 1 frase se ele gostou ou se quer comprar.'
+    );
+    if (response) {
+      await sendTextHuman(client, messageFrom, response);
+    }
+    conversation.push({ role: 'system', content: 'Foi enviada a apresentacao do produto. Nao envie novamente.' });
+    isProcessing[messageFrom] = false;
+    return true;
+  } catch (error) {
+    console.error('Error sending Apresentacao Produto:', error.message);
     isProcessing[messageFrom] = false;
     return false;
   }

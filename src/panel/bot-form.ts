@@ -87,6 +87,96 @@ export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-pre
     </div>`;
 }
 
+/** Apresentação do produto — o que o lead recebe após comprar (funil, envio único). */
+export function productPresentationConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
+  const enabled = Boolean(bot?.productPresentationEnabled);
+  const urls = bot?.productPresentationMediaUrls ?? [];
+  const list =
+    urls.length === 0
+      ? `<p class="form-hint">Nenhuma mídia cadastrada. Envie foto ou vídeo abaixo.</p>`
+      : `<ul class="preview-url-list">
+      ${urls
+        .map((url, i) => {
+          const name = url.split("/").pop() || url;
+          return `<li class="preview-url-item">
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="preview-url-link">${escapeHtml(name)}</a>
+            <span class="badge badge-online">Produto</span>
+            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removePresentationIndexes" value="${i}" /> Remover</label>
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+
+  return `
+    <div class="form-section form-section-preview" id="apresentacao-produto">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.image}</span>
+        <div>
+          <h4>Apresentação do produto</h4>
+          <p>Foto ou vídeo mostrando <strong>o que o lead vai receber</strong> após comprar. Enviado <strong>uma vez por lead</strong> com <code>[[send_apresentacao_produto]]</code>.</p>
+        </div>
+      </div>
+      <label class="field">
+        <span>Ativar apresentação do produto</span>
+        <select name="productPresentationEnabled">
+          <option value="false" ${!enabled ? "selected" : ""}>Desativado</option>
+          <option value="true" ${enabled ? "selected" : ""}>Ativado</option>
+        </select>
+      </label>
+      ${list}
+      <label class="field">
+        <span>Mídia do produto (foto ou vídeo)</span>
+        <div class="dropzone dropzone-neon">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} JPG, PNG ou MP4</p>
+          <input form="${formId}" name="presentationFiles" type="file" accept="image/*,video/*" multiple />
+        </div>
+      </label>
+      <p class="form-hint">Use quando o lead perguntar o que vem no pack ou antes de fechar a venda.</p>
+    </div>`;
+}
+
+function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
+  const platform = bot?.platform ?? "whatsapp";
+  const isTg = platform === "telegram";
+  const tokenVal = isEdit && isTg ? bot?.token ?? "" : "";
+  const maskedToken =
+    isEdit && isTg && tokenVal
+      ? `${tokenVal.slice(0, 8)}…${tokenVal.slice(-4)}`
+      : "";
+
+  return `
+    <div class="form-section span-2" id="platform-section">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.layers}</span>
+        <div>
+          <h4>Plataforma</h4>
+          <p>WhatsApp (QR ou Meta API) ou bot do Telegram como alternativa.</p>
+        </div>
+      </div>
+      <label class="field">
+        <span>Canal da instância</span>
+        <select name="platform" id="instance-platform" ${isEdit ? "disabled" : ""}>
+          <option value="whatsapp" ${platform === "whatsapp" ? "selected" : ""}>WhatsApp</option>
+          <option value="telegram" ${platform === "telegram" ? "selected" : ""}>Telegram Bot</option>
+        </select>
+        ${isEdit ? `<input type="hidden" name="platform" value="${platform}" />` : ""}
+      </label>
+      <div id="telegram-token-block" style="${isTg ? "" : "display:none"}">
+        <label class="field span-2">
+          <span>Token do bot Telegram <small style="color:var(--muted)">(@BotFather)</small></span>
+          <input name="telegramBotToken" type="password" autocomplete="off"
+            placeholder="${isEdit && maskedToken ? `Atual: ${escapeHtml(maskedToken)} — vazio para manter` : "123456789:ABCdef..."}"
+            ${!isEdit && isTg ? "required minlength='20'" : ""} />
+        </label>
+        ${
+          isTg
+            ? `<p class="form-hint span-2">Links de rastreio: <code>https://t.me/SEU_BOT?start=instagram</code> (troque SEU_BOT pelo @ do bot).</p>`
+            : ""
+        }
+      </div>
+    </div>`;
+}
+
 /** Entrega automática após comprovante aprovado (link e/ou mídias). */
 export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
   const link = bot?.telegramGroupLink ?? "";
@@ -350,7 +440,10 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           <span class="form-hint">Ativo ≠ conectado ao WhatsApp. A conexão real aparece depois do QR.</span>
         </label>
         ${aiConfigBlock(isEdit, bot)}
+        ${platformConnectionBlock(isEdit, bot)}
+        <div id="wa-platform-blocks">
         ${waConnectionBlock(isEdit, bot)}
+        </div>
         <label class="field span-2">Foto de perfil do bot
           <div class="dropzone">
             ${isEdit && bot.avatarUrl ? `<div style="margin-bottom:10px">${botAvatarHtml(bot)}</div>` : ""}
@@ -412,7 +505,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
-
+        ${productPresentationConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         ${promptGeneratorBlock()}
@@ -485,6 +578,7 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
         const live = statuses[bot.id] ?? (bot.active ? "starting" : "paused");
         const badge = waStatusBadge(live);
         const showQr =
+          bot.platform !== "telegram" &&
           bot.waApiProvider !== "meta_cloud" &&
           bot.active &&
           (live === "qr_pending" ||
@@ -499,7 +593,7 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
             ${botAvatarHtml(bot)}
             <div>
               <div class="title">${escapeHtml(bot.name)}</div>
-              <div class="sub">${escapeHtml(bot.waApiProvider === "meta_cloud" ? "Meta API" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}</div>
+              <div class="sub">${bot.platform === "telegram" ? "Telegram Bot" : escapeHtml(bot.waApiProvider === "meta_cloud" ? "Meta API" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}</div>
             </div>
           </div>
         </td>
