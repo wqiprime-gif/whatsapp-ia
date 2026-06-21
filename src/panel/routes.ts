@@ -64,6 +64,7 @@ import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
+import { PWA_MANIFEST, SERVICE_WORKER_JS } from "./pwa.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -913,6 +914,17 @@ export async function registerPanelRoutes(
     if (!user) return;
     const html = leadsPage(await rowsForUser(await listLeads(200), user.id), isPartial(request));
     return reply.type("text/html").send(html);
+  });
+
+  app.get("/manifest.webmanifest", async (_request, reply) => {
+    return reply.type("application/manifest+json").send(PWA_MANIFEST);
+  });
+
+  app.get("/sw.js", async (_request, reply) => {
+    return reply
+      .header("Service-Worker-Allowed", "/")
+      .type("application/javascript; charset=utf-8")
+      .send(SERVICE_WORKER_JS);
   });
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {

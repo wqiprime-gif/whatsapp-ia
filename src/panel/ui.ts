@@ -629,6 +629,7 @@ export function profilePage(
                 <span><strong>Notificações do navegador</strong><em>Alertas nativos do sistema operacional</em></span>
               </label>
               <button type="submit" class="btn btn-primary btn-block">Salvar notificações</button>
+              <button type="button" class="btn btn-secondary btn-block" id="btn-test-notify">Testar notificação no celular</button>
             </form>
           </div>
         </div>

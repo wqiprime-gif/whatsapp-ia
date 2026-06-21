@@ -3,6 +3,7 @@ import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
 import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
+import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
 
 export type NavId =
@@ -143,6 +144,7 @@ export function appLayout(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
+  ${PWA_HEAD_TAGS}
   <title>${escapeHtml(title)} · ZapManager</title>
   <style>${globalStyles}</style>
 </head>

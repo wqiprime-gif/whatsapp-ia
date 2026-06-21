@@ -1463,20 +1463,22 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: relative;
   isolation: isolate;
 }
-.shark-dash .dash-glow-card::before,
-.shark-dash .dash-glow-card::after,
-.shark-dash .shark-kpi-card::before,
-.shark-dash .shark-kpi-card::after,
-.shark-dash .dash-glow-card.card-premium::before,
-.shark-dash .dash-glow-card.card-premium::after {
-  display: none !important;
-  content: none !important;
+.shark-dash .dash-glow-card,
+.shark-dash .shark-kpi-card {
+  background-color: #090909;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.022) 10px,
+    rgba(255, 255, 255, 0.022) 11px
+  );
 }
 .dash-stripe-ring {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 4;
+  z-index: 20;
   overflow: hidden;
   border-radius: inherit;
 }
@@ -1489,14 +1491,14 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .dash-stripe--t,
 .dash-stripe--b {
   height: 2px;
-  width: 38%;
-  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.95), transparent);
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 1), transparent);
 }
 .dash-stripe--r,
 .dash-stripe--l {
   width: 2px;
-  height: 38%;
-  background: linear-gradient(180deg, transparent, rgba(96, 165, 250, 0.95), transparent);
+  height: 42%;
+  background: linear-gradient(180deg, transparent, rgba(147, 197, 253, 1), transparent);
 }
 .dash-stripe--t {
   top: 0;
@@ -2169,8 +2171,9 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: absolute;
   inset: 0;
   display: flex;
-  z-index: 8;
+  z-index: 12;
   cursor: crosshair;
+  touch-action: none;
 }
 .shark-chart-col {
   flex: 1;
@@ -2308,9 +2311,14 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   background: rgba(255, 255, 255, 0.04);
 }
 .shark-instance-icon--on {
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.12);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.18);
+  color: #fff;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.22);
+}
+.shark-instance-icon--on svg {
+  stroke: #fff;
+  color: #fff;
 }
 .shark-instance-icon svg {
   width: 16px;

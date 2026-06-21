@@ -65,6 +65,70 @@ export const panelClientScript = `
   }
 
   loadNotifyPrefs();
+
+  let swRegisterPromise = null;
+
+  async function ensureServiceWorker() {
+    if (!("serviceWorker" in navigator)) return null;
+    if (!swRegisterPromise) {
+      swRegisterPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
+    }
+    return swRegisterPromise;
+  }
+
+  async function pushSystemNotify(title, body, tag, url) {
+    try {
+      await ensureServiceWorker();
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.active) {
+        reg.active.postMessage({
+          type: "SHOW_NOTIFICATION",
+          title: title,
+          body: body,
+          tag: tag || "zapmanager",
+          url: url || "/"
+        });
+        return true;
+      }
+    } catch (_) {}
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try {
+        new Notification(title, { body: body, icon: "/brand/whatsapp-logo.svg" });
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function bindTestNotify(root) {
+    const btn = (root || document).querySelector("#btn-test-notify");
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", async function () {
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = "Enviando...";
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+        const ok = await pushSystemNotify(
+          "Teste ZapManager",
+          "Notificação de teste — se viu isso, alertas no celular funcionam!",
+          "zap-test",
+          "/"
+        );
+        if (ok) {
+          showToast("Teste enviado!", "Verifique a bandeja de notificações do celular.", "daily");
+        } else {
+          showToast("Permissão necessária", "Ative notificações nas configurações do navegador/celular.", "daily");
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  }
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
   let navigating = false;
@@ -111,11 +175,25 @@ export const panelClientScript = `
   function runInlineScripts(root) {
     (root || document).querySelectorAll("script:not([src])").forEach(function (old) {
       if (!old.textContent || !old.textContent.trim()) return;
+      if (old.type && (old.type.indexOf("json") >= 0 || old.type.indexOf("ld+json") >= 0)) return;
       var s = document.createElement("script");
       if (old.type) s.type = old.type;
       s.textContent = old.textContent;
       old.parentNode.replaceChild(s, old);
     });
+  }
+
+  function parseChartPoints(chart) {
+    try {
+      const b64 = chart.getAttribute("data-chart-json") || "";
+      if (b64) return JSON.parse(atob(b64));
+      const dataEl = chart.querySelector(".shark-chart-data");
+      if (dataEl && dataEl.textContent) return JSON.parse(dataEl.textContent);
+      const raw = chart.getAttribute("data-chart-points") || "";
+      if (raw.indexOf("%") >= 0) return JSON.parse(decodeURIComponent(raw));
+      if (raw) return JSON.parse(raw.replace(/&#39;/g, "'"));
+    } catch (_) {}
+    return [];
   }
 
   function bindForms(root) {
@@ -181,7 +259,10 @@ export const panelClientScript = `
     if (h) h.textContent = pageTitle(path);
     setActiveNav(path);
     bindForms(main);
-    if (path === "/perfil" || path.startsWith("/perfil")) pageCache.delete("/perfil");
+    if (path === "/perfil" || path.startsWith("/perfil")) {
+      pageCache.delete("/perfil");
+      bindTestNotify(main);
+    }
     if (path === "/") {
       bindPeriodTabs(main);
       bindSharkCharts(main);
@@ -306,24 +387,14 @@ export const panelClientScript = `
     const scope = root || document;
     scope.querySelectorAll(".shark-perf-chart").forEach((chart) => {
       if (chart.dataset.chartBound === "1") return;
-      chart.dataset.chartBound = "1";
-      let points = [];
-      try {
-        const dataEl = chart.querySelector(".shark-chart-data");
-        if (dataEl && dataEl.textContent) {
-          points = JSON.parse(dataEl.textContent);
-        } else {
-          const raw = chart.getAttribute("data-chart-points") || "";
-          if (raw.indexOf("%") >= 0) points = JSON.parse(decodeURIComponent(raw));
-          else if (raw) points = JSON.parse(raw.replace(/&#39;/g, "'"));
-        }
-      } catch (_) {}
+      const points = parseChartPoints(chart);
       const stage = chart.querySelector(".shark-chart-stage");
       const svg = chart.querySelector(".shark-chart-svg");
       const tooltip = chart.querySelector(".shark-chart-tooltip");
-      const cursor = svg && svg.querySelector(".shark-chart-cursor");
-      const hoverLayer = chart.querySelector(".shark-chart-hover-layer");
       if (!stage || !svg || !tooltip || points.length === 0) return;
+      chart.dataset.chartBound = "1";
+      const cursor = svg.querySelector(".shark-chart-cursor");
+      const hoverLayer = chart.querySelector(".shark-chart-hover-layer");
 
       const curve = svg.querySelector(".shark-chart-curve");
       if (curve && typeof curve.getTotalLength === "function") {
@@ -381,29 +452,34 @@ export const panelClientScript = `
         });
       }
 
-      function bindCol(col) {
-        const idx = Number(col.getAttribute("data-idx"));
-        col.addEventListener("mouseenter", () => showTip(idx));
-        col.addEventListener("mousemove", () => showTip(idx));
+      function pickIdx(clientX) {
+        const rect = (hoverLayer || stage).getBoundingClientRect();
+        const rel = Math.max(0, Math.min(points.length - 1, Math.round(((clientX - rect.left) / rect.width) * (points.length - 1))));
+        return rel;
+      }
+
+      function bindPointer(el) {
+        el.addEventListener("mousemove", (e) => showTip(pickIdx(e.clientX)));
+        el.addEventListener("touchstart", (e) => {
+          if (e.touches[0]) showTip(pickIdx(e.touches[0].clientX));
+        }, { passive: true });
+        el.addEventListener("touchmove", (e) => {
+          if (e.touches[0]) showTip(pickIdx(e.touches[0].clientX));
+        }, { passive: true });
       }
 
       if (hoverLayer) {
-        hoverLayer.querySelectorAll(".shark-chart-col").forEach(bindCol);
-        hoverLayer.addEventListener("mousemove", (e) => {
-          const cols = hoverLayer.querySelectorAll(".shark-chart-col");
-          if (!cols.length) return;
-          const rect = hoverLayer.getBoundingClientRect();
-          const rel = Math.max(0, Math.min(cols.length - 1, Math.floor(((e.clientX - rect.left) / rect.width) * cols.length)));
-          showTip(rel);
+        hoverLayer.querySelectorAll(".shark-chart-col").forEach((col) => {
+          const idx = Number(col.getAttribute("data-idx"));
+          col.addEventListener("mouseenter", () => showTip(idx));
+          col.addEventListener("mousemove", () => showTip(idx));
         });
+        bindPointer(hoverLayer);
+      } else {
+        bindPointer(stage);
       }
-
-      stage.addEventListener("mousemove", (e) => {
-        const rect = stage.getBoundingClientRect();
-        const rel = Math.max(0, Math.min(points.length - 1, Math.round(((e.clientX - rect.left) / rect.width) * (points.length - 1))));
-        showTip(rel);
-      });
       stage.addEventListener("mouseleave", hideTip);
+      stage.addEventListener("touchend", hideTip);
     });
   }
 
@@ -625,9 +701,7 @@ export const panelClientScript = `
 
   function desktopNotify(title, body, kind) {
     if (!canDesktopNotify() || !canNotify(kind || "sale")) return;
-    if (Notification && Notification.permission === "granted") {
-      try { new Notification(title, { body: body }); } catch (_) {}
-    }
+    pushSystemNotify(title, body, kind || "alert", "/");
   }
 
   function dismissSalePopup(el) {
@@ -703,7 +777,7 @@ export const panelClientScript = `
   }
 
   if (Notification && Notification.permission === "default" && canDesktopNotify()) {
-    Notification.requestPermission().catch(() => {});
+    ensureServiceWorker().then(() => Notification.requestPermission().catch(() => {}));
   }
 
   function updateBellMenu(items) {
@@ -936,10 +1010,14 @@ export const panelClientScript = `
     });
   }
 
+  ensureServiceWorker();
+  bindTestNotify(document);
   if (location.pathname === "/") {
     bindPeriodTabs(document);
     bindSharkCharts(document);
     bindDashCardGlow(document);
+    requestAnimationFrame(function () { bindSharkCharts(document); });
+    setTimeout(function () { bindSharkCharts(document); }, 400);
     refreshLive(true);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refreshLive(true);

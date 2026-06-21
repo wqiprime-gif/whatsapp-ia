@@ -356,8 +356,9 @@ export function sharkPerformanceChartHtml(
     )
     .join("");
 
-  return `<div class="shark-perf-chart" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
-    <script type="application/json" class="shark-chart-data">${chartDataJson.replace(/<\//g, "<\\/")}</script>
+  const chartJsonB64 = Buffer.from(chartDataJson, "utf8").toString("base64");
+
+  return `<div class="shark-perf-chart" data-chart-json="${chartJsonB64}" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
     <div class="shark-chart-legend">
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
