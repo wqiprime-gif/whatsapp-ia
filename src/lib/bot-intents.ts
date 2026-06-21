@@ -16,6 +16,13 @@ export function wantsPreviewIntent(text: string) {
   );
 }
 
+export function wantsInterestIntent(text: string) {
+  if (wantsPreviewIntent(text)) return false;
+  return /quero|sim|pode|manda|tem|interesse|o que voc|oque voc|pack|conte[uú]do|ver|mostra|quanto|pre[cç]o|valor|tabela|o que (vc|ce) tem|me fala|me conta|gostei|curti|top|legal/i.test(
+    text
+  );
+}
+
 export function wantsPixIntent(text: string) {
   return /pix|pagar|pagamento|comprovante|vou comprar|quero comprar|manda (o )?pix/i.test(text);
 }

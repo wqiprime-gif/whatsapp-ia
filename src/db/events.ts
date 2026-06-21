@@ -184,6 +184,7 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS platform TEXT NOT NULL DEFAULT 'whatsapp';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_enabled BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_media_urls JSONB NOT NULL DEFAULT '[]';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS wa_phone_number TEXT NOT NULL DEFAULT '';
   `);
 }
 

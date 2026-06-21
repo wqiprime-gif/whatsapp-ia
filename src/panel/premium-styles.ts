@@ -1703,12 +1703,23 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
     gap: 12px;
     text-align: center;
   }
-  .topbar--dash .topbar-left,
-  .topbar--dash .topbar-right,
+  .topbar--dash .topbar-left {
+    display: none !important;
+  }
   .topbar--dash .topbar-center {
+    display: flex !important;
+    order: 1;
     justify-self: center;
   }
-  .topbar--dash .topbar-right { width: 100%; justify-content: center; }
+  .topbar--dash .topbar-right {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+  .shark-dash .dash-shell,
+  .dash-shell.shark-dash {
+    overflow-x: hidden;
+  }
 }
 .shark-dash-head {
   display: grid;

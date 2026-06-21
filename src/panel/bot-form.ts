@@ -1,8 +1,6 @@
 import type { BotConfig } from "../bots.js";
-import { env } from "../config.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
-import { WA_API_OPTIONS } from "../lib/wa-api-types.js";
 import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, sanitizeAIModel } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret, maskApiKey } from "../lib/crypto.js";
@@ -131,7 +129,7 @@ export function productPresentationConfigBlock(bot: BotConfig | undefined, formI
           <input form="${formId}" name="presentationFiles" type="file" accept="image/*,video/*" multiple />
         </div>
       </label>
-      <p class="form-hint">Use quando o lead perguntar o que vem no pack ou antes de fechar a venda.</p>
+      <p class="form-hint">Quando o lead demonstrar interesse, o bot envia automaticamente (antes da prévia). Use a tag se quiser reforçar manualmente no prompt.</p>
     </div>`;
 }
 
@@ -150,7 +148,7 @@ function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
         <span class="form-section-icon form-section-icon-cyan">${icons.layers}</span>
         <div>
           <h4>Plataforma</h4>
-          <p>WhatsApp (QR ou Meta API) ou bot do Telegram como alternativa.</p>
+          <p>WhatsApp (QR) ou bot do Telegram.</p>
         </div>
       </div>
       <label class="field">
@@ -171,9 +169,10 @@ function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
         ${
           isTg
             ? `<p class="form-hint span-2">Links de rastreio: <code>https://t.me/SEU_BOT?start=instagram</code> (troque SEU_BOT pelo @ do bot).</p>`
-            : ""
+            : `<p class="form-hint span-2">Ao escolher Telegram, configure o token abaixo. Campos do WhatsApp ficam ocultos.</p>`
         }
       </div>
+      <div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>
     </div>`;
 }
 
@@ -275,11 +274,8 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
 }
 
 function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
-  const provider = bot?.waApiProvider ?? "whatsapp_web";
-  const isMeta = provider === "meta_cloud";
   const proxyOn = Boolean(bot?.proxyEnabled);
-  const webhookBase = env.PUBLIC_BASE_URL || `http://localhost:${env.PORT}`;
-  const webhookUrl = bot ? `${webhookBase}/webhooks/meta/${bot.id}` : "";
+  const waPhone = bot?.waPhoneNumber ?? "";
   let proxyType = "http";
   let proxyHost = "";
   let proxyPort = "";
@@ -304,29 +300,10 @@ function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
     (o) => `<option value="${o.id}" ${proxyType === o.id ? "selected" : ""}>${escapeHtml(o.label)}</option>`
   ).join("");
 
-  const apiOptions = WA_API_OPTIONS.map(
-    (o) =>
-      `<option value="${o.id}" ${provider === o.id ? "selected" : ""}>${escapeHtml(o.label)}</option>`
-  ).join("");
-
   return `
-        <div class="form-section span-2" id="wa-api-section">
-          <div class="form-section-head">
-            <span class="form-section-icon form-section-icon-cyan">${icons.layers}</span>
-            <div>
-              <h4>API do WhatsApp</h4>
-              <p>Escolha como esta instância se conecta ao WhatsApp.</p>
-            </div>
-          </div>
-          <label class="field span-2">Provedor
-            <select name="waApiProvider" id="wa-api-provider">
-              ${apiOptions}
-            </select>
-          </label>
-          <p class="form-hint span-2" id="wa-api-hint">${escapeHtml(WA_API_OPTIONS.find((o) => o.id === provider)?.hint ?? "")}</p>
-        </div>
+        <input type="hidden" name="waApiProvider" value="whatsapp_web" />
 
-        <div class="form-section span-2" id="wa-web-block" style="${isMeta ? "display:none" : ""}">
+        <div class="form-section span-2" id="wa-web-block">
           <div class="form-section-head">
             <span class="form-section-icon">${icons.chat}</span>
             <div>
@@ -334,6 +311,12 @@ function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
               <p>Conexão via <strong>whatsapp-web.js</strong> (Puppeteer).</p>
             </div>
           </div>
+          <label class="field span-2">
+            <span>Número conectado (DDI+DDD+número)</span>
+            <input name="waPhoneNumber" type="tel" inputmode="numeric" autocomplete="tel"
+              value="${escapeHtml(waPhone)}" placeholder="5511999999999" />
+            <span class="form-hint">Usado automaticamente no <strong>Gerador de links</strong> — não precisa digitar de novo lá.</span>
+          </label>
           ${
             isEdit && bot
               ? `<a href="/instances/${bot.id}/qr" class="btn btn-primary btn-sm">Abrir QR Code</a>`
@@ -382,37 +365,7 @@ function waConnectionBlock(isEdit: boolean, bot?: BotConfig) {
               ${isEdit && bot?.proxyUrlEncrypted ? `<p class="form-hint span-2">Deixe a senha vazia para manter a atual.</p>` : ""}
             </div>
           </div>
-        </div>
-
-        <div class="form-section span-2" id="wa-meta-block" style="${isMeta ? "" : "display:none"}">
-          <div class="form-section-head">
-            <span class="form-section-icon form-section-icon-cyan">${icons.card}</span>
-            <div>
-              <h4>API oficial Meta (Cloud API)</h4>
-              <p>Credenciais do app em <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>.</p>
-            </div>
-          </div>
-          <label class="field">Phone Number ID
-            <input name="metaPhoneNumberId" value="${isEdit && bot ? escapeHtml(bot.metaPhoneNumberId ?? "") : ""}" placeholder="Ex: 123456789012345" />
-          </label>
-          <label class="field">Access Token permanente
-            <input name="metaAccessToken" type="password" autocomplete="off"
-              placeholder="${isEdit ? "Deixe vazio para manter o token atual" : "EAAxxxx..."}" />
-          </label>
-          <label class="field span-2">Verify Token (webhook)
-            <input name="metaVerifyToken" value="${isEdit && bot ? escapeHtml(bot.metaVerifyToken ?? "") : ""}" placeholder="token-secreto-webhook" />
-          </label>
-          ${
-            isEdit && bot
-              ? `<div class="field span-2 card" style="padding:14px">
-              <p class="form-hint" style="margin-bottom:8px">Configure no painel Meta → WhatsApp → Configuração → Webhook:</p>
-              <p><strong>URL:</strong><br/><code class="tracking-link">${escapeHtml(webhookUrl)}</code></p>
-              <p style="margin-top:8px"><strong>Verify token:</strong> o mesmo campo acima</p>
-            </div>`
-              : `<p class="form-hint span-2">Após salvar, a URL do webhook aparecerá aqui.</p>`
-          }
-        </div>
-        <div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>`;
+        </div>`;
 }
 
 export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
@@ -441,7 +394,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </label>
         ${aiConfigBlock(isEdit, bot)}
         ${platformConnectionBlock(isEdit, bot)}
-        <div id="wa-platform-blocks">
+        <div id="wa-platform-blocks" style="${(bot?.platform ?? "whatsapp") === "telegram" ? "display:none" : ""}">
         ${waConnectionBlock(isEdit, bot)}
         </div>
         <label class="field span-2">Foto de perfil do bot
@@ -532,7 +485,27 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </div>
         ${promptTagsSidebar()}
       </div>
-    </form>`;
+    </form>
+    <script>
+    (function () {
+      function syncPlatformForm() {
+        var sel = document.getElementById("instance-platform");
+        var tg = document.getElementById("telegram-token-block");
+        var wa = document.getElementById("wa-platform-blocks");
+        var token = document.querySelector('input[name="telegramBotToken"]');
+        if (!sel) return;
+        var isTg = sel.value === "telegram";
+        if (tg) tg.style.display = isTg ? "" : "none";
+        if (wa) wa.style.display = isTg ? "none" : "";
+        if (token) token.required = isTg && !(token.placeholder || "").includes("Atual:");
+      }
+      var platformSel = document.getElementById("instance-platform");
+      if (platformSel) {
+        platformSel.addEventListener("change", syncPlatformForm);
+        syncPlatformForm();
+      }
+    })();
+    </script>`;
 }
 
 function waStatusBadge(status: WaLiveStatus) {
@@ -593,7 +566,7 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
             ${botAvatarHtml(bot)}
             <div>
               <div class="title">${escapeHtml(bot.name)}</div>
-              <div class="sub">${bot.platform === "telegram" ? "Telegram Bot" : escapeHtml(bot.waApiProvider === "meta_cloud" ? "Meta API" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}</div>
+              <div class="sub">${bot.platform === "telegram" ? "Telegram Bot" : escapeHtml(bot.waApiProvider === "meta_cloud" ? "WhatsApp Web (legado)" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}${bot.waPhoneNumber ? ` · ${escapeHtml(bot.waPhoneNumber)}` : ""}</div>
             </div>
           </div>
         </td>

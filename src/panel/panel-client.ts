@@ -113,7 +113,7 @@ export const panelClientScript = `
           await Notification.requestPermission();
         }
         const ok = await pushSystemNotify(
-          "Teste ZapManager",
+          "Teste OnlyChat",
           "Notificação de teste — se viu isso, alertas no celular funcionam!",
           "zap-test",
           "/"
@@ -135,30 +135,37 @@ export const panelClientScript = `
   let fetchCtrl = null;
   const progress = document.getElementById("panel-nav-progress");
 
+  function bindPlatformForm(root) {
+    const scope = root || document;
+    const platformSel = scope.querySelector("#instance-platform");
+    if (!platformSel || platformSel.dataset.platformBound) return;
+    platformSel.dataset.platformBound = "1";
+
+    const tgBlock = scope.querySelector("#telegram-token-block");
+    const waBlocks = scope.querySelector("#wa-platform-blocks");
+    const tgTokenInput = scope.querySelector('input[name="telegramBotToken"]');
+
+    function syncPlatform() {
+      const isTg = platformSel.value === "telegram";
+      if (tgBlock) tgBlock.style.display = isTg ? "" : "none";
+      if (waBlocks) waBlocks.style.display = isTg ? "none" : "";
+      if (tgTokenInput) {
+        tgTokenInput.required = Boolean(isTg && !(tgTokenInput.placeholder || "").includes("Atual:"));
+      }
+    }
+    platformSel.addEventListener("change", syncPlatform);
+    syncPlatform();
+  }
+
   function bindWaInstanceForm(root) {
     const scope = root || document;
     const marker = scope.querySelector("[data-wa-form-init]");
     if (!marker || marker.dataset.waBound) return;
     marker.dataset.waBound = "1";
 
-    const hints = {
-      whatsapp_web: "QR Code no celular · Puppeteer · ideal para testes e VPS com disco",
-      meta_cloud: "Token permanente · webhook · recomendado para produção e Railway"
-    };
-
-    const sel = scope.querySelector("#wa-api-provider");
-    const web = scope.querySelector("#wa-web-block");
-    const meta = scope.querySelector("#wa-meta-block");
-    const hint = scope.querySelector("#wa-api-hint");
     const proxySel = scope.querySelector("#proxy-enabled");
     const proxyBlock = scope.querySelector("#proxy-fields-block");
 
-    function syncApi() {
-      const v = sel && sel.value;
-      if (web) web.style.display = v === "meta_cloud" ? "none" : "";
-      if (meta) meta.style.display = v === "meta_cloud" ? "" : "none";
-      if (hint && v) hint.textContent = hints[v] || "";
-    }
     function syncProxy() {
       const on = proxySel && proxySel.value === "true";
       if (proxyBlock) {
@@ -168,20 +175,7 @@ export const panelClientScript = `
         });
       }
     }
-    if (sel) { sel.addEventListener("change", syncApi); syncApi(); }
     if (proxySel) { proxySel.addEventListener("change", syncProxy); syncProxy(); }
-
-    const platformSel = scope.querySelector("#instance-platform");
-    const tgBlock = scope.querySelector("#telegram-token-block");
-    const waBlocks = scope.querySelector("#wa-platform-blocks");
-    const tgTokenInput = scope.querySelector('input[name="telegramBotToken"]');
-    function syncPlatform() {
-      const isTg = platformSel && platformSel.value === "telegram";
-      if (tgBlock) tgBlock.style.display = isTg ? "" : "none";
-      if (waBlocks) waBlocks.style.display = isTg ? "none" : "";
-      if (tgTokenInput) tgTokenInput.required = Boolean(isTg && !tgTokenInput.placeholder.includes("Atual:"));
-    }
-    if (platformSel) { platformSel.addEventListener("change", syncPlatform); syncPlatform(); }
   }
 
   function runInlineScripts(root) {
@@ -217,6 +211,7 @@ export const panelClientScript = `
         if (b) { b.disabled = true; b.textContent = "Salvando..."; }
       });
     });
+    bindPlatformForm(root);
     bindWaInstanceForm(root);
     runInlineScripts(root);
   }
@@ -225,7 +220,7 @@ export const panelClientScript = `
     if (path.startsWith("/instances/new")) return "Nova Instância";
     if (/^\\/instances\\/[^/]+\\/edit$/.test(path)) return "Editar instância";
     const hit = NAV_PATHS.find(([p]) => p === path);
-    return hit ? hit[1] : "ZapManager";
+    return hit ? hit[1] : "OnlyChat";
   }
 
   function normPath(p) {

@@ -22,7 +22,7 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
   {
     tag: "[[send_apresentacao_produto]]",
     label: "Apresentação do produto",
-    when: "Uma vez por lead. Mostra foto/vídeo do que ele recebe após comprar (funil). Ative em Apresentação do produto.",
+    when: "Uma vez por lead, cedo no funil — quando demonstrar interesse, ANTES da prévia. Mostra o que recebe após comprar.",
     example: "Lead pergunta o que vem no pack → tag + \"É isso que você recebe amor 😘\""
   },
   {

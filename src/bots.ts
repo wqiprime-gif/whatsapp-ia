@@ -56,8 +56,10 @@ export type BotConfig = {
   backupToken?: string;
   giftPrompt?: string;
   giftItems?: GiftItem[];
-  /** whatsapp-web.js ou API oficial Meta */
+  /** whatsapp-web.js ou API oficial Meta (legado) */
   waApiProvider?: WaApiProvider;
+  /** Número WhatsApp conectado (DDI+DDD+número) — usado no gerador de links */
+  waPhoneNumber?: string;
   /** Proxy dedicado por número (whatsapp-web.js) */
   proxyEnabled?: boolean;
   proxyUrlEncrypted?: string;
@@ -151,6 +153,7 @@ function rowToBot(row: {
   platform?: string | null;
   product_presentation_enabled?: boolean | null;
   product_presentation_media_urls?: string[] | string;
+  wa_phone_number?: string | null;
 }): BotConfig {
   return {
     id: row.id,
@@ -160,6 +163,7 @@ function rowToBot(row: {
     platform: parseBotPlatform(row.platform),
     waPort: row.wa_port ?? undefined,
     waApiProvider: parseWaApiProvider(row.wa_api_provider),
+    waPhoneNumber: row.wa_phone_number?.trim() || "",
     proxyEnabled: Boolean(row.proxy_enabled),
     proxyUrlEncrypted: row.proxy_url_encrypted ?? undefined,
     metaPhoneNumberId: row.meta_phone_number_id ?? "",
@@ -206,7 +210,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   preview_media_urls, product_presentation_enabled, product_presentation_media_urls,
   delivery_media_urls, audio_library, avatar_url, active,
   payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
-  gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
+  gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
   follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
   ai_provider, ai_model, ai_api_key_encrypted
@@ -238,6 +242,7 @@ export async function loadBots(userId?: string) {
     giftPrompt: b.giftPrompt ?? "",
     giftItems: parseGiftItems(b.giftItems),
     waApiProvider: parseWaApiProvider(b.waApiProvider),
+    waPhoneNumber: b.waPhoneNumber?.trim() || "",
     proxyEnabled: Boolean(b.proxyEnabled),
     proxyUrlEncrypted: b.proxyUrlEncrypted,
     metaPhoneNumberId: b.metaPhoneNumberId ?? "",
@@ -272,11 +277,11 @@ export async function upsertBot(bot: BotConfig) {
         preview_media_urls, product_presentation_enabled, product_presentation_media_urls,
         delivery_media_urls, audio_library, avatar_url, active,
         payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
-        gift_prompt, gift_items, wa_port, wa_api_provider, proxy_enabled, proxy_url_encrypted,
+        gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
         follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
         ai_provider, ai_model, ai_api_key_encrypted)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -303,6 +308,7 @@ export async function upsertBot(bot: BotConfig) {
          gift_items = EXCLUDED.gift_items,
          wa_port = EXCLUDED.wa_port,
          wa_api_provider = EXCLUDED.wa_api_provider,
+         wa_phone_number = EXCLUDED.wa_phone_number,
          proxy_enabled = EXCLUDED.proxy_enabled,
          proxy_url_encrypted = EXCLUDED.proxy_url_encrypted,
          meta_phone_number_id = EXCLUDED.meta_phone_number_id,
@@ -341,6 +347,7 @@ export async function upsertBot(bot: BotConfig) {
         JSON.stringify(bot.giftItems ?? []),
         bot.waPort ?? null,
         bot.waApiProvider ?? "whatsapp_web",
+        bot.waPhoneNumber?.trim() || "",
         Boolean(bot.proxyEnabled),
         bot.proxyUrlEncrypted ?? null,
         bot.metaPhoneNumberId ?? "",

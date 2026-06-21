@@ -5,11 +5,6 @@ export const WA_API_OPTIONS: { id: WaApiProvider; label: string; hint: string }[
     id: "whatsapp_web",
     label: "WhatsApp Web (whatsapp-web.js)",
     hint: "QR Code no celular · Puppeteer · ideal para testes e VPS com disco"
-  },
-  {
-    id: "meta_cloud",
-    label: "API oficial Meta (Cloud API)",
-    hint: "Token permanente · webhook · recomendado para produção e Railway"
   }
 ];
 

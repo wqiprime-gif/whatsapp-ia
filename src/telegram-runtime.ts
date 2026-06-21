@@ -16,6 +16,7 @@ import {
   confirmsPriceInterest,
   isGreeting,
   limitSentences,
+  wantsInterestIntent,
   wantsPixIntent,
   wantsPreviewIntent,
   wantsPriceTable
@@ -534,6 +535,9 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     }
 
     if (wantsPreviewIntent(text) && config.previewMediaUrls.length > 0) {
+      if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
+        await sendProductPresentation(runtime, chatId);
+      }
       const sent = await sendPreview(runtime, chatId);
       if (sent) leadState.hasSentAmostra = true;
       return;
@@ -628,13 +632,29 @@ Audios: ${audioLibraryPrompt(library)}.`
         await humanSendText(ctx.telegram, chatId, config, outText);
       }
 
+      if (actions.includes("send_apresentacao_produto")) {
+        await sendProductPresentation(runtime, chatId);
+        leadState.hasSentApresentacao = true;
+      }
+
       if (actions.includes("send_amostra_gratis") && config.previewMediaUrls.length > 0) {
+        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
+          await sendProductPresentation(runtime, chatId);
+          leadState.hasSentApresentacao = true;
+        }
         const sent = await sendPreview(runtime, chatId);
         if (sent) leadState.hasSentAmostra = true;
       }
 
-      if (actions.includes("send_apresentacao_produto")) {
+      if (
+        !runtime.presentationUsed.has(chatId) &&
+        config.productPresentationEnabled &&
+        !wantsPreviewIntent(text) &&
+        !(isGreeting(text) && leadState.userMessageCount <= 1) &&
+        (leadState.userMessageCount >= 2 || wantsInterestIntent(text))
+      ) {
         await sendProductPresentation(runtime, chatId);
+        leadState.hasSentApresentacao = true;
       }
 
       const lower = clean.toLowerCase();
@@ -642,6 +662,10 @@ Audios: ${audioLibraryPrompt(library)}.`
         /previa|prévia|vou te mandar|segue a foto|mando agora|olha s[oó]/i.test(lower) &&
         config.previewMediaUrls.length > 0;
       if (aiOffersPreview && !actions.includes("send_amostra_gratis") && !runtime.previewUsed.has(chatId)) {
+        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
+          await sendProductPresentation(runtime, chatId);
+          leadState.hasSentApresentacao = true;
+        }
         const sent = await sendPreview(runtime, chatId, { skipIntro: true });
         if (sent) leadState.hasSentAmostra = true;
       }

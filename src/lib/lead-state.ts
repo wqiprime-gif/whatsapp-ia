@@ -66,7 +66,7 @@ export function leadStateContext(state: LeadState) {
     state.hasSentAmostra ? "Previa gratis JA enviada — nao use [[send_amostra_gratis]]." : "Previa ainda nao enviada.",
     state.hasSentApresentacao
       ? "Apresentacao do produto JA enviada — nao use [[send_apresentacao_produto]]."
-      : "Apresentacao do produto ainda nao enviada.",
+      : "Apresentacao do produto ainda nao enviada — envie cedo no funil (quando houver interesse), ANTES da previa.",
     state.paid ? "Lead ja pagou — nao responda." : ""
   ];
   return parts.filter(Boolean).join(" ");

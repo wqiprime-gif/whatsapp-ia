@@ -1,4 +1,4 @@
-/** ZapManager — tema preto + azul (estilo Shark) */
+/** OnlyChat — tema preto + azul (estilo Shark) */
 export const designSystem = {
   colors: {
     bgBase: "#050505",

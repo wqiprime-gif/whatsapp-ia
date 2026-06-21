@@ -528,6 +528,20 @@ button, input, textarea, select { font-family: inherit; }
 @media (max-width: 900px) {
   .topbar { grid-template-columns: 1fr auto; }
   .topbar-center { display: none; }
+  .topbar--dash .topbar-center { display: flex !important; }
+  .topbar--dash .topbar-left { display: none !important; }
+  .topbar--dash {
+    min-height: auto;
+    padding: 16px 16px 12px;
+    gap: 10px;
+  }
+  .content:has(.shark-dash) {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  .shark-main-grid,
+  .shark-kpi-grid {
+    min-width: 0;
+  }
 }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .icon-btn {

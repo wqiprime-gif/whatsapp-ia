@@ -19,7 +19,7 @@ export async function generateBotPrompt(userId: string, input: PromptGeneratorIn
       {
         role: "system",
         content: `Você cria prompts para bots de vendas no WhatsApp (conteúdo adulto/sensual permitido).
-O prompt deve ser em português BR, direto, pronto para colar no painel ZapManager.
+O prompt deve ser em português BR, direto, pronto para colar no painel OnlyChat.
 Inclua OBRIGATORIAMENTE as tags de ação quando fizer sentido:
 ${TAG_LIST}
 

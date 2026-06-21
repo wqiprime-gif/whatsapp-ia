@@ -13,6 +13,7 @@ export function applyWaFieldsFromForm(
   bot: BotConfig,
   fields: {
     waApiProvider?: string;
+    waPhoneNumber?: string;
     proxyEnabled?: string;
     proxyType?: string;
     proxyHost?: string;
@@ -25,8 +26,12 @@ export function applyWaFieldsFromForm(
     metaVerifyToken?: string;
   }
 ): BotConfig {
-  const waApiProvider = parseWaApiProvider(fields.waApiProvider);
+  const waApiProvider = parseWaApiProvider(fields.waApiProvider ?? bot.waApiProvider);
   const proxyEnabled = fields.proxyEnabled === "true";
+  const waPhoneDigits = (fields.waPhoneNumber ?? bot.waPhoneNumber ?? "").replace(/\D/g, "");
+  if (waPhoneDigits && (waPhoneDigits.length < 10 || waPhoneDigits.length > 15)) {
+    throw new Error("Número WhatsApp inválido — use DDI+DDD+número (10 a 15 dígitos).");
+  }
   let builtProxy = buildProxyUrl(fields);
 
   if (proxyEnabled && !fields.proxyPassword?.trim() && bot.proxyUrlEncrypted && fields.proxyHost?.trim()) {
@@ -43,6 +48,7 @@ export function applyWaFieldsFromForm(
   const next: BotConfig = {
     ...bot,
     waApiProvider,
+    waPhoneNumber: waPhoneDigits,
     proxyEnabled,
     metaPhoneNumberId: fields.metaPhoneNumberId?.trim() || bot.metaPhoneNumberId || "",
     metaVerifyToken: fields.metaVerifyToken?.trim() || bot.metaVerifyToken || defaultMetaVerifyToken()

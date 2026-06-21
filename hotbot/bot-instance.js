@@ -906,7 +906,7 @@ function aiAuthHeaders() {
   };
   if (_aiProvider === 'openrouter') {
     h['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER || 'https://zapmanager.app';
-    h['X-Title'] = 'ZapManager';
+    h['X-Title'] = 'OnlyChat';
   }
   return h;
 }
@@ -1158,6 +1158,52 @@ function aiFakesPreviewSend(clean) {
   );
 }
 
+function isSimpleGreeting(text) {
+  return /^(oi+|oii+|oie+|ol[aá]|bom dia|boa tarde|boa noite|e a[ií]|eai|hey|hi|tudo bem)[\s!.?😊🙂❤️]*$/i.test(
+    String(text || '').trim()
+  );
+}
+
+function wantsInterestIntent(text) {
+  const t = String(text || '').toLowerCase();
+  if (wantsPreviewIntent(t)) return false;
+  return /quero|sim|pode|manda|tem|interesse|o que voc|oque voc|pack|conte[uú]do|ver|mostra|quanto|pre[cç]o|valor|tabela|o que (vc|ce) tem|me fala|me conta|gostei|curti|top|legal/i.test(
+    t
+  );
+}
+
+function countUserMessages(conversation) {
+  return (conversation || []).filter((m) => m.role === 'user').length;
+}
+
+function shouldAutoSendPresentation(userNumber, combinedMessage, conversation) {
+  if (hasPresentationBeenSent(userNumber) || !hasPresentationMedia()) return false;
+  if (wantsPreviewIntent(combinedMessage)) return false;
+  const userMsgCount = countUserMessages(conversation);
+  if (userMsgCount <= 1 && isSimpleGreeting(combinedMessage)) return false;
+  if (userMsgCount >= 2) return true;
+  if (userMsgCount >= 1 && wantsInterestIntent(combinedMessage)) return true;
+  return false;
+}
+
+function sortPromptActions(actions) {
+  const order = [
+    'send_apresentacao_produto',
+    'send_informacoes',
+    'send_amostra_gratis',
+    'send_chave_pix',
+    'naosou_fake',
+    'chamada_video',
+    'pedir_presente',
+    'ignorar_lead'
+  ];
+  return [...actions].sort((a, b) => {
+    const ia = order.indexOf(a);
+    const ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+}
+
 function shouldAutoSendPreview(userNumber, combinedMessage, aiClean, actions) {
   if (hasPreviewBeenSent(userNumber) || !hasPreviewMedia()) return false;
   if (actions.includes('send_amostra_gratis')) return true;
@@ -1191,7 +1237,7 @@ function responseContainsPixKey(text) {
 
 async function executePromptActions(client, messageFrom, actions) {
   const conversation = getUserConversation(messageFrom);
-  for (const action of actions) {
+  for (const action of sortPromptActions(actions)) {
     if (action === 'send_amostra_gratis' && !hasPreviewBeenSent(messageFrom)) {
       const ok = await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
       if (ok) markPreviewSent(messageFrom);
@@ -1221,6 +1267,21 @@ async function runCompletion(userNumber, message) {
   }
   conversation.push({ role: "user", content: message });
   scheduleSaveConversations();
+
+  if (
+    hasPresentationMedia() &&
+    !hasPresentationBeenSent(userNumber) &&
+    !wantsPreviewIntent(message)
+  ) {
+    const userCount = countUserMessages(conversation);
+    if (userCount >= 2 || wantsInterestIntent(message)) {
+      conversation.push({
+        role: 'system',
+        content:
+          'Lead demonstra interesse. OBRIGATORIO: chame send_apresentacao_produto AGORA (antes de previa ou tabela). Proibido prometer foto ou video sem enviar pela funcao.'
+      });
+    }
+  }
 
   if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber))) {
     conversation.push({
@@ -2188,8 +2249,18 @@ client.on("message", async (message) => {
             await executePromptActions(client, from, actions);
           }
 
+          const conv = getUserConversation(from);
+          if (shouldAutoSendPresentation(from, combinedMessage, conv)) {
+            const presOk = await functionCalls.send_apresentacao_produto(client, from, conv);
+            if (presOk) markPresentationSent(from);
+          }
+
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
-            const ok = await functionCalls.send_amostra_gratis(client, from, getUserConversation(from));
+            if (!hasPresentationBeenSent(from) && hasPresentationMedia()) {
+              const presOk = await functionCalls.send_apresentacao_produto(client, from, conv);
+              if (presOk) markPresentationSent(from);
+            }
+            const ok = await functionCalls.send_amostra_gratis(client, from, conv);
             if (ok) markPreviewSent(from);
           }
 

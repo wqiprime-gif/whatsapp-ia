@@ -282,6 +282,7 @@ const botFormFieldsSchema = z.object({
   token: z.string().optional(),
   platform: z.enum(["whatsapp", "telegram"]).default("whatsapp"),
   telegramBotToken: z.string().optional(),
+  waPhoneNumber: z.string().optional(),
   productPresentationEnabled: z.enum(["true", "false"]).default("false"),
   prompt: z.string().min(1),
   pixKey: z.string().default(""),
@@ -1390,11 +1391,15 @@ export async function registerPanelRoutes(
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     const links = await listWaRedirectLinks(user.id);
+    const bots = await loadBots(user.id);
+    const waBots = bots
+      .filter((b) => b.platform !== "telegram")
+      .map((b) => ({ id: b.id, name: b.name, waPhoneNumber: b.waPhoneNumber?.trim() || "" }));
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
     return reply
       .type("text/html")
-      .send(waLinksPage(links, base, isPartial(request), panelUserLabel(user), flash));
+      .send(waLinksPage(links, base, isPartial(request), panelUserLabel(user), flash, waBots));
   });
 
   app.post("/links", async (request, reply) => {

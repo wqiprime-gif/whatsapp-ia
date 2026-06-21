@@ -3,6 +3,12 @@ import { redirectUrl } from "../lib/wa-redirect-links.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml } from "./layout.js";
 
+export type WaBotForLinks = {
+  id: string;
+  name: string;
+  waPhoneNumber: string;
+};
+
 function targetRow(target: WaRedirectTarget | null, index: number, removable: boolean) {
   const id = target?.id ?? "";
   const label = target?.label ?? "";
@@ -30,7 +36,30 @@ function targetsBlock(targets: WaRedirectTarget[], minRows = 2) {
   <button type="button" class="btn btn-ghost wa-target-add">+ Adicionar número</button>`;
 }
 
-function linkCard(link: WaRedirectLink, baseUrl: string) {
+function instancePickerHtml(waBots: WaBotForLinks[]) {
+  if (waBots.length === 0) {
+    return `<p class="form-hint">Cadastre o número em <a href="/instances/new">Nova Instância</a> (campo WhatsApp) para preencher automaticamente aqui.</p>`;
+  }
+  const options = waBots
+    .map(
+      (b) =>
+        `<option value="${escapeHtml(b.id)}" data-label="${escapeHtml(b.name)}" data-phone="${escapeHtml(b.waPhoneNumber)}">${escapeHtml(b.name)}${b.waPhoneNumber ? ` — ${escapeHtml(b.waPhoneNumber)}` : " (sem número)"}</option>`
+    )
+    .join("");
+  return `<div class="wa-instance-pick-row">
+    <label class="field wa-instance-pick-label">
+      <span class="field-label">Usar instância cadastrada</span>
+      <select id="wa-instance-pick" class="wa-instance-pick">
+        <option value="">Selecione uma instância…</option>
+        ${options}
+      </select>
+    </label>
+    <button type="button" class="btn btn-ghost wa-instance-add">+ Adicionar instância</button>
+  </div>
+  <span class="form-hint">Números vêm do campo <strong>Número conectado</strong> de cada instância WhatsApp — ou digite manualmente abaixo.</span>`;
+}
+
+function linkCard(link: WaRedirectLink, baseUrl: string, waBots: WaBotForLinks[]) {
   const url = redirectUrl(baseUrl, link.slug);
   const totalClicks = Object.values(link.clickCounts).reduce((s, n) => s + n, 0);
   const configured = link.targets.length;
@@ -63,8 +92,8 @@ function linkCard(link: WaRedirectLink, baseUrl: string) {
       </label>
       <div class="wa-rand-instances">
         <span class="field-label">Números no rodízio</span>
+        ${instancePickerHtml(waBots)}
         ${targetsBlock(link.targets, 1)}
-        <span class="form-hint">Digite os números manualmente — não dependem de instância conectada.</span>
       </div>
       <div class="wa-rand-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -80,7 +109,8 @@ export function waLinksPage(
   baseUrl: string,
   partial = false,
   userName = "Usuario",
-  flash?: { message: string; ok: boolean }
+  flash?: { message: string; ok: boolean },
+  waBots: WaBotForLinks[] = []
 ) {
   const totalNumbers = links.reduce((n, l) => n + l.targets.length, 0);
   const totalClicks = links.reduce(
@@ -88,10 +118,14 @@ export function waLinksPage(
     0
   );
 
+  const prefilledTargets: WaRedirectTarget[] = waBots
+    .filter((b) => b.waPhoneNumber)
+    .map((b) => ({ id: "", label: b.name, phone: b.waPhoneNumber }));
+
   const savedLinks =
     links.length === 0
       ? `<div class="empty wa-rand-empty">Nenhum link criado. Use o painel ao lado para gerar seu primeiro randomizador.</div>`
-      : links.map((l) => linkCard(l, baseUrl)).join("");
+      : links.map((l) => linkCard(l, baseUrl, waBots)).join("");
 
   const body = `
     <div class="wa-rand-page page-shell">
@@ -140,7 +174,11 @@ export function waLinksPage(
             </label>
             <div class="wa-rand-instances">
               <span class="field-label">Números no rodízio</span>
-              ${targetsBlock([], 2)}
+              ${instancePickerHtml(waBots)}
+              ${targetsBlock(
+                prefilledTargets,
+                Math.max(1, prefilledTargets.length || 2)
+              )}
             </div>
             <div class="wa-rand-create-foot">
               <button type="submit" class="btn btn-primary btn-lg wa-rand-create-btn">${icons.link} Criar link</button>
@@ -195,28 +233,65 @@ export function waLinksPage(
           reindexRows(list);
         });
       }
+      function bindInstancePickers(scope) {
+        (scope || document).querySelectorAll(".wa-rand-instances").forEach(function (block) {
+          if (block.dataset.instanceBound) return;
+          block.dataset.instanceBound = "1";
+          var pick = block.querySelector(".wa-instance-pick");
+          var addInst = block.querySelector(".wa-instance-add");
+          var list = block.querySelector("[data-targets-list]");
+          if (!pick || !addInst || !list) return;
+          addInst.addEventListener("click", function () {
+            var opt = pick.options[pick.selectedIndex];
+            if (!opt || !opt.value) return;
+            var label = opt.getAttribute("data-label") || opt.textContent || "";
+            var phone = (opt.getAttribute("data-phone") || "").replace(/\\D/g, "");
+            if (!phone) {
+              alert("Esta instância não tem número cadastrado. Edite a instância e preencha o campo Número conectado.");
+              return;
+            }
+            var rows = list.querySelectorAll("[data-target-row]");
+            var emptyRow = null;
+            rows.forEach(function (row) {
+              var ph = row.querySelector('input[name^="target_phone_"]');
+              if (ph && !ph.value.trim()) emptyRow = row;
+            });
+            if (emptyRow) {
+              emptyRow.querySelector('input[name^="target_label_"]').value = label;
+              emptyRow.querySelector('input[name^="target_phone_"]').value = phone;
+            } else {
+              var i = rows.length;
+              var div = document.createElement("div");
+              div.className = "wa-target-row";
+              div.setAttribute("data-target-row", "");
+              div.innerHTML = '<input type="hidden" name="target_id_' + i + '" value="" />' +
+                '<label class="wa-target-field"><span class="field-label">Nome</span><input type="text" name="target_label_' + i + '" value="' + label.replace(/"/g, "&quot;") + '" maxlength="40" /></label>' +
+                '<label class="wa-target-field wa-target-field--phone"><span class="field-label">WhatsApp (DDI)</span><input type="tel" name="target_phone_' + i + '" value="' + phone + '" inputmode="numeric" /></label>' +
+                '<button type="button" class="wa-target-remove" title="Remover">&times;</button>';
+              list.appendChild(div);
+              reindexRows(list);
+            }
+            pick.selectedIndex = 0;
+          });
+        });
+      }
       document.querySelectorAll("[data-targets-list]").forEach(bindList);
+      bindInstancePickers(document);
       document.querySelectorAll(".wa-link-copy").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var sel = btn.getAttribute("data-copy-target");
-          var input = sel === "prev" ? btn.previousElementSibling : document.querySelector(sel);
-          if (!input || !input.value) return;
-          navigator.clipboard.writeText(input.value).then(function () {
+          var inp = sel ? document.querySelector(sel) : null;
+          if (!inp) return;
+          inp.select();
+          inp.setSelectionRange(0, 99999);
+          navigator.clipboard.writeText(inp.value).then(function () {
             btn.textContent = "Copiado!";
-            btn.classList.add("wa-link-copy--ok");
-            setTimeout(function () { btn.textContent = "Copiar"; btn.classList.remove("wa-link-copy--ok"); }, 1800);
-          }).catch(function () {});
+            setTimeout(function () { btn.textContent = "Copiar"; }, 2000);
+          });
         });
       });
     })();
     </script>`;
 
-  return appLayout(
-    "Gerar links",
-    "links",
-    body,
-    partial,
-    userName,
-    "Randomizador — links rotativos de WhatsApp"
-  );
+  return appLayout("Gerador de links", "links", body, partial, userName);
 }

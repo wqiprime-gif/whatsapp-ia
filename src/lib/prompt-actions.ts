@@ -51,7 +51,7 @@ export const PROMPT_ACTION_HINT = `
 ACOES (tag na ultima linha quando precisar):
 [[send_informacoes]] = tabela de precos (lead confirmou que quer ver)
 [[send_amostra_gratis]] = previa gratis (UMA vez por lead)
-[[send_apresentacao_produto]] = mostrar foto/video do produto que o lead recebe apos comprar (UMA vez, se habilitado no painel)
+[[send_apresentacao_produto]] = mostrar foto/video do produto que o lead recebe apos comprar (UMA vez, cedo no funil — ANTES da previa, se habilitado no painel)
 [[naosou_fake]] = mesmo que [[audio:nao_sou_fake]] se existir no cadastro
 [[ignorar_lead]] = parar de responder lead enrolado
 [[chamada_video]] = explicar chamada 5 min aqui no Telegram apos pagamento

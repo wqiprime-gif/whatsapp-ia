@@ -145,7 +145,7 @@ export function appLayout(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
   ${PWA_HEAD_TAGS}
-  <title>${escapeHtml(title)} · ZapManager</title>
+  <title>${escapeHtml(title)} · OnlyChat</title>
   <style>${globalStyles}</style>
 </head>
 <body>
@@ -202,7 +202,7 @@ export function appLayout(
         </div>
       </header>
       <main class="content">${body}</main>
-      <footer class="footer">© 2026 ZapManager · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
+      <footer class="footer">© 2026 OnlyChat · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
     </div>
   </div>
   <nav class="mobile-tabbar" aria-label="Navegação mobile">

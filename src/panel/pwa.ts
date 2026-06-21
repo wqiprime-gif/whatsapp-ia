@@ -1,6 +1,6 @@
 export const PWA_MANIFEST = {
-  name: "ZapManager",
-  short_name: "ZapManager",
+  name: "OnlyChat",
+  short_name: "OnlyChat",
   description: "Painel WhatsApp IA — vendas, leads e instâncias",
   start_url: "/",
   scope: "/",
@@ -29,9 +29,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   const data = event.data || {};
   if (data.type !== "SHOW_NOTIFICATION") return;
-  const title = data.title || "ZapManager";
+  const title = data.title || "OnlyChat";
   const body = data.body || "";
-  const tag = data.tag || "zapmanager-alert";
+  const tag = data.tag || "onlychat-alert";
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -68,6 +68,6 @@ export const PWA_HEAD_TAGS = `
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="ZapManager" />
+<meta name="apple-mobile-web-app-title" content="OnlyChat" />
 <link rel="apple-touch-icon" href="/brand/whatsapp-logo.svg" />
 `;
