@@ -718,14 +718,14 @@ function backupWaSession() {
 }
 
 async function uploadWaSessionBackupToPanel() {
-  const sessionDir = path.join(authDataPath, `session-${clientId}`);
+  const backupDir = path.join(instancesDataDir, 'wa-auth-backup');
   const panelUrl = process.env.PANEL_URL;
   const secret = process.env.INTERNAL_SECRET;
   const botId = process.env.BOT_ID || sessionId;
-  if (!panelUrl || !secret || !fs.existsSync(sessionDir)) return false;
+  if (!panelUrl || !secret || !fs.existsSync(backupDir)) return false;
   try {
     const { execFileSync } = require('child_process');
-    const archive = execFileSync('tar', ['-czf', '-', '-C', sessionDir, '.'], {
+    const archive = execFileSync('tar', ['--warning=no-file-changed', '-czf', '-', '-C', backupDir, '.'], {
       maxBuffer: 80 * 1024 * 1024,
       encoding: 'buffer'
     });

@@ -282,10 +282,27 @@ export const panelClientScript = `
         } catch (_) {}
       }
 
-      const vbW = Number(chart.getAttribute("data-chart-w") || 560);
-      const vbH = Number(chart.getAttribute("data-chart-h") || 220);
-      const padT = Number(chart.getAttribute("data-pad-t") || 36);
-      const chartH = Number(chart.getAttribute("data-chart-h-inner") || 152);
+      const vbW = Number(chart.getAttribute("data-chart-w") || 879);
+      const padT = Number(chart.getAttribute("data-pad-t") || 22);
+
+      function nearestIdx(clientX) {
+        const stageRect = stage.getBoundingClientRect();
+        const relX = clientX - stageRect.left;
+        const svgX = (relX / stageRect.width) * vbW;
+        let best = 0;
+        let bestDist = Infinity;
+        points.forEach((p, i) => {
+          const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
+          if (!dot) return;
+          const cx = Number(dot.getAttribute("cx"));
+          const d = Math.abs(cx - svgX);
+          if (d < bestDist) {
+            bestDist = d;
+            best = i;
+          }
+        });
+        return best;
+      }
 
       function showTip(i) {
         const p = points[i];
@@ -296,9 +313,10 @@ export const panelClientScript = `
         if (dayEl) dayEl.textContent = p.label;
         if (valEl) valEl.textContent = money(p.cents);
         tooltip.hidden = false;
+        stage.classList.add("shark-chart-stage--hover");
         svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
           const active = d.getAttribute("data-idx") === String(i);
-          d.setAttribute("r", active ? "5" : "0");
+          d.setAttribute("r", active ? "6" : "0");
           d.setAttribute("opacity", active ? "1" : "0");
         });
         if (cursor && dot) {
@@ -310,15 +328,17 @@ export const panelClientScript = `
         if (dot) {
           const stageRect = stage.getBoundingClientRect();
           const cx = Number(dot.getAttribute("cx"));
-          const left = (cx / vbW) * stageRect.width - 84;
-          const top = 12;
-          tooltip.style.left = Math.min(Math.max(left, 8), stageRect.width - 176) + "px";
+          const cy = Number(dot.getAttribute("cy"));
+          const left = (cx / vbW) * stageRect.width - 74;
+          const top = Math.max(4, (cy / Number(chart.getAttribute("data-chart-h") || 220)) * stageRect.height - 58);
+          tooltip.style.left = Math.min(Math.max(left, 6), stageRect.width - 160) + "px";
           tooltip.style.top = top + "px";
         }
       }
 
       function hideTip() {
         tooltip.hidden = true;
+        stage.classList.remove("shark-chart-stage--hover");
         if (cursor) cursor.setAttribute("opacity", "0");
         svg.querySelectorAll(".shark-chart-dot").forEach((d) => {
           d.setAttribute("r", "0");
@@ -326,12 +346,15 @@ export const panelClientScript = `
         });
       }
 
+      stage.addEventListener("mousemove", (e) => {
+        showTip(nearestIdx(e.clientX));
+      });
+      stage.addEventListener("mouseleave", hideTip);
+
       svg.querySelectorAll(".shark-chart-hit").forEach((hit) => {
         hit.addEventListener("mouseenter", () => showTip(Number(hit.getAttribute("data-idx"))));
         hit.addEventListener("mousemove", () => showTip(Number(hit.getAttribute("data-idx"))));
-        hit.addEventListener("mouseleave", hideTip);
       });
-      stage.addEventListener("mouseleave", hideTip);
     });
   }
 

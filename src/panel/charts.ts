@@ -320,10 +320,10 @@ export function sharkPerformanceChartHtml(
   const dots = coords
     .map(
       (c, i) =>
-        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="0" fill="${SHARK_CHART_BLUE}" stroke="#050505" stroke-width="2" pointer-events="none" opacity="0"/>`
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="0" fill="#3B82F6" stroke="#fff" stroke-width="2" pointer-events="none" opacity="0"/>`
     )
     .join("");
-  const hitW = (chartW / Math.max(dayCount - 1, 1)) * 0.9;
+  const hitW = Math.max((chartW / Math.max(dayCount - 1, 1)) * 1.15, 24);
   const hits = coords
     .map(
       (c, i) =>
@@ -351,7 +351,7 @@ export function sharkPerformanceChartHtml(
       <span>Receita</span>
     </div>
     <div class="shark-chart-divider" aria-hidden="true"></div>
-    <div class="shark-chart-stage">
+    <div class="shark-chart-stage shark-chart-stage--interactive">
       <svg class="shark-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <defs>
           <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
@@ -360,7 +360,7 @@ export function sharkPerformanceChartHtml(
             <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.55)" stroke-width="1" opacity="0"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.65)" stroke-width="1" stroke-dasharray="3 4" opacity="0"/>
         ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
         <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>

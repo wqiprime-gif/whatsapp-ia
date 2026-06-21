@@ -262,23 +262,23 @@ button, input, textarea, select { font-family: inherit; }
   justify-content: center;
   border: none;
   box-shadow: none;
-  opacity: 0.75;
-}
-.sidebar:not(:hover) .nav a:hover,
-.sidebar:not(:hover) .nav button.nav-btn:hover {
-  opacity: 1;
+  opacity: 0.82;
+  color: #fff;
 }
 .sidebar:not(:hover) .nav a svg,
 .sidebar:not(:hover) .nav button.nav-btn svg {
   margin: 0;
   width: 18px;
   height: 18px;
+  color: #fff;
+  opacity: 0.9;
 }
 .sidebar:not(:hover) .nav a.active {
-  background: rgba(10, 92, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border: none;
   box-shadow: none;
   opacity: 1;
+  color: #fff;
 }
 .sidebar:hover .nav-text,
 .sidebar:hover .brand-copy,
@@ -301,22 +301,26 @@ button, input, textarea, select { font-family: inherit; }
   margin: 0;
   justify-content: flex-start;
   padding: 10px 12px;
-  opacity: 0.78;
+  opacity: 0.88;
+  color: rgba(255, 255, 255, 0.82);
 }
 .sidebar:hover .nav a:hover,
 .sidebar:hover .nav button.nav-btn:hover,
 .sidebar:hover .nav a.active {
   opacity: 1;
+  color: #fff;
 }
 .sidebar:hover .nav a svg,
 .sidebar:hover .nav button.nav-btn svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: #fff;
 }
 .sidebar:hover .nav a.active {
-  border: 1px solid rgba(10, 92, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 3px 0 0 var(--primary), 0 0 12px rgba(10, 92, 255, 0.06);
+  color: #fff;
 }
 .sidebar .nav a, .sidebar .nav button.nav-btn {
   justify-content: center;
@@ -346,35 +350,41 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 .nav-section { margin-bottom: 8px; }
-.nav-label {
-  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.12em; color: var(--muted);
-  padding: 8px 12px 6px;
-}
 .nav a, .nav button.nav-btn {
   display: flex; align-items: center; gap: 10px;
-  padding: 11px 12px; border-radius: 11px;
-  color: var(--text-2); font-weight: 600; font-size: 0.86rem;
+  padding: 11px 12px; border-radius: 0;
+  color: rgba(255, 255, 255, 0.78); font-weight: 500; font-size: 0.86rem;
   border: 1px solid transparent; background: transparent;
   width: 100%; text-align: left; cursor: pointer;
   transition: all var(--ease);
 }
+.nav a svg, .nav button.nav-btn svg {
+  color: #fff;
+  stroke: currentColor;
+}
 .nav a:hover, .nav button.nav-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.08);
   transform: translateX(2px);
 }
 .nav a:hover svg, .nav button.nav-btn:hover svg {
   transform: scale(1.08);
   opacity: 1;
+  color: #fff;
 }
-.nav svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.9; transition: transform 0.2s ease, opacity 0.2s ease; }
+.nav svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.88; transition: transform 0.2s ease, opacity 0.2s ease; color: #fff; }
 .nav a.active {
-  background: linear-gradient(90deg, rgba(10, 92, 255, 0.18), rgba(10, 92, 255, 0.04));
-  color: var(--primary);
-  border-color: rgba(10, 92, 255, 0.25);
-  box-shadow: inset 3px 0 0 var(--primary), 0 0 24px rgba(10, 92, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 3px 0 0 var(--primary), 0 0 20px rgba(10, 92, 255, 0.06);
+}
+.nav a.active svg { color: #fff; opacity: 1; }
+.nav-label {
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.45);
+  padding: 8px 12px 6px;
 }
 
 .sidebar-plan {
