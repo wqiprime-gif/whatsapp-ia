@@ -24,6 +24,10 @@ export const panelClientScript = `
   const LS_AVATAR = "panelAvatarUrl";
   const LS_AVATAR_PREVIEW = "panelAvatarPreview";
   const LS_DASH_PERIOD = "dashPeriod";
+  const LS_WA_STATUS = "panelWaStatusMap";
+  const LS_SEEN_EVENTS = "panelSeenEventIds";
+  const LS_DAILY_SUMMARY = "panelDailySummaryDate";
+  const LS_EXTRA_BELL = "panelExtraBellItems";
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
   let navigating = false;
@@ -144,6 +148,8 @@ export const panelClientScript = `
     if (path === "/") {
       bindPeriodTabs(main);
       bindSharkCharts(main);
+      bindDashCardGlow(main);
+      refreshLive(true);
     }
     syncTopbarFromProfilePreview();
   }
@@ -266,7 +272,12 @@ export const panelClientScript = `
       chart.dataset.bound = "1";
       let points = [];
       try {
-        points = JSON.parse(chart.getAttribute("data-chart-points") || "[]");
+        const raw = chart.getAttribute("data-chart-points") || "";
+        if (raw.indexOf("%") >= 0) {
+          points = JSON.parse(decodeURIComponent(raw));
+        } else {
+          points = JSON.parse(raw.replace(/&#39;/g, "'"));
+        }
       } catch (_) {}
       const stage = chart.querySelector(".shark-chart-stage");
       const svg = chart.querySelector(".shark-chart-svg");
@@ -310,7 +321,7 @@ export const panelClientScript = `
         const dot = svg.querySelector('.shark-chart-dot[data-idx="' + i + '"]');
         const dayEl = tooltip.querySelector(".shark-chart-tooltip-day");
         const valEl = tooltip.querySelector(".shark-chart-tooltip-val");
-        if (dayEl) dayEl.textContent = p.label;
+        if (dayEl) dayEl.textContent = p.label || p.short || "";
         if (valEl) valEl.textContent = money(p.cents);
         tooltip.hidden = false;
         stage.classList.add("shark-chart-stage--hover");
@@ -513,16 +524,69 @@ export const panelClientScript = `
   const bellMenu = document.getElementById("bell-menu");
 
   const SALE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+  const BELL_ICONS = {
+    sale: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    lead: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+    receipt: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+    wa_down: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>',
+    wa_up: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>',
+    daily: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>'
+  };
 
-  function showToast(title, body) {
+  let liveNotificationsReady = false;
+  let lastBellItems = [];
+
+  function loadSeenEvents() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(LS_SEEN_EVENTS) || "[]"));
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+  function saveSeenEvents(set) {
+    localStorage.setItem(LS_SEEN_EVENTS, JSON.stringify(Array.from(set).slice(-120)));
+  }
+
+  function loadExtraBell() {
+    try {
+      return JSON.parse(localStorage.getItem(LS_EXTRA_BELL) || "[]");
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveExtraBell(items) {
+    localStorage.setItem(LS_EXTRA_BELL, JSON.stringify(items.slice(0, 24)));
+  }
+
+  function waConnected(status) {
+    return status === "connected" || status === "meta_ready";
+  }
+
+  function pushBellBadge() {
+    if (bellBadge) {
+      bellBadge.style.display = "flex";
+      bellBadge.textContent = "!";
+    }
+  }
+
+  function showToast(title, body, kind) {
     if (!toastRoot) return;
     const el = document.createElement("div");
-    el.className = "panel-toast";
+    el.className = "panel-toast" + (kind ? " panel-toast--" + kind : "");
     el.innerHTML = '<strong>' + title + '</strong><span>' + body + '</span><button type="button" aria-label="Fechar">×</button>';
     toastRoot.appendChild(el);
     el.querySelector("button").addEventListener("click", () => el.remove());
     setTimeout(() => el.classList.add("show"), 10);
     setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 8000);
+    pushBellBadge();
+  }
+
+  function desktopNotify(title, body) {
+    if (Notification && Notification.permission === "granted") {
+      try { new Notification(title, { body: body }); } catch (_) {}
+    }
   }
 
   function dismissSalePopup(el) {
@@ -554,10 +618,8 @@ export const panelClientScript = `
     el.querySelector(".sale-popup-close").addEventListener("click", () => dismissSalePopup(el));
     setTimeout(() => el.classList.add("show"), 16);
     setTimeout(() => dismissSalePopup(el), 7000);
-    showToast("Venda confirmada!", subtitle);
-    if (Notification && Notification.permission === "granted") {
-      try { new Notification("Venda confirmada!", { body: amount + " · " + subtitle }); } catch (_) {}
-    }
+    showToast("Venda confirmada!", subtitle, "sale");
+    desktopNotify("Venda confirmada!", amount + " · " + subtitle);
   }
 
   function handleLatestSale(latest) {
@@ -603,15 +665,118 @@ export const panelClientScript = `
     Notification.requestPermission().catch(() => {});
   }
 
-  function updateBellMenu(sales) {
+  function updateBellMenu(items) {
     if (!bellMenu) return;
-    if (!sales || sales.length === 0) {
-      bellMenu.innerHTML = '<div class="bell-empty">Nenhuma venda ainda</div>';
+    const merged = (items || []).slice(0, 12);
+    if (merged.length === 0) {
+      bellMenu.innerHTML = '<div class="bell-empty">Nenhuma notificação ainda</div>';
       return;
     }
-    bellMenu.innerHTML = sales.slice(0, 8).map((s) =>
-      '<div class="bell-item"><strong>' + s.title + '</strong><span>' + s.subtitle + '</span><time>' + s.time + '</time></div>'
-    ).join("");
+    bellMenu.innerHTML = merged.map((s) => {
+      const kind = s.kind || "sale";
+      const icon = BELL_ICONS[kind] || BELL_ICONS.sale;
+      return '<div class="bell-item bell-item--' + kind + '">' +
+        '<span class="bell-item-icon" aria-hidden="true">' + icon + '</span>' +
+        '<div class="bell-item-body">' +
+          '<strong>' + s.title + '</strong>' +
+          '<span>' + s.subtitle + '</span>' +
+          '<time>' + (s.time || "") + '</time>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function prependExtraBell(item) {
+    const extra = loadExtraBell();
+    extra.unshift(item);
+    saveExtraBell(extra.slice(0, 24));
+    updateBellMenu(extra.concat(lastBellItems).slice(0, 12));
+  }
+
+  function processLiveNotifications(data) {
+    if (!data) return;
+    const seen = loadSeenEvents();
+    const extra = loadExtraBell();
+
+    if (data.bellItems) {
+      for (const item of data.bellItems) {
+        if (!item || !item.id) continue;
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        if (liveNotificationsReady && item.kind === "lead") {
+          showToast("Nova conversa", item.subtitle, "lead");
+          desktopNotify("Nova conversa", item.subtitle);
+        }
+      }
+      lastBellItems = data.bellItems;
+      updateBellMenu(extra.concat(data.bellItems).slice(0, 12));
+    } else if (data.bellSales) {
+      lastBellItems = data.bellSales.map((s) => Object.assign({ kind: "sale" }, s));
+      updateBellMenu(extra.concat(lastBellItems).slice(0, 12));
+    }
+
+    if (data.waStatuses && data.botNames) {
+      let prev = {};
+      try { prev = JSON.parse(localStorage.getItem(LS_WA_STATUS) || "{}"); } catch (_) {}
+      Object.keys(data.waStatuses).forEach((id) => {
+        const st = data.waStatuses[id];
+        const was = prev[id];
+        const name = data.botNames[id] || "Instância";
+        const eventKey = "wa-" + id + "-" + st;
+        if (liveNotificationsReady && was !== undefined && was !== st) {
+          if (waConnected(was) && !waConnected(st)) {
+            if (!seen.has(eventKey)) {
+              showToast("Instância caiu", name + " desconectou", "wa_down");
+              desktopNotify("Instância offline", name + " desconectou");
+              prependExtraBell({
+                id: eventKey,
+                kind: "wa_down",
+                title: "Instância offline",
+                subtitle: name + " desconectou",
+                time: "agora"
+              });
+              seen.add(eventKey);
+            }
+          } else if (!waConnected(was) && waConnected(st)) {
+            showToast("Instância online", name + " reconectou", "wa_up");
+            prependExtraBell({
+              id: "wa-up-" + id + "-" + Date.now(),
+              kind: "wa_up",
+              title: "Instância online",
+              subtitle: name + " reconectou",
+              time: "agora"
+            });
+          }
+        }
+      });
+      localStorage.setItem(LS_WA_STATUS, JSON.stringify(data.waStatuses));
+    }
+
+    if (liveNotificationsReady && data.todayStats) {
+      const day = new Date().toDateString();
+      const hour = new Date().getHours();
+      if (hour >= 22 && localStorage.getItem(LS_DAILY_SUMMARY) !== day) {
+        const total = money(data.todayStats.salesTotalCents || 0);
+        const count = data.todayStats.salesCount || 0;
+        const summaryKey = "daily-" + day;
+        if (!seen.has(summaryKey)) {
+          showToast("Faturamento do dia", total + " · " + count + " venda(s)", "daily");
+          desktopNotify("Faturamento do dia", total + " · " + count + " venda(s)");
+          prependExtraBell({
+            id: summaryKey,
+            kind: "daily",
+            title: "Faturamento do dia",
+            subtitle: total + " · " + count + " venda(s)",
+            time: "hoje"
+          });
+          seen.add(summaryKey);
+          localStorage.setItem(LS_DAILY_SUMMARY, day);
+        }
+      }
+    }
+
+    saveSeenEvents(seen);
+    if (!liveNotificationsReady) liveNotificationsReady = true;
   }
 
   function money(cents) {
@@ -664,8 +829,12 @@ export const panelClientScript = `
     if (topPlayers && data.topPlayersHtml) topPlayers.innerHTML = data.topPlayersHtml;
     const chart = document.querySelector("[data-live=sales-chart]");
     if (chart && data.chartSvg) {
-      chart.innerHTML = data.chartSvg;
-      bindSharkCharts(chart);
+      const fp = data.chartFingerprint || data.chartSvg;
+      if (chart.getAttribute("data-chart-fp") !== fp) {
+        chart.innerHTML = data.chartSvg;
+        chart.setAttribute("data-chart-fp", fp);
+        bindSharkCharts(chart);
+      }
     }
     const periodLbl = document.querySelector("[data-live=chart-period-label]");
     if (periodLbl && data.periodLabel) {
@@ -679,7 +848,7 @@ export const panelClientScript = `
     if (sparkSales && data.sparkSalesHtml) sparkSales.innerHTML = data.sparkSalesHtml;
     const sparkMessages = document.querySelector("[data-live=spark-messages]");
     if (sparkMessages && data.sparkMessagesHtml) sparkMessages.innerHTML = data.sparkMessagesHtml;
-    if (data.bellSales) updateBellMenu(data.bellSales);
+    processLiveNotifications(data);
   }
 
   async function refreshLive(silent) {
@@ -701,15 +870,28 @@ export const panelClientScript = `
     scope.querySelectorAll(".shark-dash .dash-glow-card").forEach((card) => {
       if (card.dataset.glowBound) return;
       card.dataset.glowBound = "1";
-      const spot = document.createElement("div");
-      spot.className = "dash-mouse-glow";
-      spot.setAttribute("aria-hidden", "true");
-      card.insertBefore(spot, card.firstChild);
-      card.addEventListener("mousemove", (e) => {
-        const rect = card.getBoundingClientRect();
-        spot.style.setProperty("--mx", (e.clientX - rect.left) + "px");
-        spot.style.setProperty("--my", (e.clientY - rect.top) + "px");
-      });
+      if (!card.querySelector(".dash-stripe-ring")) {
+        const ring = document.createElement("div");
+        ring.className = "dash-stripe-ring";
+        ring.setAttribute("aria-hidden", "true");
+        ring.innerHTML =
+          '<span class="dash-stripe dash-stripe--t"></span>' +
+          '<span class="dash-stripe dash-stripe--r"></span>' +
+          '<span class="dash-stripe dash-stripe--b"></span>' +
+          '<span class="dash-stripe dash-stripe--l"></span>';
+        card.insertBefore(ring, card.firstChild);
+      }
+      if (!card.querySelector(".dash-mouse-glow")) {
+        const spot = document.createElement("div");
+        spot.className = "dash-mouse-glow";
+        spot.setAttribute("aria-hidden", "true");
+        card.insertBefore(spot, card.firstChild);
+        card.addEventListener("mousemove", (e) => {
+          const rect = card.getBoundingClientRect();
+          spot.style.setProperty("--mx", (e.clientX - rect.left) + "px");
+          spot.style.setProperty("--my", (e.clientY - rect.top) + "px");
+        });
+      }
     });
   }
 

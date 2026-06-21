@@ -1,5 +1,11 @@
 const WEEKDAY_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const WEEKDAY_TOOLTIP = ["Dom", "Seg", "Terça", "Qua", "Qui", "Sex", "Sáb"];
 const WEEKDAY_FULL = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+export function chartDayLabelTooltip(iso: string) {
+  const d = new Date(iso + "T12:00:00");
+  return WEEKDAY_TOOLTIP[d.getDay()] ?? iso.slice(5);
+}
 
 export function chartDayLabel(iso: string) {
   const d = new Date(iso + "T12:00:00");
@@ -336,16 +342,18 @@ export function sharkPerformanceChartHtml(
         `<text x="${c.x}" y="${h - 4}" text-anchor="middle" fill="#71717a" font-size="11" font-family="JetBrains Mono, ui-monospace, monospace" pointer-events="none">${chartDayLabel(c.day)}</text>`
     )
     .join("");
-  const dataJson = JSON.stringify(
-    coords.map((c) => ({
-      day: c.day,
-      label: chartDayLabelFull(c.day),
-      short: chartDayLabel(c.day),
-      cents: c.v
-    }))
-  ).replace(/'/g, "&#39;");
+  const dataPayload = encodeURIComponent(
+    JSON.stringify(
+      coords.map((c) => ({
+        day: c.day,
+        label: chartDayLabelTooltip(c.day),
+        short: chartDayLabel(c.day),
+        cents: c.v
+      }))
+    )
+  );
 
-  return `<div class="shark-perf-chart" data-chart-points='${dataJson}' data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
+  return `<div class="shark-perf-chart" data-chart-points="${dataPayload}" data-chart-w="${w}" data-chart-h="${h}" data-pad-t="${padT}" data-chart-h-inner="${chartH}">
     <div class="shark-chart-legend">
       <span class="shark-chart-legend-dot"></span>
       <span>Receita</span>
@@ -360,7 +368,7 @@ export function sharkPerformanceChartHtml(
             <stop offset="100%" stop-color="${SHARK_CHART_BLUE}" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.65)" stroke-width="1" stroke-dasharray="3 4" opacity="0"/>
+        <line class="shark-chart-cursor" x1="${coords[0].x}" y1="${padT}" x2="${coords[0].x}" y2="${baseY}" stroke="rgba(255,255,255,0.92)" stroke-width="1" opacity="0"/>
         ${gridLines}
         <path d="${area}" fill="url(#${gid})" pointer-events="none"/>
         <path class="shark-chart-curve shark-chart-curve--draw" d="${curve}" fill="none" stroke="${SHARK_CHART_BLUE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/>

@@ -802,6 +802,22 @@ export async function registerPanelRoutes(
     const topPlayers = await salesRankingByUser(5);
     const latestSale = await getLatestSale(user.id);
     const recentSales = await listSales(8, user.id);
+    const todayStats = await dashboardStatsForPeriod("hoje", user.id);
+
+    const activityTitles: Record<string, string> = {
+      sale: "Venda aprovada",
+      lead: "Nova conversa",
+      receipt: "Pagamento confirmado"
+    };
+
+    const bellItems = activities.map((a) => ({
+      id: a.id,
+      kind: a.type,
+      title: activityTitles[a.type] ?? a.title,
+      subtitle: a.subtitle,
+      time: formatRelativeTime(a.at),
+      at: a.at
+    }));
 
     const bellSales = recentSales.map((row) => {
       const s = row as Record<string, unknown>;
@@ -830,6 +846,15 @@ export async function registerPanelRoutes(
       "30d": "Últimos 30 dias",
       total: "Total"
     };
+
+    const chartFingerprint =
+      period +
+      "|" +
+      chart.map((p) => `${p.day}:${p.totalCents}`).join(",") +
+      "|" +
+      chartOpts.dayCount +
+      "|" +
+      (chartOpts.endOffset ?? 0);
 
     return reply.send({
       period,
@@ -868,7 +893,15 @@ export async function registerPanelRoutes(
           }
         : null,
       latestSaleAt: latestSale?.at ?? null,
-      bellSales
+      bellItems,
+      bellSales,
+      waStatuses: statuses,
+      botNames: Object.fromEntries(bots.map((b) => [b.id, b.name])),
+      todayStats: {
+        salesTotalCents: todayStats.salesTotalCents,
+        salesCount: todayStats.salesCount
+      },
+      chartFingerprint
     });
   });
 

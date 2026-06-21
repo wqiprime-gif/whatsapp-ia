@@ -1402,13 +1402,30 @@ button, input, textarea, select { font-family: inherit; }
 }
 .bell-menu.open { display: block; }
 .bell-item {
+  display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px; border-bottom: 1px solid var(--border);
-  display: grid; gap: 4px;
 }
-.bell-item strong { font-size: 0.82rem; color: var(--success); }
-.bell-item span { font-size: 0.78rem; color: var(--text-2); }
+.bell-item:last-child { border-bottom: none; }
+.bell-item-icon {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: rgba(10, 92, 255, 0.12); color: var(--primary);
+}
+.bell-item-body { min-width: 0; display: grid; gap: 2px; }
+.bell-item strong { font-size: 0.82rem; color: var(--text); }
+.bell-item span { font-size: 0.78rem; color: var(--text-2); line-height: 1.35; }
 .bell-item time { font-size: 0.7rem; color: var(--muted); }
-.bell-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+.bell-item--sale .bell-item-icon { background: rgba(61, 200, 255, 0.12); color: #3dc8ff; }
+.bell-item--lead .bell-item-icon { background: rgba(59, 130, 246, 0.14); color: #3b82f6; }
+.bell-item--wa_down .bell-item-icon { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.bell-item--wa_up .bell-item-icon { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.bell-item--daily .bell-item-icon { background: rgba(234, 179, 8, 0.12); color: #eab308; }
+.bell-empty { padding: 20px 16px; text-align: center; color: var(--muted); font-size: 0.82rem; }
+.panel-toast--sale strong { color: #3dc8ff; }
+.panel-toast--lead strong { color: #3b82f6; }
+.panel-toast--wa_down strong { color: #ef4444; }
+.panel-toast--wa_up strong { color: #10b981; }
+.panel-toast--daily strong { color: #eab308; }
 
 /* Notificação de venda — popup central */
 .sale-popup-root {

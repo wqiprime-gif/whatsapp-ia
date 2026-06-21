@@ -1415,52 +1415,92 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: relative;
   isolation: isolate;
 }
-/* Listras percorrendo todo o perímetro — cada card com delay/cycle próprio */
 .shark-dash .dash-glow-card::before,
+.shark-dash .dash-glow-card::after,
 .shark-dash .shark-kpi-card::before,
-.shark-dash .dash-glow-card.card-premium::before {
-  display: block !important;
-  content: "" !important;
+.shark-dash .shark-kpi-card::after,
+.shark-dash .dash-glow-card.card-premium::before,
+.shark-dash .dash-glow-card.card-premium::after {
+  display: none !important;
+  content: none !important;
+}
+.dash-stripe-ring {
   position: absolute;
-  width: 220%;
-  height: 220%;
-  left: -60%;
-  top: -60%;
-  z-index: 0;
+  inset: 0;
   pointer-events: none;
-  opacity: 0.75;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 288deg,
-    rgba(10, 92, 255, 0.35) 308deg,
-    rgba(147, 197, 253, 0.95) 328deg,
-    rgba(59, 130, 246, 0.55) 348deg,
-    transparent 360deg
-  );
-  animation: shark-border-rotate var(--glow-cycle, 8.5s) linear infinite;
+  z-index: 3;
+  overflow: hidden;
+}
+.dash-stripe-ring span {
+  position: absolute;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.dash-stripe--t,
+.dash-stripe--b {
+  height: 1px;
+  width: 32%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.85), transparent);
+}
+.dash-stripe--r,
+.dash-stripe--l {
+  width: 1px;
+  height: 32%;
+  background: linear-gradient(180deg, transparent, rgba(59, 130, 246, 0.85), transparent);
+}
+.dash-stripe--t {
+  top: 0;
+  left: -32%;
+  animation: dash-stripe-h var(--glow-cycle, 8.5s) linear infinite;
   animation-delay: var(--glow-delay, 0s);
 }
-.shark-dash .dash-glow-card::after,
-.shark-dash .shark-kpi-card::after,
-.shark-dash .dash-glow-card.card-premium::after {
-  display: block !important;
-  content: "" !important;
-  position: absolute;
-  inset: 1px;
-  z-index: 0;
-  pointer-events: none;
-  background: #090909;
-  border-radius: 0;
+.dash-stripe--r {
+  top: -32%;
+  right: 0;
+  animation: dash-stripe-v var(--glow-cycle, 8.5s) linear infinite;
+  animation-delay: calc(var(--glow-delay, 0s) + 2.1s);
 }
-@keyframes shark-border-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.dash-stripe--b {
+  bottom: 0;
+  right: -32%;
+  animation: dash-stripe-h-rev var(--glow-cycle, 8.5s) linear infinite;
+  animation-delay: calc(var(--glow-delay, 0s) + 4.2s);
+}
+.dash-stripe--l {
+  bottom: -32%;
+  left: 0;
+  animation: dash-stripe-v-rev var(--glow-cycle, 8.5s) linear infinite;
+  animation-delay: calc(var(--glow-delay, 0s) + 6.3s);
+}
+@keyframes dash-stripe-h {
+  0% { left: -32%; }
+  100% { left: 100%; }
+}
+@keyframes dash-stripe-h-rev {
+  0% { right: -32%; }
+  100% { right: 100%; }
+}
+@keyframes dash-stripe-v {
+  0% { top: -32%; }
+  100% { top: 100%; }
+}
+@keyframes dash-stripe-v-rev {
+  0% { bottom: -32%; }
+  100% { bottom: 100%; }
 }
 .shark-dash .dash-glow-card > *,
 .shark-dash .shark-kpi-card > * {
   position: relative;
   z-index: 1;
+}
+.shark-dash .shark-chart-card--pro.dash-glow-card {
+  overflow: visible;
+}
+.shark-dash .shark-chart-card--pro .shark-chart-wrap {
+  overflow: visible;
+}
+.shark-dash .shark-period-bar.shark-period-card {
+  border-radius: 16px !important;
 }
 .shark-dash .dash-glow-card .dash-mouse-glow {
   position: absolute;
@@ -1496,7 +1536,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border-radius: 0;
 }
 .shark-dash .shark-period-bar {
-  border-radius: 0;
+  border-radius: 16px;
 }
 .shark-dash .dash-glow-card.card-premium .card-head {
   background: transparent !important;
@@ -2073,6 +2113,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   width: 100%;
   flex: 1;
   min-height: 240px;
+  z-index: 6;
 }
 .shark-chart-stage--interactive {
   cursor: crosshair;
@@ -2113,7 +2154,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
   pointer-events: none;
-  z-index: 8;
+  z-index: 50;
 }
 .shark-chart-tooltip-day {
   display: block;
