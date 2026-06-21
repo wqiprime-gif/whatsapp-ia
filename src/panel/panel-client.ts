@@ -983,7 +983,7 @@ export const panelClientScript = `
 
   function bindDashCardGlow(root) {
     const scope = root || document;
-    scope.querySelectorAll(".shark-dash .dash-glow-card").forEach((card) => {
+    scope.querySelectorAll(".shark-dash .dash-glow-card:not(.shark-fat-pill--topbar)").forEach((card) => {
       if (card.dataset.glowBound) return;
       card.dataset.glowBound = "1";
       if (!card.querySelector(".shark-edge-glow")) {

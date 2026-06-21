@@ -348,7 +348,6 @@ export function dashboardPage(
 
   const topbarFatPill = `
       <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
-        ${dashStripeRingHtml()}
         ${sharkIconBox(icons.dollar, true, true, "money")}
         <div class="shark-fat-body">
           <div class="shark-fat-top">

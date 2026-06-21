@@ -1,6 +1,6 @@
 /** TEXTURA-style: preto · branco · azul Shark + raios CSS */
 export const premiumStyles = `
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
 
 :root {
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
@@ -1502,61 +1502,49 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   position: absolute;
   pointer-events: none;
   z-index: 25;
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.45));
+  animation: none !important;
+  filter: none;
 }
 .shark-edge-glow--t,
 .shark-edge-glow--b {
   left: 0;
   right: 0;
-  height: 2px;
+  height: 1px;
   background: linear-gradient(
     90deg,
-    transparent 0%,
-    rgba(10, 92, 255, 0.35) 18%,
-    #0a5cff 40%,
-    #60a5fa 50%,
-    #0a5cff 60%,
-    rgba(10, 92, 255, 0.35) 82%,
-    transparent 100%
+    rgba(59, 130, 246, 0.06) 0%,
+    rgba(59, 130, 246, 0.32) 50%,
+    rgba(59, 130, 246, 0.06) 100%
   );
-  background-size: 200% 100%;
-  animation: shark-line-sweep 3.5s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
 }
 .shark-edge-glow--t {
   top: 0;
-  animation-delay: var(--glow-delay, 0s);
 }
 .shark-edge-glow--b {
   bottom: 0;
-  animation: shark-line-sweep 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
-  animation-delay: calc(var(--glow-delay, 0s) + 2s);
+  opacity: 0.75;
 }
 .shark-edge-glow--l,
 .shark-edge-glow--r {
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 1px;
   background: linear-gradient(
     180deg,
-    transparent 0%,
-    rgba(10, 92, 255, 0.35) 18%,
-    #0a5cff 40%,
-    #60a5fa 50%,
-    #0a5cff 60%,
-    rgba(10, 92, 255, 0.35) 82%,
-    transparent 100%
+    rgba(59, 130, 246, 0.06) 0%,
+    rgba(59, 130, 246, 0.28) 50%,
+    rgba(59, 130, 246, 0.06) 100%
   );
-  background-size: 100% 200%;
-  animation: shark-line-sweep-v 3.5s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
 }
 .shark-edge-glow--l {
   left: 0;
-  animation-delay: calc(var(--glow-delay, 0s) + 1s);
 }
 .shark-edge-glow--r {
   right: 0;
-  animation: shark-line-sweep-v 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
-  animation-delay: calc(var(--glow-delay, 0s) + 3s);
+  opacity: 0.75;
+}
+.shark-dash .shark-fat-pill--topbar .shark-edge-glow {
+  display: none !important;
 }
 @keyframes shark-line-sweep-v {
   0% { background-position: 0 -200%; }
@@ -1663,7 +1651,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 }
 .shark-fat-pill--topbar {
   flex-shrink: 0;
-  border: 1px solid rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
   background-color: #090909 !important;
   background-image:
     radial-gradient(ellipse 88% 68% at 0% 0%, rgba(10, 92, 255, 0.17) 0%, transparent 56%),
@@ -1680,13 +1668,15 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 8px 16px 6px;
 }
 .shark-greeting--topbar .shark-greeting-title {
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: clamp(1.05rem, 2vw, 1.3rem);
   margin: 0 0 4px;
-  font-weight: 500;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 .shark-greeting--topbar .shark-greeting-name {
   color: var(--blue-bright);
-  font-weight: 500;
+  font-weight: 400;
   text-shadow: none;
 }
 .shark-greeting--topbar .shark-greeting-date {
