@@ -91,9 +91,9 @@ body {
   padding: 4px 0 8px;
 }
 .brand-logo {
-  width: 44px; height: 44px; border-radius: 14px;
-  object-fit: cover;
-  box-shadow: 0 0 24px var(--primary-glow), 0 0 0 1px rgba(255,255,255,0.12);
+  width: 44px; height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(30, 123, 255, 0.35));
 }
 .brand-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .brand-title {
