@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { loadBots, uploadsDir, type BotConfig, isWhatsAppBot } from "./bots.js";
+import { loadBots, uploadsDir, type BotConfig, isTelegramBot, isWhatsAppBot } from "./bots.js";
 import { listProducts } from "./db/events.js";
 import { getUserById } from "./db/users.js";
 import { env, rootDir } from "./config.js";
@@ -11,6 +11,7 @@ import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
 import { puppeteerProxyArgs } from "./lib/wa-proxy.js";
 import { AI_PROVIDERS } from "./lib/ai-providers.js";
 import { resolveBotAIConfig } from "./lib/settings.js";
+import { getTelegramLiveStatus } from "./telegram-runtime.js";
 
 const hotbotDir = path.join(rootDir, "hotbot");
 const instancesDir = path.join(env.DATA_DIR, "wa-instances");
@@ -751,6 +752,10 @@ async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
 
 export async function getWaLiveStatus(bot: BotConfig): Promise<WaLiveStatus> {
   if (!bot.active) return "paused";
+
+  if (isTelegramBot(bot)) {
+    return getTelegramLiveStatus(bot);
+  }
 
   if (isMetaBot(bot)) {
     return bot.metaPhoneNumberId?.trim() && bot.metaAccessTokenEncrypted ? "meta_ready" : "meta_missing";

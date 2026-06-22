@@ -726,7 +726,35 @@ export async function restartTelegramBots() {
 }
 
 export async function ensureTelegramBotsRunning() {
-  await restartTelegramBots();
+  if (restartInProgress) return;
+  restartInProgress = true;
+  try {
+    const bots = await loadBots();
+    const activeTg = bots.filter((b) => b.active && isTelegramBot(b));
+    const activeIds = new Set(activeTg.map((b) => b.id));
+
+    for (const [id, runtime] of runningBots) {
+      if (!activeIds.has(id)) {
+        try {
+          runtime.bot.stop("sync");
+        } catch {
+          // ignore
+        }
+        runningBots.delete(id);
+      }
+    }
+
+    for (const config of activeTg) {
+      if (runningBots.has(config.id)) continue;
+      try {
+        await startBot(config);
+      } catch (error) {
+        console.error(`[tg] Nao foi possivel iniciar ${config.name}:`, error);
+      }
+    }
+  } finally {
+    restartInProgress = false;
+  }
 }
 
 export async function restartSingleTelegramBot(botId: string) {
@@ -754,4 +782,15 @@ export async function shutdownTelegramBots() {
     }
   }
   runningBots.clear();
+}
+
+/** Status ao vivo para instâncias Telegram. */
+export function getTelegramLiveStatus(bot: BotConfig): "paused" | "offline" | "connected" {
+  if (!bot.active) return "paused";
+  if (runningBots.has(bot.id)) return "connected";
+  return "offline";
+}
+
+export function isTelegramBotRunning(botId: string) {
+  return runningBots.has(botId);
 }
