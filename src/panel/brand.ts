@@ -1,6 +1,7 @@
 import { escapeHtml } from "./layout.js";
 
 export const BRAND_LOGO_SRC = "/brand/onlychat.svg";
+export const BRAND_MARK_SRC = "/brand/onlychat-mark.svg";
 
 export const FAVICON_LINK = `<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/svg+xml" />`;
 

@@ -737,10 +737,9 @@ button, input, textarea, select { font-family: inherit; }
     border-bottom: 1px solid var(--border);
   }
   .mobile-topbar-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    object-fit: cover;
+    height: 34px;
+    width: auto;
+    object-fit: contain;
   }
   .mobile-topbar-title {
     font-weight: 800;

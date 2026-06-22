@@ -2,7 +2,7 @@ import { APP_VERSION } from "../version.js";
 import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
-import { brandMarkHtml, BRAND_LOGO_SRC, FAVICON_LINK } from "./brand.js";
+import { brandMarkHtml, BRAND_LOGO_SRC, BRAND_MARK_SRC, FAVICON_LINK } from "./brand.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
 
@@ -160,8 +160,7 @@ export function appLayout(
   <div class="mesh-blob mesh-blob--app" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
   <header class="mobile-topbar" aria-label="OnlyChat">
-    <img class="mobile-topbar-logo" src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="36" height="36" />
-    <span class="mobile-topbar-title">OnlyChat</span>
+    <img class="mobile-topbar-logo" src="${BRAND_MARK_SRC}" alt="OnlyChat" height="34" />
   </header>
   <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
   <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu OnlyChat">
