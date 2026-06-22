@@ -9,7 +9,7 @@ export function brandMarkHtml(subtitle = "") {
   return `<div class="brand-mark">
     <img class="brand-logo" src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="44" height="44" />
     <div class="brand-copy">
-      <span class="brand-title"><span class="brand-accent">Only</span>Chat</span>
+      <span class="brand-title">OnlyChat</span>
       ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
     </div>
   </div>`;
