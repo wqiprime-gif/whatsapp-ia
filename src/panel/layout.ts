@@ -133,7 +133,7 @@ export function appLayout(
   const topbarCls = topbarLeftHtml || topbarCenterHtml ? " topbar--dash" : "";
   const topbarLeft = topbarLeftHtml
     ? topbarLeftHtml
-    : `<h1>${escapeHtml(title)}</h1>${subtitle ? `<p class="topbar-subtitle">${escapeHtml(subtitle)}</p>` : ""}`;
+    : `<h1>OnlyChat</h1>`;
   const topbarCenter = topbarCenterHtml
     ? `<div class="topbar-center">${topbarCenterHtml}</div>`
     : "";
@@ -145,7 +145,7 @@ export function appLayout(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
   ${PWA_HEAD_TAGS}
-  <title>${escapeHtml(title)} · OnlyChat</title>
+  <title>OnlyChat</title>
   <style>${globalStyles}</style>
 </head>
 <body>

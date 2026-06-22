@@ -234,7 +234,7 @@ export function loginPage(message = "") {
   <div class="mesh-blob" aria-hidden="true"></div>
   <main class="login-premium">
     <section class="login-showcase">
-      ${brandMarkHtml("Painel WhatsApp")}
+      ${brandMarkHtml()}
       <p class="login-eyebrow">Painel profissional · WhatsApp</p>
       <h1 class="login-title-3d"><span class="text-3d-line">OnlyChat</span><span class="text-3d-line accent">Vendas automatizadas com IA</span></h1>
       <p class="login-prose">
@@ -802,7 +802,7 @@ export function registerPage(message = "") {
   <div class="mesh-blob" aria-hidden="true"></div>
   <main class="login-premium">
     <section class="login-showcase">
-      ${brandMarkHtml("Painel WhatsApp")}
+      ${brandMarkHtml()}
       <p class="login-eyebrow">Comece em minutos</p>
       <h1 class="login-title-3d"><span class="text-3d-line">Criar conta</span><span class="text-3d-line accent">OnlyChat</span></h1>
       <p class="login-prose">

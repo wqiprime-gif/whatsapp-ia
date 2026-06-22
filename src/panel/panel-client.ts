@@ -262,8 +262,7 @@ export const panelClientScript = `
 
   function applyContent(html, path) {
     main.innerHTML = html;
-    const h = document.querySelector(".topbar h1");
-    if (h) h.textContent = pageTitle(path);
+    document.title = "OnlyChat";
     setActiveNav(path);
     bindForms(main);
     if (path === "/perfil" || path.startsWith("/perfil")) {
@@ -538,11 +537,7 @@ export const panelClientScript = `
       const doc = new DOMParser().parseFromString(html, "text/html");
       const next = doc.querySelector(".content");
       if (!next) throw new Error("no content");
-      const title = doc.querySelector(".topbar h1");
-      if (title) {
-        const h = document.querySelector(".topbar h1");
-        if (h) h.textContent = title.textContent;
-      }
+      document.title = "OnlyChat";
       return next.innerHTML;
     }
     return html;
