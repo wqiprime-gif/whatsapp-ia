@@ -1208,6 +1208,7 @@ function shouldAutoSendPreview(userNumber, combinedMessage, aiClean, actions) {
   if (hasPreviewBeenSent(userNumber) || !hasPreviewMedia()) return false;
   if (actions.includes('send_amostra_gratis')) return true;
   if (wantsPreviewIntent(combinedMessage)) return true;
+  if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(combinedMessage || '').trim()) && conversationWantsPreview(userNumber)) return true;
   if (conversationWantsPreview(userNumber)) return true;
   if (aiFakesPreviewSend(aiClean)) return true;
   return false;
@@ -1283,7 +1284,7 @@ async function runCompletion(userNumber, message) {
     }
   }
 
-  if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber))) {
+  if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber) || /^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(message || '').trim()))) {
     conversation.push({
       role: 'system',
       content: 'O lead quer prévia/amostra. OBRIGATÓRIO: chame send_amostra_gratis agora. Proibido dizer "aqui está" ou "mandei" sem enviar a mídia pela função.'
@@ -1415,6 +1416,23 @@ async function runCompletion(userNumber, message) {
       if (fnName === 'send_amostra_gratis' && !hasPreviewBeenSent(userNumber)) {
         const ok = await functionCalls[fnName](client, userNumber, conversation);
         if (ok) markPreviewSent(userNumber);
+        else {
+          return await generatePersonaReply(
+            userNumber,
+            'Voce nao conseguiu enviar a previa agora. Pede pro lead tentar de novo em instantes, com carinho.'
+          );
+        }
+        return '';
+      }
+      if (fnName === 'send_apresentacao_produto' && !hasPresentationBeenSent(userNumber)) {
+        const ok = await functionCalls[fnName](client, userNumber, conversation);
+        if (ok) markPresentationSent(userNumber);
+        else {
+          return await generatePersonaReply(
+            userNumber,
+            'Voce nao conseguiu enviar a apresentacao agora. Pede pro lead tentar de novo em instantes, com carinho.'
+          );
+        }
         return '';
       }
       if (fnName === 'naosou_fake' && !hasSentNaoSouFake[userNumber]) {
@@ -2249,6 +2267,9 @@ client.on("message", async (message) => {
             }
             const ok = await functionCalls.send_amostra_gratis(client, from, conv);
             if (ok) markPreviewSent(from);
+            else if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(combinedMessage.trim())) {
+              await sendTextHuman(client, from, 'amor, travou aqui um segundo, manda de novo?');
+            }
           }
 
           const pixAlreadySent =

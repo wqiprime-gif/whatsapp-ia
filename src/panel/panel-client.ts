@@ -93,7 +93,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/onlychat.png" });
+        new Notification(title, { body: body, icon: "/brand/onlychat.svg" });
         return true;
       } catch (_) {}
     }
@@ -1050,28 +1050,36 @@ export const panelClientScript = `
   bindGlobalSearch();
 
   function bindMobileDrawer() {
-    const sidebar = document.querySelector(".sidebar");
+    const drawer = document.getElementById("mobile-menu-drawer");
     const backdrop = document.getElementById("mobile-drawer-backdrop");
     const menuBtn = document.getElementById("mobile-menu-btn");
-    if (!sidebar || !backdrop || !menuBtn) return;
+    const closeBtn = document.getElementById("mobile-menu-close");
+    if (!drawer || !backdrop || !menuBtn) return;
 
     function openDrawer() {
-      sidebar.classList.add("sidebar--open");
+      drawer.classList.add("mobile-menu-drawer--open");
       backdrop.classList.add("is-open");
+      drawer.setAttribute("aria-hidden", "false");
       backdrop.setAttribute("aria-hidden", "false");
+      document.body.classList.add("mobile-menu-open");
     }
     function closeDrawer() {
-      sidebar.classList.remove("sidebar--open");
+      drawer.classList.remove("mobile-menu-drawer--open");
       backdrop.classList.remove("is-open");
+      drawer.setAttribute("aria-hidden", "true");
       backdrop.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("mobile-menu-open");
     }
 
-    menuBtn.addEventListener("click", () => {
-      if (sidebar.classList.contains("sidebar--open")) closeDrawer();
+    menuBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (drawer.classList.contains("mobile-menu-drawer--open")) closeDrawer();
       else openDrawer();
     });
+    if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
     backdrop.addEventListener("click", closeDrawer);
-    sidebar.querySelectorAll(".nav a, .nav button.nav-btn, .sidebar-plan a, form[action='/logout'] button").forEach((el) => {
+    drawer.querySelectorAll("a[data-nav], form[action='/logout'] button").forEach((el) => {
       el.addEventListener("click", closeDrawer);
     });
   }

@@ -32,6 +32,39 @@ export function confirmsPriceInterest(text: string) {
     /(quero ver|manda a tabela|mostra|pode mandar).*(tabela|precos|preços|pacotes)/i.test(text);
 }
 
+/** Lead confirmou oferta recente (ex: "quero sim" depois de "quer ver?"). */
+export function confirmsPreviewInterest(text: string) {
+  return /^(sim|s|quero|quero sim|pode|manda|manda ai|manda aí|bora|ok|show|quero ver|manda pra mim|pode mandar)$/i.test(
+    text.trim()
+  );
+}
+
+export function conversationOfferedPreview(
+  history: { role: string; content?: unknown }[]
+) {
+  const assistants = history
+    .filter((m) => m.role === "assistant")
+    .slice(-4)
+    .map((m) => String(m.content || ""))
+    .join(" ");
+  return /pr[eé]via|amostra|quer ver|posso te enviar|mando uma|foto gr[aá]tis|teste gr[aá]tis/i.test(assistants);
+}
+
+export function conversationOfferedPresentation(
+  history: { role: string; content?: unknown }[]
+) {
+  const assistants = history
+    .filter((m) => m.role === "assistant")
+    .slice(-4)
+    .map((m) => String(m.content || ""))
+    .join(" ");
+  return /recebe|apresenta|pack|conte[uú]do|o que (voce|vc) (ganha|recebe)|mostrar o que/i.test(assistants);
+}
+
+export function textPromisesPresentation(text: string) {
+  return /é isso que (voce|vc) recebe|olha o que (voce|vc) (recebe|ganha)|isso que (voce|vc) recebe/i.test(text);
+}
+
 export function limitSentences(text: string, max = 2) {
   const trimmed = text.replace(/\[\[[\w_]+\]\]/gi, "").trim();
   if (!trimmed) return "";

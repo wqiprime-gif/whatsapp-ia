@@ -952,6 +952,14 @@ export async function registerPanelRoutes(
       .send(SERVICE_WORKER_JS);
   });
 
+  app.get("/brand/onlychat.svg", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "onlychat.svg");
+    if (fsSync.existsSync(file)) {
+      return reply.type("image/svg+xml").send(fsSync.createReadStream(file));
+    }
+    return reply.code(404).send("Not found");
+  });
+
   app.get("/brand/onlychat.png", async (_request, reply) => {
     const candidates = [
       path.join(rootDir, "public", "brand", "onlychat.png"),

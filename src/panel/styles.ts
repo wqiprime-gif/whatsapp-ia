@@ -722,17 +722,8 @@ button, input, textarea, select { font-family: inherit; }
 }
 @media (max-width: 900px) {
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 300;
-    transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    width: min(280px, 88vw);
+    display: none;
   }
-  .sidebar.sidebar--open { transform: translateX(0); }
-  .sidebar-brand { display: none; }
   .mobile-topbar {
     display: flex;
     align-items: center;
@@ -755,19 +746,141 @@ button, input, textarea, select { font-family: inherit; }
     font-weight: 800;
     font-size: 1.05rem;
     letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #fff 0%, #4fc3ff 55%, #1e7bff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .mobile-drawer-backdrop {
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 250;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(2px);
+    z-index: 400;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
   }
   .mobile-drawer-backdrop.is-open { display: block; }
+  .mobile-menu-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(92vw, 380px);
+    z-index: 450;
+    background: #070707;
+    border-left: 1px solid rgba(59, 130, 246, 0.2);
+    transform: translateX(100%);
+    transition: transform 0.28s ease;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    box-shadow: -12px 0 40px rgba(0, 0, 0, 0.55);
+  }
+  .mobile-menu-drawer--open { transform: translateX(0); }
+  .mobile-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .mobile-menu-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #fff;
+  }
+  .mobile-menu-brand img { border-radius: 12px; }
+  .mobile-menu-close {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .mobile-menu-nav {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mobile-menu-section {
+    margin: 14px 0 6px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .mobile-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #e8eef8;
+    font-size: 0.92rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .mobile-menu-link svg { width: 20px; height: 20px; opacity: 0.85; }
+  .mobile-menu-link.active {
+    background: rgba(30, 123, 255, 0.18);
+    border-color: rgba(79, 195, 255, 0.25);
+    color: #93c5fd;
+  }
+  .mobile-menu-link--cta {
+    margin-top: 8px;
+    background: rgba(30, 123, 255, 0.12);
+    border-color: rgba(30, 123, 255, 0.25);
+    color: #60a5fa;
+  }
+  .mobile-menu-foot {
+    margin-top: 12px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mobile-menu-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .mobile-menu-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.08);
+    color: #f87171;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  body.mobile-menu-open { overflow: hidden; }
 }
 .mobile-topbar,
-.mobile-drawer-backdrop { display: none; }
+.mobile-drawer-backdrop,
+.mobile-menu-drawer { display: none; }
+@media (max-width: 900px) {
+  .mobile-menu-drawer { display: flex; }
+}
 .tab-short { display: none; }
 @media (max-width: 900px) {
   .tab-long { display: none; }

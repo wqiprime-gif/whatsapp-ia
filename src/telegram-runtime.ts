@@ -13,9 +13,13 @@ import {
   pickAudioFromAi
 } from "./lib/named-audio.js";
 import {
+  confirmsPreviewInterest,
   confirmsPriceInterest,
+  conversationOfferedPreview,
+  conversationOfferedPresentation,
   isGreeting,
   limitSentences,
+  textPromisesPresentation,
   wantsPixIntent,
   wantsPreviewIntent,
   wantsPriceTable
@@ -404,12 +408,18 @@ async function sendProductPresentation(runtime: RuntimeBot, chatId: number) {
       bot.telegram,
       chatId,
       config,
-      "ja te mostrei o que voce recebe amor, agora e so comprar 😘"
+      "ja te mostrei o que voce recebe amor, agora e so comprar"
     );
     return false;
   }
+
+  const sent = await humanSendMediaList(bot.telegram, chatId, config, urls);
+  if (sent === 0) {
+    console.error(`[tg] Nenhuma midia de apresentacao enviada para chat ${chatId}`);
+    return false;
+  }
+
   runtime.presentationUsed.add(chatId);
-  await humanSendMediaList(bot.telegram, chatId, config, urls);
   const reply = await generatePersonaReply(
     runtime,
     chatId,
@@ -661,6 +671,28 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
       return;
     }
 
+    if (
+      confirmsPreviewInterest(text) &&
+      conversationOfferedPreview(history) &&
+      config.previewMediaUrls.length > 0 &&
+      !runtime.previewUsed.has(chatId)
+    ) {
+      const sent = await sendPreview(runtime, chatId);
+      if (sent) leadState.hasSentAmostra = true;
+      return;
+    }
+
+    if (
+      confirmsPreviewInterest(text) &&
+      conversationOfferedPresentation(history) &&
+      config.productPresentationEnabled &&
+      !runtime.presentationUsed.has(chatId)
+    ) {
+      const sent = await sendProductPresentation(runtime, chatId);
+      if (sent) leadState.hasSentApresentacao = true;
+      return;
+    }
+
     if (wantsPixIntent(text)) {
       await sendPaymentInstructions(bot, chatId, config);
       return;
@@ -721,8 +753,26 @@ Audios: ${audioLibraryPrompt(library)}.`
       history.push({ role: "user", content: text }, { role: "assistant", content: rawReply });
       await logMessage({ botId: config.id, chatId, role: "assistant", content: rawReply });
 
+      if (actions.includes("send_apresentacao_produto")) {
+        outText = textPromisesPresentation(outText) ? "" : outText;
+      }
+
       if (actions.includes("ignorar_lead")) {
         runtime.ignoredChats.add(chatId);
+      }
+
+      if (actions.includes("send_apresentacao_produto")) {
+        const sent = await sendProductPresentation(runtime, chatId);
+        if (sent) leadState.hasSentApresentacao = true;
+      }
+
+      if (actions.includes("send_amostra_gratis") && config.previewMediaUrls.length > 0) {
+        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
+          await sendProductPresentation(runtime, chatId);
+          leadState.hasSentApresentacao = true;
+        }
+        const sent = await sendPreview(runtime, chatId);
+        if (sent) leadState.hasSentAmostra = true;
       }
 
       const wantsTable =
@@ -750,20 +800,6 @@ Audios: ${audioLibraryPrompt(library)}.`
         await humanSendText(ctx.telegram, chatId, config, outText);
       }
 
-      if (actions.includes("send_apresentacao_produto")) {
-        await sendProductPresentation(runtime, chatId);
-        leadState.hasSentApresentacao = true;
-      }
-
-      if (actions.includes("send_amostra_gratis") && config.previewMediaUrls.length > 0) {
-        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
-          await sendProductPresentation(runtime, chatId);
-          leadState.hasSentApresentacao = true;
-        }
-        const sent = await sendPreview(runtime, chatId);
-        if (sent) leadState.hasSentAmostra = true;
-      }
-
       const lower = clean.toLowerCase();
       const aiOffersPreview =
         /previa|prévia|vou te mandar|segue a foto|mando agora|olha s[oó]/i.test(lower) &&
@@ -776,9 +812,23 @@ Audios: ${audioLibraryPrompt(library)}.`
         const sent = await sendPreview(runtime, chatId, { skipIntro: true });
         if (sent) leadState.hasSentAmostra = true;
       }
+
+      if (
+        !runtime.presentationUsed.has(chatId) &&
+        config.productPresentationEnabled &&
+        textPromisesPresentation(clean) &&
+        !actions.includes("send_apresentacao_produto")
+      ) {
+        const sent = await sendProductPresentation(runtime, chatId);
+        if (sent) leadState.hasSentApresentacao = true;
+      }
     } catch (error) {
       console.error(error);
-      await humanSendText(ctx.telegram, chatId, config, randomAiErrorHint());
+      try {
+        await humanSendText(ctx.telegram, chatId, config, randomAiErrorHint());
+      } catch (_) {
+        // ultimo recurso
+      }
     }
   });
 

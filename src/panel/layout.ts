@@ -90,6 +90,11 @@ function navItem(href: string, label: string, icon: string, active: boolean) {
   return `<a href="${href}" class="${cls}" data-nav title="${escapeHtml(label)}">${icon}<span class="nav-text">${label}</span></a>`;
 }
 
+function mobileMenuLink(href: string, label: string, icon: string, active: boolean) {
+  const cls = active ? "mobile-menu-link active" : "mobile-menu-link";
+  return `<a href="${href}" class="${cls}" data-nav>${icon}<span>${escapeHtml(label)}</span></a>`;
+}
+
 export function userAvatarHtml(avatarUrl: string, label: string, large = false, cacheBust = "") {
   const initials = escapeHtml(label.slice(0, 2).toUpperCase());
   const lg = large ? " user-avatar--lg" : "";
@@ -159,6 +164,40 @@ export function appLayout(
     <span class="mobile-topbar-title">OnlyChat</span>
   </header>
   <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
+  <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu OnlyChat">
+    <div class="mobile-menu-head">
+      <div class="mobile-menu-brand">
+        <img src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="40" height="40" />
+        <span>ONLYCHAT MENU</span>
+      </div>
+      <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Fechar menu">×</button>
+    </div>
+    <nav class="mobile-menu-nav">
+      <div class="mobile-menu-section">PRINCIPAL</div>
+      ${mobileMenuLink("/", "Dashboard", icons.dashboard, is("dashboard"))}
+      ${mobileMenuLink("/instances", "Instâncias", icons.layers, is("instances"))}
+      ${mobileMenuLink("/links", "Gerar links", icons.link, is("links"))}
+      ${mobileMenuLink("/leads", "Leads", icons.users, is("leads"))}
+      <div class="mobile-menu-section">AUTOMAÇÕES</div>
+      ${mobileMenuLink("/remarketing", "Remarketing", icons.megaphone, is("remarketing"))}
+      ${mobileMenuLink("/gifts", "Pedir presentes", icons.sparkles, is("gifts"))}
+      ${mobileMenuLink("/payments", "Pagamentos", icons.card, is("payments"))}
+      ${mobileMenuLink("/products", "Produtos", icons.box, is("products"))}
+      ${mobileMenuLink("/media", "Mídias", icons.image, is("media"))}
+      <div class="mobile-menu-section">CONTA</div>
+      ${mobileMenuLink("/perfil", "Minha conta", icons.users, is("profile"))}
+      <a href="/instances/new" class="mobile-menu-link mobile-menu-link--cta" data-nav>${icons.plus}<span>Nova Instância</span></a>
+    </nav>
+    <div class="mobile-menu-foot">
+      <a href="/perfil" class="mobile-menu-user" data-nav>
+        ${userAvatarHtml(userAvatar, userName)}
+        <span>${escapeHtml(userName)}</span>
+      </a>
+      <form method="post" action="/logout">
+        <button type="submit" class="mobile-menu-logout">${icons.logout}<span>Sair</span></button>
+      </form>
+    </div>
+  </aside>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">${brandMarkHtml()}</div>

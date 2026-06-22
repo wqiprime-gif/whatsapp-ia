@@ -10,9 +10,9 @@ export const PWA_MANIFEST = {
   orientation: "portrait-primary",
   icons: [
     {
-      src: "/brand/onlychat.png",
-      sizes: "512x512",
-      type: "image/png",
+      src: "/brand/onlychat.svg",
+      sizes: "any",
+      type: "image/svg+xml",
       purpose: "any"
     }
   ]
@@ -36,8 +36,8 @@ self.addEventListener("message", (event) => {
     self.registration.showNotification(title, {
       body,
       tag,
-      icon: "/brand/onlychat.png",
-      badge: "/brand/onlychat.png",
+      icon: "/brand/onlychat.svg",
+      badge: "/brand/onlychat.svg",
       vibrate: [180, 90, 180],
       renotify: true,
       data: { url: data.url || "/" }
@@ -69,5 +69,5 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
-<link rel="apple-touch-icon" href="/brand/onlychat.png" />
+<link rel="apple-touch-icon" href="/brand/onlychat.svg" />
 `;
