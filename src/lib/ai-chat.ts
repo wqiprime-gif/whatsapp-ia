@@ -1,7 +1,8 @@
 import OpenAI from "openai";
+import type { BotConfig } from "../bots.js";
 import { AI_PROVIDERS, normalizeAIProvider, openRouterDefaultHeaders, type AIProviderId } from "./ai-providers.js";
 import { env } from "../config.js";
-import { getAIProvider, getOpenAIApiKey, getOpenAIModel } from "./settings.js";
+import { getAIProvider, getOpenAIApiKey, getOpenAIModel, resolveBotAIConfig } from "./settings.js";
 
 type ChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
 
@@ -56,16 +57,16 @@ async function userEmailFor(userId: string) {
   return u?.email;
 }
 
-export async function createChatCompletion(userId: string, params: Omit<ChatParams, "model"> & { model?: string }) {
-  const provider = normalizeAIProvider(await getAIProvider(userId));
-  const model = params.model || (await getOpenAIModel(userId)) || AI_PROVIDERS[provider].defaultModel;
-  const apiKey = await getOpenAIApiKey(userId, await userEmailFor(userId));
+async function completionWithCredentials(
+  provider: AIProviderId,
+  apiKey: string,
+  params: Omit<ChatParams, "model"> & { model?: string },
+  model: string
+) {
   const fullParams = { ...params, model } as ChatParams;
-
   if (provider === "anthropic") {
     return anthropicCompletion(apiKey, fullParams);
   }
-
   const cfg = AI_PROVIDERS[provider];
   const client = new OpenAI({
     apiKey,
@@ -73,6 +74,24 @@ export async function createChatCompletion(userId: string, params: Omit<ChatPara
     defaultHeaders: provider === "openrouter" ? openRouterDefaultHeaders(env.PUBLIC_BASE_URL) : undefined
   });
   return client.chat.completions.create(fullParams);
+}
+
+export async function createChatCompletion(userId: string, params: Omit<ChatParams, "model"> & { model?: string }) {
+  const provider = normalizeAIProvider(await getAIProvider(userId));
+  const model = params.model || (await getOpenAIModel(userId)) || AI_PROVIDERS[provider].defaultModel;
+  const apiKey = await getOpenAIApiKey(userId, await userEmailFor(userId));
+  return completionWithCredentials(provider, apiKey, params, model);
+}
+
+/** Usa API Key / modelo da instância (prioridade sobre painel global). */
+export async function createChatCompletionForBot(
+  bot: BotConfig,
+  params: Omit<ChatParams, "model"> & { model?: string }
+) {
+  const email = await userEmailFor(bot.userId);
+  const ai = await resolveBotAIConfig(bot, email);
+  const model = params.model || ai.model;
+  return completionWithCredentials(ai.provider, ai.apiKey, params, model);
 }
 
 export async function getOpenAIClient(userId: string, provider?: AIProviderId) {

@@ -4,13 +4,14 @@ export type PromptAction =
   | "send_informacoes"
   | "send_amostra_gratis"
   | "send_apresentacao_produto"
+  | "send_chave_pix"
   | "naosou_fake"
   | "ignorar_lead"
   | "chamada_video"
   | "pedir_presente";
 
 const ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_apresentacao_produto|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_apresentacao_produto|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 

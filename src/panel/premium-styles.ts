@@ -2623,6 +2623,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 .mobile-tab svg { width: 22px; height: 22px; opacity: 0.75; }
 .mobile-tab.active { color: #60a5fa; background: rgba(59, 130, 246, 0.12); }
 .mobile-tab.active svg { opacity: 1; filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.5)); }
+.mobile-tab--more {
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
 
 .btn-danger {
   padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.35);

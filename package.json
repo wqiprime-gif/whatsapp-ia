@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-ia",
   "private": true,
-  "version": "1.6.5",
+  "version": "1.7.0",
   "description": "BotManager WhatsApp — painel completo + multi-instância",
   "type": "module",
   "scripts": {

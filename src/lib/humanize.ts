@@ -62,3 +62,61 @@ const PREVIEW_INTROS = [
 export function randomPreviewIntro() {
   return PREVIEW_INTROS[Math.floor(Math.random() * PREVIEW_INTROS.length)];
 }
+
+const GREETINGS = [
+  "oii amor, tudo bem?",
+  "oiee bb, que bom te ver por aqui",
+  "oi gato, sumido por aqui",
+  "oii, como voce ta?",
+  "e ai amor, tudo certo?",
+  "oi meu bem, apareceu",
+  "oii bb, tava esperando voce",
+  "oi amor, que bom que mandou msg",
+  "eai gatinho, tudo bem ai?",
+  "oii princesa, como ta?"
+];
+
+export function randomGreeting() {
+  return GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+}
+
+const PIX_RECEIPT_HINTS = [
+  "quando pagar me manda o comprovante aqui",
+  "depois que pagar manda o comprovante amor",
+  "paga e me manda o comprovante aqui bb"
+];
+
+export function randomPixReceiptHint() {
+  return PIX_RECEIPT_HINTS[Math.floor(Math.random() * PIX_RECEIPT_HINTS.length)];
+}
+
+const AI_ERROR_HINTS = [
+  "oii amor, travou aqui um segundo, manda de novo?",
+  "pera bb, deu um bug, repete pra mim?",
+  "amor, nao pegou, manda outra vez?"
+];
+
+export function randomAiErrorHint() {
+  return AI_ERROR_HINTS[Math.floor(Math.random() * AI_ERROR_HINTS.length)];
+}
+
+/** Mantém no máximo N emojis por bolha. */
+export function limitEmojis(text: string, max = 1) {
+  if (!text || max < 0) return text;
+  let count = 0;
+  return [...text]
+    .filter((ch) => {
+      const isEmoji = /\p{Extended_Pictographic}/u.test(ch);
+      if (!isEmoji) return true;
+      if (count < max) {
+        count++;
+        return true;
+      }
+      return false;
+    })
+    .join("");
+}
+
+export function polishBotText(text: string) {
+  return limitEmojis(text.trim(), 1);
+}

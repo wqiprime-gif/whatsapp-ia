@@ -16,7 +16,6 @@ import {
   confirmsPriceInterest,
   isGreeting,
   limitSentences,
-  wantsInterestIntent,
   wantsPixIntent,
   wantsPreviewIntent,
   wantsPriceTable
@@ -44,21 +43,21 @@ import {
   parseOfferReais
 } from "./lib/sales-packages.js";
 import { cantPayIntent, halfPriceOfferReply } from "./lib/product-offers.js";
-import { randomPreviewIntro } from "./lib/humanize.js";
+import { randomPreviewIntro, randomGreeting, randomAiErrorHint, randomPixReceiptHint } from "./lib/humanize.js";
 import { formatReceiptOutcome, randomReceiptAck } from "./lib/receipt-messages.js";
 import {
   validateReceiptFromImage,
   validateReceiptFromText,
   type ReceiptVerdict
 } from "./lib/receipt-validator.js";
-import { createChatCompletion } from "./lib/ai-chat.js";
-import { getOpenAIModel } from "./lib/settings.js";
+import { createChatCompletionForBot } from "./lib/ai-chat.js";
 import {
   humanReadingPause,
   humanSendMediaList,
   humanSendNamedAudio,
   humanSendText,
-  humanSendTexts
+  humanSendTexts,
+  setTelegramOutboundHook
 } from "./lib/telegram-send.js";
 const BOT_LAUNCH_TIMEOUT_MS = 20_000;
 const PREVIEW_COOLDOWN_MS = 90_000;
@@ -94,6 +93,108 @@ function silenceChat(runtime: RuntimeBot, chatId: number) {
 const AUDIO_COOLDOWN_MS = 3 * 60 * 1000;
 
 const runningBots = new Map<string, RuntimeBot>();
+
+const followUpTimers = new Map<string, NodeJS.Timeout>();
+const followUpCounts = new Map<string, number>();
+const lastUserActivityAt = new Map<string, number>();
+const lastBotMessageAt = new Map<string, number>();
+
+function followKey(botId: string, chatId: number) {
+  return `${botId}:${chatId}`;
+}
+
+function getFollowUpConfig(config: BotConfig) {
+  return {
+    enabled: config.followUpEnabled !== false,
+    afterMs: Math.max(60_000, (config.followUpAfterMinutes || 10) * 60_000),
+    maxPerLead: Math.min(5, Math.max(1, config.followUpMaxPerLead || 2))
+  };
+}
+
+function clearFollowUpTimer(key: string) {
+  const timer = followUpTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    followUpTimers.delete(key);
+  }
+}
+
+function onLeadMessage(runtime: RuntimeBot, chatId: number) {
+  const key = followKey(runtime.config.id, chatId);
+  lastUserActivityAt.set(key, Date.now());
+  clearFollowUpTimer(key);
+  followUpCounts.set(key, 0);
+}
+
+async function generatePersonaReply(runtime: RuntimeBot, chatId: number, instruction: string) {
+  const history = runtime.historyByChat.get(chatId) || [];
+  try {
+    const completion = await createChatCompletionForBot(runtime.config, {
+      temperature: 0.85,
+      max_tokens: 100,
+      messages: [
+        {
+          role: "system",
+          content: `${runtime.config.prompt}\n\n${instruction}\nResponda com UMA frase curta e informal.`
+        },
+        ...history.slice(-8)
+      ]
+    });
+    return limitSentences(completion.choices[0]?.message.content?.trim() || "");
+  } catch {
+    return "";
+  }
+}
+
+function scheduleFollowUp(runtime: RuntimeBot, chatId: number) {
+  const key = followKey(runtime.config.id, chatId);
+  clearFollowUpTimer(key);
+  const { enabled, afterMs, maxPerLead } = getFollowUpConfig(runtime.config);
+  if (!enabled) return;
+  if (runtime.ignoredChats.has(chatId)) return;
+  const leadState = getLeadState(runtime, chatId);
+  if (leadState.paid) return;
+  if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
+
+  const scheduledAt = Date.now();
+  followUpTimers.set(
+    key,
+    setTimeout(async () => {
+      followUpTimers.delete(key);
+      if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
+      if ((lastUserActivityAt.get(key) || 0) > (lastBotMessageAt.get(key) || scheduledAt)) return;
+      if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
+
+      const msg = await generatePersonaReply(
+        runtime,
+        chatId,
+        "O lead ficou quieto sem responder depois da sua ultima mensagem. Mande UMA frase curta e carinhosa para puxar conversa. Varie — nao copie frase de atendente."
+      );
+      if (!msg) return;
+
+      followUpCounts.set(key, (followUpCounts.get(key) || 0) + 1);
+      await humanSendText(runtime.bot.telegram, chatId, runtime.config, msg);
+      await logMessage({
+        botId: runtime.config.id,
+        chatId,
+        role: "assistant",
+        content: `[follow-up] ${msg}`
+      });
+      const history = runtime.historyByChat.get(chatId) || [];
+      history.push({ role: "assistant", content: msg });
+    }, afterMs)
+  );
+}
+
+function onBotOutboundForFollowUp(config: BotConfig, chatId: number) {
+  const runtime = runningBots.get(config.id);
+  if (!runtime) return;
+  const key = followKey(config.id, chatId);
+  lastBotMessageAt.set(key, Date.now());
+  scheduleFollowUp(runtime, chatId);
+}
+
+setTelegramOutboundHook(onBotOutboundForFollowUp);
 
 function receiptContext(config: BotConfig) {
   return {
@@ -204,6 +305,16 @@ async function handleReceiptResult(input: {
   );
 }
 
+async function sendPixKeyOnly(bot: Telegraf, chatId: number, config: BotConfig) {
+  const key = config.pixKey?.trim();
+  if (!key) {
+    await humanSendText(bot.telegram, chatId, config, "Amor, a chave Pix ainda nao foi configurada aqui.");
+    return;
+  }
+  await humanSendText(bot.telegram, chatId, config, key);
+  await humanSendText(bot.telegram, chatId, config, randomPixReceiptHint());
+}
+
 async function sendPaymentInstructions(bot: Telegraf, chatId: number, config: BotConfig) {
   const telegram = bot.telegram;
   const price = (config.productPriceCents / 100).toFixed(2).replace(".", ",");
@@ -228,11 +339,7 @@ async function sendPaymentInstructions(bot: Telegraf, chatId: number, config: Bo
     }
   }
 
-  await humanSendTexts(telegram, chatId, config, [
-    `Chave Pix: ${config.pixKey}`,
-    `Produto: ${config.productName} — R$ ${price}`,
-    "Quando pagar, manda o comprovante em imagem ou PDF."
-  ]);
+  await sendPixKeyOnly(bot, chatId, config);
 }
 
 async function sendPreview(runtime: RuntimeBot, chatId: number, opts?: { skipIntro?: boolean }) {
@@ -302,13 +409,17 @@ async function sendProductPresentation(runtime: RuntimeBot, chatId: number) {
     return false;
   }
   runtime.presentationUsed.add(chatId);
-  await humanSendText(
-    bot.telegram,
-    chatId,
-    config,
-    "Olha o que voce vai receber depois de comprar 😘"
-  );
   await humanSendMediaList(bot.telegram, chatId, config, urls);
+  const reply = await generatePersonaReply(
+    runtime,
+    chatId,
+    "Voce acabou de mostrar o que o lead recebe apos comprar. Pergunte em 1 frase se ele gostou ou se quer comprar."
+  );
+  if (reply) {
+    await humanSendText(bot.telegram, chatId, config, reply);
+    const history = runtime.historyByChat.get(chatId) || [];
+    history.push({ role: "assistant", content: reply });
+  }
   return true;
 }
 
@@ -450,6 +561,8 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
 
     if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
 
+    onLeadMessage(runtime, chatId);
+
     await upsertLead({
       botId: config.id,
       chatId,
@@ -556,9 +669,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     const isFirstTurn = history.filter((m) => m.role === "user").length === 0;
 
     try {
-      const model = await getOpenAIModel(config.userId);
-      const completion = await createChatCompletion(config.userId, {
-        model,
+      const completion = await createChatCompletionForBot(config, {
         temperature: 0.75,
         messages: [
           {
@@ -600,7 +711,7 @@ Audios: ${audioLibraryPrompt(library)}.`
       let outText = limitSentences(clean);
 
       if (isGreeting(text) && isFirstTurn) {
-        outText = outText || "oii amor, tudo bem? 😊";
+        outText = outText || randomGreeting();
       }
 
       if (leadState.hasSentInformacoes && rawReply.includes("send_informacoes")) {
@@ -633,6 +744,8 @@ Audios: ${audioLibraryPrompt(library)}.`
       } else if (actions.includes("naosou_fake")) {
         leadState.hasSentNaoSouFake = true;
         await humanSendText(ctx.telegram, chatId, config, naosouFakeMessage());
+      } else if (actions.includes("send_chave_pix")) {
+        await sendPixKeyOnly(bot, chatId, config);
       } else if (outText) {
         await humanSendText(ctx.telegram, chatId, config, outText);
       }
@@ -651,17 +764,6 @@ Audios: ${audioLibraryPrompt(library)}.`
         if (sent) leadState.hasSentAmostra = true;
       }
 
-      if (
-        !runtime.presentationUsed.has(chatId) &&
-        config.productPresentationEnabled &&
-        !wantsPreviewIntent(text) &&
-        !(isGreeting(text) && leadState.userMessageCount <= 1) &&
-        (leadState.userMessageCount >= 2 || wantsInterestIntent(text))
-      ) {
-        await sendProductPresentation(runtime, chatId);
-        leadState.hasSentApresentacao = true;
-      }
-
       const lower = clean.toLowerCase();
       const aiOffersPreview =
         /previa|prévia|vou te mandar|segue a foto|mando agora|olha s[oó]/i.test(lower) &&
@@ -676,12 +778,7 @@ Audios: ${audioLibraryPrompt(library)}.`
       }
     } catch (error) {
       console.error(error);
-      await humanSendText(
-        ctx.telegram,
-        chatId,
-        config,
-        "IA indisponivel. Configure a API Key em Configuracoes no painel."
-      );
+      await humanSendText(ctx.telegram, chatId, config, randomAiErrorHint());
     }
   });
 
@@ -834,4 +931,32 @@ export async function getTelegramLiveStatusAsync(
 
 export function isTelegramBotRunning(botId: string) {
   return runningBots.has(botId);
+}
+
+export async function sendTelegramMessage(input: {
+  botId: string;
+  chatId: number;
+  message: string;
+}) {
+  const runtime = runningBots.get(input.botId);
+  if (runtime) {
+    await humanSendText(runtime.bot.telegram, input.chatId, runtime.config, input.message);
+    return;
+  }
+
+  const configs = await loadBots();
+  const config = configs.find((b) => b.id === input.botId && isTelegramBot(b));
+  const token = config?.token?.trim() || config?.backupToken?.trim();
+  if (!config || !token) {
+    throw new Error(`Bot Telegram ${input.botId} indisponivel`);
+  }
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: input.chatId, text: input.message })
+  });
+  if (!res.ok) {
+    throw new Error(`Falha ao enviar Telegram: ${res.status}`);
+  }
 }

@@ -1529,13 +1529,7 @@ Qual pacote te interessa, amor? 💕
     }
 
     try {
-      const lines = [
-        `desculpa amor 😘 minha chave Pix é: *${pixKey}*`,
-        `manda o comprovante aqui depois que pagar tá? 💕`
-      ];
-      if (pixRecipientName) {
-        lines.splice(1, 0, `Nome: ${pixRecipientName}`);
-      }
+      const lines = [String(pixKey).trim(), "manda o comprovante aqui depois que pagar tá?"];
       for (const line of lines) {
         await sendTextHuman(client, messageFrom, line);
         await new Promise((r) => setTimeout(r, 900));
@@ -1951,8 +1945,6 @@ async function sendApresentacaoProduto(client, messageFrom, conversation) {
     const chat = await client.getChatById(messageFrom);
     let sentCount = 0;
 
-    await sendTextHuman(client, messageFrom, 'Olha o que voce vai receber depois de comprar 😘');
-
     for (const url of urls) {
       const localPath = await resolveMediaLocalPath(url);
       if (!localPath) {
@@ -2249,13 +2241,8 @@ client.on("message", async (message) => {
             await executePromptActions(client, from, actions);
           }
 
-          const conv = getUserConversation(from);
-          if (shouldAutoSendPresentation(from, combinedMessage, conv)) {
-            const presOk = await functionCalls.send_apresentacao_produto(client, from, conv);
-            if (presOk) markPresentationSent(from);
-          }
-
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
+            const conv = getUserConversation(from);
             if (!hasPresentationBeenSent(from) && hasPresentationMedia()) {
               const presOk = await functionCalls.send_apresentacao_produto(client, from, conv);
               if (presOk) markPresentationSent(from);

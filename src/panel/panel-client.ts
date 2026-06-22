@@ -93,7 +93,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/whatsapp-logo.svg" });
+        new Notification(title, { body: body, icon: "/brand/onlychat.png" });
         return true;
       } catch (_) {}
     }
@@ -1048,5 +1048,33 @@ export const panelClientScript = `
 
   function bindGlobalSearch() {}
   bindGlobalSearch();
+
+  function bindMobileDrawer() {
+    const sidebar = document.querySelector(".sidebar");
+    const backdrop = document.getElementById("mobile-drawer-backdrop");
+    const menuBtn = document.getElementById("mobile-menu-btn");
+    if (!sidebar || !backdrop || !menuBtn) return;
+
+    function openDrawer() {
+      sidebar.classList.add("sidebar--open");
+      backdrop.classList.add("is-open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+    function closeDrawer() {
+      sidebar.classList.remove("sidebar--open");
+      backdrop.classList.remove("is-open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    menuBtn.addEventListener("click", () => {
+      if (sidebar.classList.contains("sidebar--open")) closeDrawer();
+      else openDrawer();
+    });
+    backdrop.addEventListener("click", closeDrawer);
+    sidebar.querySelectorAll(".nav a, .nav button.nav-btn, .sidebar-plan a, form[action='/logout'] button").forEach((el) => {
+      el.addEventListener("click", closeDrawer);
+    });
+  }
+  bindMobileDrawer();
 })();
 </script>`;

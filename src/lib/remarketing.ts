@@ -1,5 +1,7 @@
 import type { BotConfig } from "../bots.js";
+import { isTelegramBot } from "../bots.js";
 import { listLeadsByBot, listLeadsWithoutPurchaseForBot } from "../db/events.js";
+import { sendTelegramMessage } from "../telegram-runtime.js";
 import { jidFromChatId, sendWaMessage } from "../whatsapp-runtime.js";
 
 function sleep(ms: number) {
@@ -66,13 +68,21 @@ export async function sendRemarketing(input: {
     }
 
     try {
-      const jid = jidFromChatId(lead.chatId);
       for (let i = 0; i < toSend.length; i++) {
         if (i > 0) {
           const delay = input.randomize ? randomBetween(randMin, randMax) : baseDelayMs;
           if (delay > 0) await sleep(delay);
         }
-        await sendWaMessage({ botId: input.config.id, jid, message: toSend[i] });
+        if (isTelegramBot(input.config)) {
+          await sendTelegramMessage({
+            botId: input.config.id,
+            chatId: lead.chatId,
+            message: toSend[i]
+          });
+        } else {
+          const jid = jidFromChatId(lead.chatId);
+          await sendWaMessage({ botId: input.config.id, jid, message: toSend[i] });
+        }
         sent++;
       }
       if (input.randomize && baseDelayMs > 0) {

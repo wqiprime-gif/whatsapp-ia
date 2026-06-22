@@ -1,8 +1,8 @@
 import { escapeHtml } from "./layout.js";
 
-export const BRAND_LOGO_SRC = "/brand/whatsapp-logo.svg";
+export const BRAND_LOGO_SRC = "/brand/onlychat.png";
 
-export const FAVICON_LINK = `<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/svg+xml" />`;
+export const FAVICON_LINK = `<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/png" />`;
 
 /** Logo + OnlyChat na sidebar. */
 export function brandMarkHtml(subtitle = "") {

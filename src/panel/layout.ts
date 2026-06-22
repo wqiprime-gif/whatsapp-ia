@@ -2,7 +2,7 @@ import { APP_VERSION } from "../version.js";
 import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
-import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
+import { brandMarkHtml, BRAND_LOGO_SRC, FAVICON_LINK } from "./brand.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
 
@@ -154,6 +154,11 @@ export function appLayout(
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob mesh-blob--app" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
+  <header class="mobile-topbar" aria-label="OnlyChat">
+    <img class="mobile-topbar-logo" src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="36" height="36" />
+    <span class="mobile-topbar-title">OnlyChat</span>
+  </header>
+  <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">${brandMarkHtml()}</div>
@@ -210,7 +215,7 @@ export function appLayout(
     <a href="/instances" class="mobile-tab${is("instances") || is("new") ? " active" : ""}" data-nav="instances">${icons.layers}<span>Bots</span></a>
     <a href="/links" class="mobile-tab${is("links") ? " active" : ""}" data-nav="links">${icons.link}<span>Links</span></a>
     <a href="/leads" class="mobile-tab${is("leads") ? " active" : ""}" data-nav="leads">${icons.users}<span>Leads</span></a>
-    <a href="/perfil" class="mobile-tab${is("profile") ? " active" : ""}" data-nav="profile">${icons.users}<span>Conta</span></a>
+    <button type="button" class="mobile-tab mobile-tab--more" id="mobile-menu-btn" aria-label="Mais">${icons.menu}<span>Mais</span></button>
   </nav>
   <div id="panel-toasts" class="panel-toasts"></div>
   <div id="sale-popup-root" class="sale-popup-root" aria-live="polite"></div>

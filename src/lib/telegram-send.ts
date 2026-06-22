@@ -2,7 +2,17 @@ import path from "node:path";
 import type { Telegraf } from "telegraf";
 import type { BotConfig } from "../bots.js";
 import { uploadsDir } from "../bots.js";
-import { humanPause, splitReplyChunks, typingAndPause } from "./humanize.js";
+import { humanPause, polishBotText, splitReplyChunks, typingAndPause } from "./humanize.js";
+
+let outboundHook: ((config: BotConfig, chatId: number) => void) | null = null;
+
+export function setTelegramOutboundHook(hook: ((config: BotConfig, chatId: number) => void) | null) {
+  outboundHook = hook;
+}
+
+function notifyOutbound(config: BotConfig, chatId: number) {
+  if (outboundHook) outboundHook(config, chatId);
+}
 
 function isUploadedMedia(value: string) {
   return value.startsWith("/uploads/");
@@ -36,10 +46,11 @@ export async function humanSendText(
   config: BotConfig,
   text: string
 ) {
-  const chunks = splitReplyChunks(text);
+  const chunks = splitReplyChunks(polishBotText(text));
   for (let i = 0; i < chunks.length; i++) {
     await typingAndPause(telegram, chatId, config.messageDelayMs, i > 0);
     await telegram.sendMessage(chatId, chunks[i]);
+    notifyOutbound(config, chatId);
   }
 }
 
@@ -50,10 +61,11 @@ export async function humanSendTexts(
   messages: string[]
 ) {
   for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]?.trim();
+    const msg = polishBotText(messages[i] ?? "");
     if (!msg) continue;
     await typingAndPause(telegram, chatId, config.messageDelayMs, i > 0);
     await telegram.sendMessage(chatId, msg);
+    notifyOutbound(config, chatId);
   }
 }
 
@@ -75,6 +87,7 @@ export async function humanSendNamedAudio(
   if (isVoiceUrl(url)) await telegram.sendVoice(chatId, media);
   else if (isAudioUrl(url)) await telegram.sendAudio(chatId, media);
   else await telegram.sendDocument(chatId, media);
+  notifyOutbound(config, chatId);
 }
 
 export async function humanSendMediaList(
@@ -93,5 +106,6 @@ export async function humanSendMediaList(
     else if (isVoiceUrl(url)) await telegram.sendVoice(chatId, media);
     else if (isAudioUrl(url)) await telegram.sendAudio(chatId, media);
     else await telegram.sendDocument(chatId, media);
+    notifyOutbound(config, chatId);
   }
 }

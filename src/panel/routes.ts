@@ -952,6 +952,19 @@ export async function registerPanelRoutes(
       .send(SERVICE_WORKER_JS);
   });
 
+  app.get("/brand/onlychat.png", async (_request, reply) => {
+    const candidates = [
+      path.join(rootDir, "public", "brand", "onlychat.png"),
+      path.join(rootDir, "hotbot", "logoo.png")
+    ];
+    for (const file of candidates) {
+      if (fsSync.existsSync(file)) {
+        return reply.type("image/png").send(fsSync.createReadStream(file));
+      }
+    }
+    return reply.code(404).send("Not found");
+  });
+
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
       <circle cx="24" cy="24" r="24" fill="#0a5cff"/>

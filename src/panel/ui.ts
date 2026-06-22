@@ -380,8 +380,8 @@ export function dashboardPage(
         <div class="shark-period-tabs" data-period-tabs>
           <button type="button" class="shark-period-tab shark-period-tab--active" data-period="hoje">Hoje</button>
           <button type="button" class="shark-period-tab" data-period="ontem">Ontem</button>
-          <button type="button" class="shark-period-tab" data-period="7d">7 dias</button>
-          <button type="button" class="shark-period-tab" data-period="30d">30 dias</button>
+          <button type="button" class="shark-period-tab" data-period="7d"><span class="tab-long">7 dias</span><span class="tab-short">7D</span></button>
+          <button type="button" class="shark-period-tab" data-period="30d"><span class="tab-long">30 dias</span><span class="tab-short">30D</span></button>
           <button type="button" class="shark-period-tab" data-period="total">Total</button>
         </div>
       </div>
