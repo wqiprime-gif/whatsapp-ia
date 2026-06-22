@@ -511,23 +511,22 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
 function waStatusBadge(status: WaLiveStatus) {
   switch (status) {
     case "connected":
-      return { cls: "badge-online", label: "Conectado" };
+    case "meta_ready":
+      return { cls: "badge-online", label: "Online" };
     case "qr_pending":
       return { cls: "badge-paused", label: "Aguardando QR" };
     case "starting":
       return { cls: "badge-paused", label: "Reconectando..." };
     case "disconnected":
-      return { cls: "badge-paused", label: "Desconectado" };
+      return { cls: "badge-offline", label: "Offline" };
     case "auth_failure":
-      return { cls: "badge-paused", label: "Erro auth" };
+      return { cls: "badge-offline", label: "Erro auth" };
     case "error":
-      return { cls: "badge-paused", label: "Erro motor" };
-    case "meta_ready":
-      return { cls: "badge-online", label: "Meta API" };
+      return { cls: "badge-offline", label: "Erro motor" };
     case "meta_missing":
       return { cls: "badge-paused", label: "Meta incompleto" };
     case "offline":
-      return { cls: "badge-paused", label: "Offline" };
+      return { cls: "badge-offline", label: "Offline" };
     case "paused":
     default:
       return { cls: "badge-paused", label: "Pausado" };

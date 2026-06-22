@@ -2407,7 +2407,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.shark-instance-status--on { color: #3b82f6; }
+.shark-instance-status--on { color: #22c55e; }
+.shark-instance-status--off { color: #ef4444; }
 
 /* Gerar links WhatsApp */
 .wa-links-page { display: flex; flex-direction: column; gap: 20px; max-width: 960px; }

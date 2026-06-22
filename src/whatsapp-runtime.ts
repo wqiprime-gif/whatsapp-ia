@@ -11,7 +11,7 @@ import { sendMetaTextMessage } from "./lib/meta-cloud-api.js";
 import { puppeteerProxyArgs } from "./lib/wa-proxy.js";
 import { AI_PROVIDERS } from "./lib/ai-providers.js";
 import { resolveBotAIConfig } from "./lib/settings.js";
-import { getTelegramLiveStatus } from "./telegram-runtime.js";
+import { getTelegramLiveStatusAsync } from "./telegram-runtime.js";
 
 const hotbotDir = path.join(rootDir, "hotbot");
 const instancesDir = path.join(env.DATA_DIR, "wa-instances");
@@ -754,7 +754,7 @@ export async function getWaLiveStatus(bot: BotConfig): Promise<WaLiveStatus> {
   if (!bot.active) return "paused";
 
   if (isTelegramBot(bot)) {
-    return getTelegramLiveStatus(bot);
+    return getTelegramLiveStatusAsync(bot);
   }
 
   if (isMetaBot(bot)) {

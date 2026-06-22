@@ -805,8 +805,11 @@ button, input, textarea, select { font-family: inherit; }
   font-size: 0.7rem; font-weight: 700;
   white-space: nowrap;
 }
-.badge-online { background: var(--success-bg); color: var(--success); border: 1px solid rgba(59, 130, 246, 0.25); }
+.badge-online { background: rgba(34, 197, 94, 0.12); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); }
+.badge-offline { background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
 .badge-paused { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(255, 200, 87, 0.25); }
+.badge-online .badge-dot { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.55); }
+.badge-offline .badge-dot { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.55); }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 .metric { font-weight: 600; font-size: 0.88rem; font-variant-numeric: tabular-nums; }

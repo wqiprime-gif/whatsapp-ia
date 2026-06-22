@@ -508,7 +508,12 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
       return;
     }
 
-    if (looksLikeStalling(text, history) && !leadShowsBuyIntent(text)) {
+    if (
+      looksLikeStalling(text, history) &&
+      !leadShowsBuyIntent(text) &&
+      !isGreeting(text) &&
+      leadState.userMessageCount >= 3
+    ) {
       const cold = nextColdMessage(leadState);
       if (cold) {
         leadState.coldStrike += 1;
@@ -689,6 +694,7 @@ Audios: ${audioLibraryPrompt(library)}.`
     )
   ]);
   runningBots.set(config.id, runtime);
+  tgMeCache.set(config.id, { ok: true, at: Date.now() });
   console.log(`Bot ativo: ${config.name}`);
 }
 
@@ -785,10 +791,45 @@ export async function shutdownTelegramBots() {
 }
 
 /** Status ao vivo para instâncias Telegram. */
+const tgMeCache = new Map<string, { ok: boolean; at: number }>();
+const TG_ME_CACHE_MS = 25_000;
+
 export function getTelegramLiveStatus(bot: BotConfig): "paused" | "offline" | "connected" {
   if (!bot.active) return "paused";
   if (runningBots.has(bot.id)) return "connected";
+  const cached = tgMeCache.get(bot.id);
+  if (cached && Date.now() - cached.at < TG_ME_CACHE_MS) {
+    return cached.ok ? "connected" : "offline";
+  }
   return "offline";
+}
+
+export async function getTelegramLiveStatusAsync(
+  bot: BotConfig
+): Promise<"paused" | "offline" | "connected"> {
+  if (!bot.active) return "paused";
+  if (runningBots.has(bot.id)) return "connected";
+
+  const token = bot.token?.trim();
+  if (!token || !isTelegramBot(bot)) return "offline";
+
+  const cached = tgMeCache.get(bot.id);
+  if (cached && Date.now() - cached.at < TG_ME_CACHE_MS) {
+    return cached.ok ? "connected" : "offline";
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+      signal: AbortSignal.timeout(6000)
+    });
+    const data = (await res.json()) as { ok?: boolean };
+    const ok = Boolean(data.ok);
+    tgMeCache.set(bot.id, { ok, at: Date.now() });
+    return ok ? "connected" : "offline";
+  } catch {
+    tgMeCache.set(bot.id, { ok: false, at: Date.now() });
+    return "offline";
+  }
 }
 
 export function isTelegramBotRunning(botId: string) {

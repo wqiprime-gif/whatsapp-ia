@@ -303,7 +303,7 @@ export function activeInstancesCardHtml(bots: BotConfig[], statuses: Record<stri
             return `<div class="shark-instance-row">
               <span class="shark-instance-icon${on ? " shark-instance-icon--on" : ""}" aria-hidden="true">${on ? icons.smartphone : '<span class="shark-instance-dot"></span>'}</span>
               <span class="shark-instance-name">${escapeHtml(b.name)}</span>
-              <span class="shark-instance-status${on ? " shark-instance-status--on" : ""}">${label}</span>
+              <span class="shark-instance-status${on ? " shark-instance-status--on" : " shark-instance-status--off"}">${label}</span>
             </div>`;
           })
           .join("");

@@ -39,9 +39,13 @@ export function leadShowsBuyIntent(text: string) {
 export function looksLikeStalling(text: string, history: OpenAI.Chat.Completions.ChatCompletionMessageParam[]) {
   if (leadShowsBuyIntent(text)) return false;
   const t = text.trim();
+  if (/^(oi+|oii+|oie+|ol[aá]|bom dia|boa tarde|boa noite|e ai|eai|hey|hi)[\s!.?😊🙂❤️]*$/i.test(t)) {
+    return false;
+  }
+  const userMsgs = history.filter((m) => m.role === "user").length;
+  if (userMsgs < 3) return false;
   if (STALL.test(t)) return true;
   if (t.length <= 3 && !/\?/.test(t)) return true;
-  const userMsgs = history.filter((m) => m.role === "user").length;
   if (userMsgs >= 4 && !leadShowsBuyIntent(text)) {
     return !/(quero|manda|pode|sim|bora|vou|tem|quanto|oi|oii)/i.test(text);
   }
