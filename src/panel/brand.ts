@@ -1,38 +1,44 @@
 import { escapeHtml } from "./layout.js";
+import { brandFaviconDataUri, brandIconSvgHtml } from "./brand-icon.js";
 
 export const BRAND_LOGO_SRC = "/brand/onlychat.svg";
 export const BRAND_ICON_PNG = "/brand/onlychat.png";
 
-export const FAVICON_LINK = `<link rel="icon" href="${BRAND_ICON_PNG}" type="image/png" sizes="32x32" />
-<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/svg+xml" />
+const faviconData = brandFaviconDataUri();
+
+export const FAVICON_LINK = `<link rel="icon" href="${faviconData}" type="image/svg+xml" />
+<link rel="icon" href="${BRAND_ICON_PNG}" type="image/png" sizes="32x32" />
 <link rel="apple-touch-icon" href="${BRAND_ICON_PNG}" />`;
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
-/** Logo OnlyChat (PNG) — substitui o texto tipográfico. */
-export function brandLogoImgHtml(
-  variant: "sidebar" | "login" | "mobile" | "drawer" = "sidebar",
-  subtitle = ""
-) {
-  return `<div class="brand-lockup brand-lockup--${variant} brand-lockup--png">
-    <img src="${BRAND_ICON_PNG}" alt="OnlyChat" class="brand-logo-img" decoding="async" />
-    ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
-  </div>`;
+/** Ícone OnlyChat — bolha azul SVG inline. */
+export function brandIconHtml(className = "brand-icon", size = 40) {
+  return brandIconSvgHtml(className, size);
 }
 
-/** @deprecated use brandLogoImgHtml — mantido para compat. */
+/** Wordmark tipográfico OnlyChat. */
 export function brandWordmarkHtml(className = "brand-wordmark") {
-  return brandLogoImgHtml("sidebar");
+  return `<span class="${className}">Only<span class="brand-wordmark-accent">Chat</span></span>`;
 }
 
-/** Marca completa: sua arte onlychat.png (ícone + nome). */
+/** Lockup: ícone azul + ONLYCHAT (texto aparece com sidebar expandida). */
 export function brandLockupHtml(
   variant: "sidebar" | "login" | "mobile" | "drawer" = "sidebar",
   subtitle = ""
 ) {
-  return brandLogoImgHtml(variant, subtitle);
+  const sizes = { sidebar: 42, login: 48, mobile: 36, drawer: 40 };
+  const size = sizes[variant];
+  return `<div class="brand-lockup brand-lockup--${variant}">
+    ${brandIconHtml("brand-icon", size)}
+    <div class="brand-lockup-copy">
+      <span class="brand-lockup-text">ONLY<span class="brand-lockup-accent">CHAT</span></span>
+      ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
+    </div>
+  </div>`;
 }
 
+/** Marca na sidebar — só o ícone quando recolhida. */
 export function brandMarkHtml(subtitle = "") {
-  return brandLogoImgHtml("sidebar", subtitle);
+  return brandLockupHtml("sidebar", subtitle);
 }
