@@ -91,7 +91,7 @@ body {
 }
 .brand-lockup--png {
   align-items: flex-start;
-  padding: 4px 0 8px;
+  padding: 8px 0 12px;
   width: 100%;
 }
 .brand-logo-img {
@@ -99,32 +99,25 @@ body {
   height: auto;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 2px 14px rgba(30, 123, 255, 0.3));
+  filter: drop-shadow(0 2px 16px rgba(30, 123, 255, 0.35));
 }
-/* Sidebar expandida (hover) — logo horizontal grande */
-.sidebar:hover .brand-lockup--sidebar .brand-logo-img {
-  width: min(210px, calc(100% - 8px));
-  max-height: 56px;
-}
-/* Sidebar recolhida — só a bolha */
-.sidebar:not(:hover) .brand-lockup--png .brand-logo-img {
-  width: 46px;
-  max-width: 46px;
-  max-height: 46px;
-  object-fit: cover;
-  object-position: left center;
+.brand-lockup--sidebar .brand-logo-img {
+  width: 100%;
+  max-width: 248px;
+  height: auto;
 }
 .brand-lockup--login .brand-logo-img {
-  width: min(280px, 92vw);
-  max-height: 72px;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
 }
 .brand-lockup--mobile .brand-logo-img {
-  width: min(200px, 78vw);
-  max-height: 48px;
+  width: min(280px, 88vw);
+  height: auto;
 }
 .brand-lockup--drawer .brand-logo-img {
-  width: min(220px, 85vw);
-  max-height: 52px;
+  width: min(300px, 90vw);
+  height: auto;
 }
 .brand-lockup-copy {
   display: flex;
@@ -284,7 +277,7 @@ button, input, textarea, select { font-family: inherit; }
 
 /* Sidebar — colapsa, expande no hover e empurra o conteúdo */
 .sidebar {
-  width: 58px;
+  width: 272px;
   background: #070707;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
@@ -334,7 +327,7 @@ button, input, textarea, select { font-family: inherit; }
   z-index: 3;
 }
 .sidebar:hover {
-  width: 248px;
+  width: 272px;
 }
 .sidebar:not(:hover) .brand-lockup-copy,
 .sidebar:not(:hover) .brand-lockup-text {
@@ -343,8 +336,12 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar:not(:hover) .brand-lockup {
   justify-content: center;
 }
-.sidebar:not(:hover) .brand-lockup--sidebar {
-  padding-bottom: 12px;
+.sidebar:not(:hover) .brand-lockup--png .brand-logo-img {
+  width: 100%;
+  max-width: 248px;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
 }
 .sidebar:not(:hover) .brand-icon {
   width: 36px !important;
@@ -459,6 +456,69 @@ button, input, textarea, select { font-family: inherit; }
   box-shadow: inset 3px 0 0 var(--primary), 0 0 12px rgba(10, 92, 255, 0.06);
   color: #fff;
 }
+/* Desktop: sidebar sempre expandida — logo grande o tempo todo */
+@media (min-width: 901px) {
+  .sidebar:not(:hover) .nav-text,
+  .sidebar:not(:hover) .brand-copy,
+  .sidebar:not(:hover) .btn-new-label,
+  .sidebar:not(:hover) .sidebar-plan,
+  .sidebar:not(:hover) > form {
+    display: revert;
+  }
+  .sidebar:not(:hover) .brand-lockup {
+    justify-content: flex-start;
+  }
+  .sidebar:not(:hover) .sidebar-brand {
+    display: flex;
+    justify-content: flex-start;
+    padding: 6px 4px 20px;
+  }
+  .sidebar:not(:hover) .btn-new {
+    width: 100%;
+    height: auto;
+    padding: 13px;
+    margin: 0 0 22px;
+    border-radius: var(--radius);
+  }
+  .sidebar:not(:hover) .btn-new svg {
+    width: 18px;
+    height: 18px;
+  }
+  .sidebar:not(:hover) .nav a,
+  .sidebar:not(:hover) .nav button.nav-btn {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    margin: 0;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    opacity: 1;
+    border: 1px solid transparent;
+  }
+  .sidebar:not(:hover) .nav a svg,
+  .sidebar:not(:hover) .nav button.nav-btn svg {
+    margin: 0;
+    width: 18px;
+    height: 18px;
+  }
+  .sidebar:not(:hover) .nav a.active {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 3px 0 0 var(--primary), 0 0 12px rgba(10, 92, 255, 0.06);
+    opacity: 1;
+  }
+  .sidebar:not(:hover) .nav-support {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    padding: 10px 12px;
+    margin: 8px 0 0;
+    justify-content: flex-start;
+  }
+  .sidebar:not(:hover) .nav-support .nav-text {
+    display: inline;
+  }
+}
 .sidebar .nav a, .sidebar .nav button.nav-btn {
   justify-content: center;
   padding: 11px 10px;
@@ -469,7 +529,7 @@ button, input, textarea, select { font-family: inherit; }
   color: #fff;
   font-weight: 500;
 }
-.sidebar-brand { padding: 6px 4px 20px; }
+.sidebar-brand { padding: 8px 6px 24px; }
 .btn-new {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 12px;
@@ -566,13 +626,13 @@ button, input, textarea, select { font-family: inherit; }
 /* Main — empurrado pela sidebar ao expandir */
 .main-wrap {
   flex: 1;
-  margin-left: 58px;
+  margin-left: 272px;
   transition: margin-left 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column; min-height: 100vh;
   background: var(--bg);
 }
 .app:has(.sidebar:hover) .main-wrap {
-  margin-left: 248px;
+  margin-left: 272px;
 }
 .topbar {
   height: 68px;

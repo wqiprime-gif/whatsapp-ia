@@ -99,14 +99,14 @@ body:not(.auth-body) .ambient {
 }
 .login-shark-brand {
   display: block;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
   text-decoration: none;
   width: 100%;
-  max-width: 400px;
+  max-width: 100%;
 }
 .login-shark-brand .brand-logo-img {
-  width: min(300px, 100%);
-  max-height: 80px;
+  width: 100%;
+  max-width: 420px;
   height: auto;
 }
 .login-shark-card {
