@@ -89,6 +89,22 @@ body {
   align-items: center;
   gap: 12px;
 }
+.brand-lockup--png {
+  align-items: flex-start;
+  padding: 2px 0;
+}
+.brand-logo-img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 12px rgba(30, 123, 255, 0.25));
+}
+.brand-lockup--sidebar .brand-logo-img { max-height: 40px; }
+.brand-lockup--login .brand-logo-img { max-height: 48px; }
+.brand-lockup--mobile .brand-logo-img { max-height: 36px; }
+.brand-lockup--drawer .brand-logo-img { max-height: 40px; }
 .brand-lockup-copy {
   display: flex;
   flex-direction: column;
@@ -305,6 +321,12 @@ button, input, textarea, select { font-family: inherit; }
 }
 .sidebar:not(:hover) .brand-lockup {
   justify-content: center;
+}
+.sidebar:not(:hover) .brand-lockup--png .brand-logo-img {
+  max-width: 38px;
+  max-height: 38px;
+  object-fit: cover;
+  object-position: left center;
 }
 .sidebar:not(:hover) .brand-icon {
   width: 36px !important;

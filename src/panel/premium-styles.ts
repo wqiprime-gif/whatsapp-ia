@@ -102,6 +102,9 @@ body:not(.auth-body) .ambient {
   margin-bottom: 28px;
   text-decoration: none;
 }
+.login-shark-brand .brand-logo-img {
+  max-height: 52px;
+}
 .login-shark-card {
   width: 100%;
   max-width: 400px;
