@@ -6,7 +6,7 @@ import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
-import { brandLockupHtml, brandIconHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
+import { brandLockupHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
 import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml, sharkChartBootScript } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
@@ -219,7 +219,6 @@ function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLive
 function loginSharkPromo(title: string, lead: string) {
   return `
     <section class="login-shark-right">
-      <div class="login-shark-hero-icon">${brandIconHtml("brand-icon brand-icon--hero", 72)}</div>
       <h1>${escapeHtml(title)}</h1>
       <p class="login-shark-lead">${lead}</p>
       <div class="login-shark-metrics">

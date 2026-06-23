@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { onlyChatIconSvg, brandFaviconDataUri } from "./brand-icon.js";
 import { env, rootDir } from "../config.js";
 import { useDatabase } from "../db/index.js";
 import {
@@ -929,6 +930,14 @@ export async function registerPanelRoutes(
       .send(SERVICE_WORKER_JS);
   });
 
+  app.get("/favicon.ico", async (_request, reply) => {
+    const png = path.join(rootDir, "public", "brand", "onlychat.png");
+    if (fsSync.existsSync(png)) {
+      return reply.type("image/png").send(fsSync.createReadStream(png));
+    }
+    return reply.redirect(brandFaviconDataUri());
+  });
+
   app.get("/brand/onlychat-mark.svg", async (_request, reply) => {
     const file = path.join(rootDir, "public", "brand", "onlychat-mark.svg");
     if (fsSync.existsSync(file)) {
@@ -942,7 +951,7 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply.type("image/svg+xml").send(fsSync.createReadStream(file));
     }
-    return reply.code(404).send("Not found");
+    return reply.type("image/svg+xml").send(onlyChatIconSvg(120, "", "file"));
   });
 
   app.get("/brand/onlychat.png", async (_request, reply) => {
@@ -955,7 +964,7 @@ export async function registerPanelRoutes(
         return reply.type("image/png").send(fsSync.createReadStream(file));
       }
     }
-    return reply.code(404).send("Not found");
+    return reply.type("image/svg+xml").send(onlyChatIconSvg(120, "", "png"));
   });
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {

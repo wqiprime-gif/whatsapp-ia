@@ -97,7 +97,7 @@ body {
 }
 .brand-icon {
   flex-shrink: 0;
-  object-fit: contain;
+  display: block;
   filter: drop-shadow(0 2px 10px rgba(30, 123, 255, 0.4));
 }
 .brand-lockup-text {

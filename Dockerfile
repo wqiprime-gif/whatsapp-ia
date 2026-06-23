@@ -32,6 +32,7 @@ RUN npm ci --include=dev
 
 COPY src ./src
 COPY hotbot ./hotbot
+COPY public ./public
 
 RUN npm run build
 

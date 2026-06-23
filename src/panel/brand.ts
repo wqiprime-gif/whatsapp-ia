@@ -1,17 +1,20 @@
 import { escapeHtml } from "./layout.js";
+import { brandFaviconDataUri, brandIconSvgHtml } from "./brand-icon.js";
 
 export const BRAND_LOGO_SRC = "/brand/onlychat.svg";
 export const BRAND_ICON_PNG = "/brand/onlychat.png";
 
-export const FAVICON_LINK = `<link rel="icon" href="${BRAND_ICON_PNG}" type="image/png" sizes="32x32" />
-<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/svg+xml" />
+const faviconData = brandFaviconDataUri();
+
+export const FAVICON_LINK = `<link rel="icon" href="${faviconData}" type="image/svg+xml" />
+<link rel="icon" href="${BRAND_ICON_PNG}" type="image/png" sizes="32x32" />
 <link rel="apple-touch-icon" href="${BRAND_ICON_PNG}" />`;
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
-/** Ícone circular OnlyChat (bolha). */
+/** Ícone OnlyChat — SVG inline, fundo transparente. */
 export function brandIconHtml(className = "brand-icon", size = 40) {
-  return `<img src="${BRAND_LOGO_SRC}" alt="" class="${className}" width="${size}" height="${size}" decoding="async" />`;
+  return brandIconSvgHtml(className, size);
 }
 
 /** Wordmark tipográfico OnlyChat. */
