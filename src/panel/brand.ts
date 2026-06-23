@@ -9,21 +9,13 @@ export const FAVICON_LINK = `<link rel="icon" href="${BRAND_ICON_PNG}" type="ima
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
-const LOGO_HEIGHT: Record<"sidebar" | "login" | "mobile" | "drawer", number> = {
-  sidebar: 40,
-  login: 48,
-  mobile: 36,
-  drawer: 40
-};
-
 /** Logo OnlyChat (PNG) — substitui o texto tipográfico. */
 export function brandLogoImgHtml(
   variant: "sidebar" | "login" | "mobile" | "drawer" = "sidebar",
   subtitle = ""
 ) {
-  const h = LOGO_HEIGHT[variant];
   return `<div class="brand-lockup brand-lockup--${variant} brand-lockup--png">
-    <img src="${BRAND_ICON_PNG}" alt="OnlyChat" class="brand-logo-img" height="${h}" decoding="async" />
+    <img src="${BRAND_ICON_PNG}" alt="OnlyChat" class="brand-logo-img" decoding="async" />
     ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
   </div>`;
 }

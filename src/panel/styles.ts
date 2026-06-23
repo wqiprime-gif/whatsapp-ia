@@ -91,20 +91,41 @@ body {
 }
 .brand-lockup--png {
   align-items: flex-start;
-  padding: 2px 0;
+  padding: 4px 0 8px;
+  width: 100%;
 }
 .brand-logo-img {
   width: auto;
-  max-width: 100%;
   height: auto;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 2px 12px rgba(30, 123, 255, 0.25));
+  filter: drop-shadow(0 2px 14px rgba(30, 123, 255, 0.3));
 }
-.brand-lockup--sidebar .brand-logo-img { max-height: 40px; }
-.brand-lockup--login .brand-logo-img { max-height: 48px; }
-.brand-lockup--mobile .brand-logo-img { max-height: 36px; }
-.brand-lockup--drawer .brand-logo-img { max-height: 40px; }
+/* Sidebar expandida (hover) — logo horizontal grande */
+.sidebar:hover .brand-lockup--sidebar .brand-logo-img {
+  width: min(210px, calc(100% - 8px));
+  max-height: 56px;
+}
+/* Sidebar recolhida — só a bolha */
+.sidebar:not(:hover) .brand-lockup--png .brand-logo-img {
+  width: 46px;
+  max-width: 46px;
+  max-height: 46px;
+  object-fit: cover;
+  object-position: left center;
+}
+.brand-lockup--login .brand-logo-img {
+  width: min(280px, 92vw);
+  max-height: 72px;
+}
+.brand-lockup--mobile .brand-logo-img {
+  width: min(200px, 78vw);
+  max-height: 48px;
+}
+.brand-lockup--drawer .brand-logo-img {
+  width: min(220px, 85vw);
+  max-height: 52px;
+}
 .brand-lockup-copy {
   display: flex;
   flex-direction: column;
@@ -322,11 +343,8 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar:not(:hover) .brand-lockup {
   justify-content: center;
 }
-.sidebar:not(:hover) .brand-lockup--png .brand-logo-img {
-  max-width: 38px;
-  max-height: 38px;
-  object-fit: cover;
-  object-position: left center;
+.sidebar:not(:hover) .brand-lockup--sidebar {
+  padding-bottom: 12px;
 }
 .sidebar:not(:hover) .brand-icon {
   width: 36px !important;
@@ -451,7 +469,7 @@ button, input, textarea, select { font-family: inherit; }
   color: #fff;
   font-weight: 500;
 }
-.sidebar-brand { padding: 2px 6px 22px; }
+.sidebar-brand { padding: 6px 4px 20px; }
 .btn-new {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 12px;

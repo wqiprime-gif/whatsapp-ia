@@ -98,12 +98,16 @@ body:not(.auth-body) .ambient {
     #030508;
 }
 .login-shark-brand {
-  display: inline-flex;
-  margin-bottom: 28px;
+  display: block;
+  margin-bottom: 32px;
   text-decoration: none;
+  width: 100%;
+  max-width: 400px;
 }
 .login-shark-brand .brand-logo-img {
-  max-height: 52px;
+  width: min(300px, 100%);
+  max-height: 80px;
+  height: auto;
 }
 .login-shark-card {
   width: 100%;
