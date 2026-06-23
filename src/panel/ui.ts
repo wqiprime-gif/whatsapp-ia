@@ -6,7 +6,7 @@ import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
-import { brandMarkHtml, FAVICON_LINK } from "./brand.js";
+import { brandWordmarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
 import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml, sharkChartBootScript } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
@@ -232,26 +232,11 @@ export function loginPage(message = "") {
   <canvas id="login-particles-canvas" aria-hidden="true"></canvas>
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob" aria-hidden="true"></div>
-  <main class="login-premium">
-    <section class="login-showcase">
-      ${brandMarkHtml()}
-      <p class="login-eyebrow">Painel profissional · WhatsApp</p>
-      <h1 class="login-title-3d"><span class="text-3d-line">OnlyChat</span><span class="text-3d-line accent">Vendas automatizadas com IA</span></h1>
-      <p class="login-prose">
-        Uma plataforma feita para quem vende no WhatsApp com escala: cada instância roda com
-        <strong>prompt próprio</strong>, Pix automático, validação de comprovante,
-        remarketing por instância, pedido de presentes e agendamento de campanhas — tudo em um só lugar.
-      </p>
-      <ul class="login-capabilities">
-        <li>Várias instâncias por produto, com pacotes e IA configuráveis</li>
-        <li>Remarketing com sequência de mensagens e delay entre envios</li>
-        <li>Dashboard com vendas, leads ativos e atividade em tempo real</li>
-      </ul>
-    </section>
+  <main class="login-premium login-premium--shark">
     <section class="login-card-wrap">
       <div class="login-card-glow" aria-hidden="true"></div>
       <div class="login-card-premium login-card-auth">
-        <h2>Entrar</h2>
+        <h2>entrar</h2>
         <p class="sub">Acesse seu painel OnlyChat</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/login" class="auth-form">
@@ -259,16 +244,34 @@ export function loginPage(message = "") {
             <span class="field-label">E-mail</span>
             <input name="email" type="email" placeholder="voce@email.com" required autofocus />
           </label>
-          <label class="field">
-            <span class="field-label">Senha</span>
+          <label class="field login-password-field">
+            <span class="field-label-row">
+              <span class="field-label">Senha</span>
+              <a href="${SUPPORT_WHATSAPP_URL}" class="login-forgot" target="_blank" rel="noopener">esqueceu?</a>
+            </span>
             <input name="password" type="password" placeholder="Sua senha" required />
           </label>
-          <button type="submit" class="btn btn-primary btn-block btn-glow">Entrar no painel</button>
+          <button type="submit" class="btn btn-primary btn-block btn-glow">acessar dashboard</button>
         </form>
         <p class="auth-footer">
-          Não tem conta? <a href="/register">Criar conta</a>
+          Não tem conta? <a href="/register">criar</a>
         </p>
       </div>
+    </section>
+    <section class="login-showcase login-showcase--promo">
+      ${brandWordmarkHtml("brand-wordmark brand-wordmark--login")}
+      <p class="login-eyebrow">Painel profissional · WhatsApp + Telegram</p>
+      <h1 class="login-promo-title">Bem-vindo de volta</h1>
+      <div class="login-promo-badges">
+        <span class="login-promo-badge">Bots ativos 24/7</span>
+        <span class="login-promo-badge">Uptime monitorado</span>
+        <span class="login-promo-badge">IA por instância</span>
+      </div>
+      <ul class="login-feature-list">
+        <li><span class="login-feature-icon" aria-hidden="true">⚡</span><div><strong>Instâncias ilimitadas</strong><span>Prompt, Pix e prévia por produto</span></div></li>
+        <li><span class="login-feature-icon" aria-hidden="true">📈</span><div><strong>Remarketing automático</strong><span>Sequências com delay humanizado</span></div></li>
+        <li><span class="login-feature-icon" aria-hidden="true">🤖</span><div><strong>IA que vende</strong><span>Prévia, tabela e comprovante Pix</span></div></li>
+      </ul>
     </section>
   </main>
   <script>${panelSceneScript("auth")}</script>
@@ -800,20 +803,11 @@ export function registerPage(message = "") {
   <canvas id="login-particles-canvas" aria-hidden="true"></canvas>
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob" aria-hidden="true"></div>
-  <main class="login-premium">
-    <section class="login-showcase">
-      ${brandMarkHtml()}
-      <p class="login-eyebrow">Comece em minutos</p>
-      <h1 class="login-title-3d"><span class="text-3d-line">Criar conta</span><span class="text-3d-line accent">OnlyChat</span></h1>
-      <p class="login-prose">
-        Crie sua conta para configurar instâncias, conectar o WhatsApp e acompanhar
-        vendas, leads e conversas com o mesmo nível de controle do painel operacional.
-      </p>
-    </section>
+  <main class="login-premium login-premium--shark">
     <section class="login-card-wrap">
       <div class="login-card-glow" aria-hidden="true"></div>
       <div class="login-card-premium login-card-auth">
-        <h2>Criar conta</h2>
+        <h2>criar conta</h2>
         <p class="sub">Comece em menos de 1 minuto</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/register" class="auth-form">
@@ -834,12 +828,27 @@ export function registerPage(message = "") {
             <input name="inviteCode" required placeholder="Ex: BOT2026" autocomplete="off" />
             <small>Conta liberada apenas com convite válido.</small>
           </label>
-          <button type="submit" class="btn btn-primary btn-block btn-glow">Criar conta</button>
+          <button type="submit" class="btn btn-primary btn-block btn-glow">acessar dashboard</button>
         </form>
         <p class="auth-footer">
-          Já tem conta? <a href="/login">Entrar</a>
+          Já tem conta? <a href="/login">entrar</a>
         </p>
       </div>
+    </section>
+    <section class="login-showcase login-showcase--promo">
+      ${brandWordmarkHtml("brand-wordmark brand-wordmark--login")}
+      <p class="login-eyebrow">Comece em minutos</p>
+      <h1 class="login-promo-title">Automatize suas vendas</h1>
+      <div class="login-promo-badges">
+        <span class="login-promo-badge">WhatsApp + Telegram</span>
+        <span class="login-promo-badge">Pix automático</span>
+        <span class="login-promo-badge">Convite exclusivo</span>
+      </div>
+      <ul class="login-feature-list">
+        <li><span class="login-feature-icon" aria-hidden="true">🔐</span><div><strong>Acesso por convite</strong><span>Contas liberadas para operadores sérios</span></div></li>
+        <li><span class="login-feature-icon" aria-hidden="true">💬</span><div><strong>Multi-instância</strong><span>Cada produto com prompt e funil próprio</span></div></li>
+        <li><span class="login-feature-icon" aria-hidden="true">📊</span><div><strong>Dashboard completo</strong><span>Vendas, leads e remarketing em tempo real</span></div></li>
+      </ul>
     </section>
   </main>
   <script>${panelSceneScript("auth")}</script>

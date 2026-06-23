@@ -16,10 +16,8 @@ import {
   confirmsPreviewInterest,
   confirmsPriceInterest,
   conversationOfferedPreview,
-  conversationOfferedPresentation,
   isGreeting,
   limitSentences,
-  textPromisesPresentation,
   wantsPixIntent,
   wantsPreviewIntent,
   wantsPriceTable
@@ -72,7 +70,6 @@ type RuntimeBot = {
   historyByChat: Map<number, OpenAI.Chat.Completions.ChatCompletionMessageParam[]>;
   previewSentAt: Map<number, number>;
   previewUsed: Set<number>;
-  presentationUsed: Set<number>;
   ignoredChats: Set<number>;
   leadStateByChat: Map<number, LeadState>;
   /** evita mandar o mesmo input de audio toda hora (chatId:slug -> timestamp) */
@@ -398,41 +395,6 @@ async function processReceiptFile(input: {
   });
 }
 
-async function sendProductPresentation(runtime: RuntimeBot, chatId: number) {
-  const { bot, config } = runtime;
-  if (!config.productPresentationEnabled) return false;
-  const urls = (config.productPresentationMediaUrls ?? []).filter(Boolean);
-  if (urls.length === 0) return false;
-  if (runtime.presentationUsed.has(chatId)) {
-    await humanSendText(
-      bot.telegram,
-      chatId,
-      config,
-      "ja te mostrei o que voce recebe amor, agora e so comprar"
-    );
-    return false;
-  }
-
-  const sent = await humanSendMediaList(bot.telegram, chatId, config, urls);
-  if (sent === 0) {
-    console.error(`[tg] Nenhuma midia de apresentacao enviada para chat ${chatId}`);
-    return false;
-  }
-
-  runtime.presentationUsed.add(chatId);
-  const reply = await generatePersonaReply(
-    runtime,
-    chatId,
-    "Voce acabou de mostrar o que o lead recebe apos comprar. Pergunte em 1 frase se ele gostou ou se quer comprar."
-  );
-  if (reply) {
-    await humanSendText(bot.telegram, chatId, config, reply);
-    const history = runtime.historyByChat.get(chatId) || [];
-    history.push({ role: "assistant", content: reply });
-  }
-  return true;
-}
-
 async function startBot(config: BotConfig) {
   if (!config.active || !config.token || !isTelegramBot(config)) return;
   try {
@@ -455,7 +417,6 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     historyByChat: new Map(),
     previewSentAt: new Map(),
     previewUsed: new Set(),
-    presentationUsed: new Set(),
     ignoredChats: new Set(),
     leadStateByChat: new Map(),
     audioCooldown: new Map()
@@ -663,9 +624,6 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     }
 
     if (wantsPreviewIntent(text) && config.previewMediaUrls.length > 0) {
-      if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
-        await sendProductPresentation(runtime, chatId);
-      }
       const sent = await sendPreview(runtime, chatId);
       if (sent) leadState.hasSentAmostra = true;
       return;
@@ -679,17 +637,6 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     ) {
       const sent = await sendPreview(runtime, chatId);
       if (sent) leadState.hasSentAmostra = true;
-      return;
-    }
-
-    if (
-      confirmsPreviewInterest(text) &&
-      conversationOfferedPresentation(history) &&
-      config.productPresentationEnabled &&
-      !runtime.presentationUsed.has(chatId)
-    ) {
-      const sent = await sendProductPresentation(runtime, chatId);
-      if (sent) leadState.hasSentApresentacao = true;
       return;
     }
 
@@ -730,9 +677,6 @@ Audios: ${audioLibraryPrompt(library)}.`
       if (leadState.hasSentAmostra || runtime.previewUsed.has(chatId)) {
         actions = actions.filter((a) => a !== "send_amostra_gratis");
       }
-      if (runtime.presentationUsed.has(chatId)) {
-        actions = actions.filter((a) => a !== "send_apresentacao_produto");
-      }
 
       const chosenAudio = pickAudioFromAi(library, {
         audioSlugs,
@@ -753,24 +697,11 @@ Audios: ${audioLibraryPrompt(library)}.`
       history.push({ role: "user", content: text }, { role: "assistant", content: rawReply });
       await logMessage({ botId: config.id, chatId, role: "assistant", content: rawReply });
 
-      if (actions.includes("send_apresentacao_produto")) {
-        outText = textPromisesPresentation(outText) ? "" : outText;
-      }
-
       if (actions.includes("ignorar_lead")) {
         runtime.ignoredChats.add(chatId);
       }
 
-      if (actions.includes("send_apresentacao_produto")) {
-        const sent = await sendProductPresentation(runtime, chatId);
-        if (sent) leadState.hasSentApresentacao = true;
-      }
-
       if (actions.includes("send_amostra_gratis") && config.previewMediaUrls.length > 0) {
-        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
-          await sendProductPresentation(runtime, chatId);
-          leadState.hasSentApresentacao = true;
-        }
         const sent = await sendPreview(runtime, chatId);
         if (sent) leadState.hasSentAmostra = true;
       }
@@ -805,22 +736,8 @@ Audios: ${audioLibraryPrompt(library)}.`
         /previa|prévia|vou te mandar|segue a foto|mando agora|olha s[oó]/i.test(lower) &&
         config.previewMediaUrls.length > 0;
       if (aiOffersPreview && !actions.includes("send_amostra_gratis") && !runtime.previewUsed.has(chatId)) {
-        if (!runtime.presentationUsed.has(chatId) && config.productPresentationEnabled) {
-          await sendProductPresentation(runtime, chatId);
-          leadState.hasSentApresentacao = true;
-        }
         const sent = await sendPreview(runtime, chatId, { skipIntro: true });
         if (sent) leadState.hasSentAmostra = true;
-      }
-
-      if (
-        !runtime.presentationUsed.has(chatId) &&
-        config.productPresentationEnabled &&
-        textPromisesPresentation(clean) &&
-        !actions.includes("send_apresentacao_produto")
-      ) {
-        const sent = await sendProductPresentation(runtime, chatId);
-        if (sent) leadState.hasSentApresentacao = true;
       }
     } catch (error) {
       console.error(error);

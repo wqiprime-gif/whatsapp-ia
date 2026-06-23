@@ -497,46 +497,10 @@ function hydratePreviewSentFromDisk() {
   }
 }
 
-const presentationSentPath = path.join(instancesDataDir, 'presentation-sent.json');
-
-function loadPresentationSentStore() {
-  try {
-    if (fs.existsSync(presentationSentPath)) {
-      const data = JSON.parse(fs.readFileSync(presentationSentPath, 'utf8'));
-      return data && typeof data === 'object' ? data : {};
-    }
-  } catch (error) {
-    console.warn('⚠️ Erro ao carregar presentation-sent.json:', error.message);
-  }
-  return {};
-}
-
-function hasPresentationBeenSent(jid) {
-  return Boolean(hasSentApresentacao[jid]);
-}
-
-function markPresentationSent(jid) {
-  hasSentApresentacao[jid] = true;
-  try {
-    const store = loadPresentationSentStore();
-    store[jid] = new Date().toISOString();
-    fs.writeFileSync(presentationSentPath, JSON.stringify(store, null, 2));
-  } catch (error) {
-    console.warn('⚠️ Erro ao salvar presentation-sent.json:', error.message);
-  }
-}
-
-function hydratePresentationSentFromDisk() {
-  const store = loadPresentationSentStore();
-  for (const jid of Object.keys(store)) {
-    hasSentApresentacao[jid] = true;
-  }
-}
-
-function hasPresentationMedia() {
-  const config = loadBotConfig();
-  if (!config.productPresentationEnabled) return false;
-  return (config.productPresentationMediaUrls || []).filter(Boolean).length > 0;
+function ensureCacheFileName(baseName) {
+  const name = String(baseName || '').trim() || `media-${Date.now()}`;
+  if (path.extname(name)) return name;
+  return `${name}.bin`;
 }
 
 async function resolveMediaLocalPath(url) {
@@ -544,41 +508,54 @@ async function resolveMediaLocalPath(url) {
   if (!clean) return null;
   if (fs.existsSync(clean)) return clean;
 
-  const baseName = path.basename(clean.split('?')[0]);
+  const baseName = ensureCacheFileName(path.basename(clean.split('?')[0]));
   const uploadsDir = process.env.UPLOADS_DIR;
+  const panelUrl = process.env.PANEL_URL;
 
-  if (uploadsDir && clean.startsWith('/uploads/')) {
-    const local = path.join(uploadsDir, baseName);
-    if (fs.existsSync(local)) return local;
+  console.log(`📎 resolveMediaLocalPath: url=${clean} UPLOADS_DIR=${uploadsDir || '(vazio)'} PANEL_URL=${panelUrl || '(vazio)'} base=${baseName}`);
+
+  const localCandidates = [];
+  if (uploadsDir) {
+    localCandidates.push(path.join(uploadsDir, baseName));
+    localCandidates.push(path.join(uploadsDir, path.basename(clean.split('?')[0])));
+  }
+  localCandidates.push(path.join(instancesDataDir, 'uploads', baseName));
+  localCandidates.push(path.join(instancesDataDir, 'uploads', path.basename(clean.split('?')[0])));
+
+  for (const candidate of localCandidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      console.log(`✅ Midia local encontrada: ${candidate}`);
+      return candidate;
+    }
   }
 
-  const panelUrl = process.env.PANEL_URL;
+  const cacheDir = path.join(instancesDataDir, 'media-cache');
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+  const cached = path.join(cacheDir, baseName);
+
   if (panelUrl && clean.startsWith('/')) {
     try {
       const res = await axios.get(`${panelUrl}${clean}`, { responseType: 'arraybuffer', timeout: 30000 });
-      const cacheDir = path.join(instancesDataDir, 'media-cache');
-      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-      const cached = path.join(cacheDir, baseName);
       fs.writeFileSync(cached, res.data);
+      console.log(`✅ Midia baixada do painel: ${cached}`);
       return cached;
     } catch (error) {
-      console.error(`❌ Falha ao baixar mídia do painel (${clean}):`, error.message);
+      console.error(`❌ Falha ao baixar mídia do painel (${panelUrl}${clean}):`, error.message);
     }
   }
 
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
     try {
       const res = await axios.get(clean, { responseType: 'arraybuffer', timeout: 30000 });
-      const cacheDir = path.join(instancesDataDir, 'media-cache');
-      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-      const cached = path.join(cacheDir, baseName || `remote-${Date.now()}`);
       fs.writeFileSync(cached, res.data);
+      console.log(`✅ Midia baixada (URL): ${cached}`);
       return cached;
     } catch (error) {
       console.error(`❌ Falha ao baixar mídia (${clean}):`, error.message);
     }
   }
 
+  console.error(`❌ Midia nao resolvida: ${clean}`);
   return null;
 }
 
@@ -1082,10 +1059,8 @@ function scheduleSaveConversations() {
 
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
-const hasSentApresentacao = {};
 const hasSentNaoSouFake = {};
 hydratePreviewSentFromDisk();
-hydratePresentationSentFromDisk();
 const arrayImport = require('./arrayImport');
 const messageBuffers = {};
 const bufferTimers = {};
@@ -1112,7 +1087,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_apresentacao_produto|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 function parsePromptActions(text) {
   const actions = [];
@@ -1176,19 +1151,8 @@ function countUserMessages(conversation) {
   return (conversation || []).filter((m) => m.role === 'user').length;
 }
 
-function shouldAutoSendPresentation(userNumber, combinedMessage, conversation) {
-  if (hasPresentationBeenSent(userNumber) || !hasPresentationMedia()) return false;
-  if (wantsPreviewIntent(combinedMessage)) return false;
-  const userMsgCount = countUserMessages(conversation);
-  if (userMsgCount <= 1 && isSimpleGreeting(combinedMessage)) return false;
-  if (userMsgCount >= 2) return true;
-  if (userMsgCount >= 1 && wantsInterestIntent(combinedMessage)) return true;
-  return false;
-}
-
 function sortPromptActions(actions) {
   const order = [
-    'send_apresentacao_produto',
     'send_informacoes',
     'send_amostra_gratis',
     'send_chave_pix',
@@ -1242,9 +1206,6 @@ async function executePromptActions(client, messageFrom, actions) {
     if (action === 'send_amostra_gratis' && !hasPreviewBeenSent(messageFrom)) {
       const ok = await functionCalls.send_amostra_gratis(client, messageFrom, conversation);
       if (ok) markPreviewSent(messageFrom);
-    } else if (action === 'send_apresentacao_produto' && !hasPresentationBeenSent(messageFrom)) {
-      const ok = await functionCalls.send_apresentacao_produto(client, messageFrom, conversation);
-      if (ok) markPresentationSent(messageFrom);
     } else if (action === 'send_informacoes' && !hasSentInformacoes[messageFrom]) {
       hasSentInformacoes[messageFrom] = true;
       await functionCalls.send_informacoes(client, messageFrom, conversation);
@@ -1269,21 +1230,6 @@ async function runCompletion(userNumber, message) {
   conversation.push({ role: "user", content: message });
   scheduleSaveConversations();
 
-  if (
-    hasPresentationMedia() &&
-    !hasPresentationBeenSent(userNumber) &&
-    !wantsPreviewIntent(message)
-  ) {
-    const userCount = countUserMessages(conversation);
-    if (userCount >= 2 || wantsInterestIntent(message)) {
-      conversation.push({
-        role: 'system',
-        content:
-          'Lead demonstra interesse. OBRIGATORIO: chame send_apresentacao_produto AGORA (antes de previa ou tabela). Proibido prometer foto ou video sem enviar pela funcao.'
-      });
-    }
-  }
-
   if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber) || /^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(message || '').trim()))) {
     conversation.push({
       role: 'system',
@@ -1306,14 +1252,6 @@ async function runCompletion(userNumber, message) {
         function: {
           name: 'send_amostra_gratis',
           description: 'Envia uma foto de amostra gratuita para o lead. Use quando pedirem prévia, foto, amostra ou teste grátis.',
-          parameters: { type: 'object', properties: {} },
-        },
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'send_apresentacao_produto',
-          description: 'Mostra foto ou video do produto que o lead recebe apos comprar. Use quando perguntarem o que vem no pack ou antes de fechar venda.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -1384,20 +1322,6 @@ async function runCompletion(userNumber, message) {
       );
     }
 
-    if (hasPresentationBeenSent(userNumber) && fnName === 'send_apresentacao_produto') {
-      return await generatePersonaReply(
-        userNumber,
-        'Voce ja mostrou o produto para este lead. Diga que e so comprar para receber tudo.'
-      );
-    }
-
-    if (!hasPresentationMedia() && fnName === 'send_apresentacao_produto') {
-      return await generatePersonaReply(
-        userNumber,
-        'Apresentacao do produto nao esta configurada no painel. Explique verbalmente o que o lead recebe.'
-      );
-    }
-
     if (hasSentNaoSouFake[userNumber] && fnName === 'naosou_fake') {
       return await generatePersonaReply(userNumber, 'O lead ainda desconfia. Reafirme com naturalidade que você é real.');
     }
@@ -1417,21 +1341,8 @@ async function runCompletion(userNumber, message) {
         const ok = await functionCalls[fnName](client, userNumber, conversation);
         if (ok) markPreviewSent(userNumber);
         else {
-          return await generatePersonaReply(
-            userNumber,
-            'Voce nao conseguiu enviar a previa agora. Pede pro lead tentar de novo em instantes, com carinho.'
-          );
-        }
-        return '';
-      }
-      if (fnName === 'send_apresentacao_produto' && !hasPresentationBeenSent(userNumber)) {
-        const ok = await functionCalls[fnName](client, userNumber, conversation);
-        if (ok) markPresentationSent(userNumber);
-        else {
-          return await generatePersonaReply(
-            userNumber,
-            'Voce nao conseguiu enviar a apresentacao agora. Pede pro lead tentar de novo em instantes, com carinho.'
-          );
+          await sendTextHuman(client, userNumber, 'amor, travou aqui um segundo — manda de novo?');
+          return '';
         }
         return '';
       }
@@ -1483,7 +1394,6 @@ const functionCalls = {
     await sendInformacoes(client, messageFrom, conversation);
   },
   send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
-  send_apresentacao_produto: async (client, messageFrom, conversation) => sendApresentacaoProduto(client, messageFrom, conversation),
   send_chave_pix: async (client, messageFrom, conversation) => enviarChavePix(messageFrom, conversation),
   chamada_video: async (client, messageFrom, conversation) => { await chamadaVideo(client, messageFrom, conversation); },
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
@@ -1900,24 +1810,27 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
       }
 
       try {
-        const sent = await sendMediaWithTyping(client, messageFrom, media, { caption: '', isViewOnce: true });
-        if (sent) {
-          sentCount++;
-          console.log(`✅ Prévia enviada (view once) (${url}) para ${messageFrom}`);
-        }
-      } catch (viewOnceError) {
-        console.warn(`⚠️ viewOnce falhou (${url}): ${viewOnceError.message} — tentando envio normal`);
-        const sent = await sendMediaWithTyping(client, messageFrom, media);
+        let sent = await sendMediaWithTyping(client, messageFrom, media);
         if (sent) {
           sentCount++;
           console.log(`✅ Prévia enviada (normal) (${url}) para ${messageFrom}`);
+        } else {
+          console.warn(`⚠️ Envio normal falhou (${url}) — tentando view once`);
+          sent = await sendMediaWithTyping(client, messageFrom, media, { caption: '', isViewOnce: true });
+          if (sent) {
+            sentCount++;
+            console.log(`✅ Prévia enviada (view once) (${url}) para ${messageFrom}`);
+          }
         }
+      } catch (sendError) {
+        console.error(`❌ Falha ao enviar prévia (${url}): ${sendError.message}`);
       }
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     if (sentCount === 0) {
       console.error('❌ Nenhuma mídia de prévia pôde ser enviada.');
+      await sendTextHuman(client, messageFrom, 'amor, travou aqui um segundo — manda de novo?');
       isProcessing[messageFrom] = false;
       return false;
     }
@@ -1938,67 +1851,6 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
     return true;
   } catch (error) {
     console.error('Error sending Amostra Gratis:', error.message);
-    isProcessing[messageFrom] = false;
-    return false;
-  }
-}
-
-async function sendApresentacaoProduto(client, messageFrom, conversation) {
-  try {
-    isProcessing[messageFrom] = true;
-
-    const config = loadBotConfig();
-    if (!config.productPresentationEnabled) {
-      isProcessing[messageFrom] = false;
-      return false;
-    }
-
-    const urls = (config.productPresentationMediaUrls || []).filter(Boolean);
-    if (urls.length === 0) {
-      console.error('❌ Apresentacao do produto nao configurada. Ative e faca upload em Instancias → Editar.');
-      isProcessing[messageFrom] = false;
-      return false;
-    }
-
-    const chat = await client.getChatById(messageFrom);
-    let sentCount = 0;
-
-    for (const url of urls) {
-      const localPath = await resolveMediaLocalPath(url);
-      if (!localPath) {
-        console.error(`❌ Midia apresentacao nao encontrada: ${url}`);
-        continue;
-      }
-
-      const media = MessageMedia.fromFilePath(localPath);
-      if (!media) continue;
-
-      const sent = await sendMediaWithTyping(client, messageFrom, media);
-      if (sent) {
-        sentCount++;
-        console.log(`✅ Apresentacao produto enviada (${url}) para ${messageFrom}`);
-      }
-      await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
-    if (sentCount === 0) {
-      isProcessing[messageFrom] = false;
-      return false;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    const response = await generatePersonaReply(
-      messageFrom,
-      'Voce acabou de mostrar o que o lead recebe apos comprar. Pergunte em 1 frase se ele gostou ou se quer comprar.'
-    );
-    if (response) {
-      await sendTextHuman(client, messageFrom, response);
-    }
-    conversation.push({ role: 'system', content: 'Foi enviada a apresentacao do produto. Nao envie novamente.' });
-    isProcessing[messageFrom] = false;
-    return true;
-  } catch (error) {
-    console.error('Error sending Apresentacao Produto:', error.message);
     isProcessing[messageFrom] = false;
     return false;
   }
@@ -2261,15 +2113,8 @@ client.on("message", async (message) => {
 
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
             const conv = getUserConversation(from);
-            if (!hasPresentationBeenSent(from) && hasPresentationMedia()) {
-              const presOk = await functionCalls.send_apresentacao_produto(client, from, conv);
-              if (presOk) markPresentationSent(from);
-            }
             const ok = await functionCalls.send_amostra_gratis(client, from, conv);
             if (ok) markPreviewSent(from);
-            else if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(combinedMessage.trim())) {
-              await sendTextHuman(client, from, 'amor, travou aqui um segundo, manda de novo?');
-            }
           }
 
           const pixAlreadySent =

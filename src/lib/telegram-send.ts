@@ -50,10 +50,17 @@ async function resolveMediaSource(url: string) {
   }
 
   const baseName = path.basename(clean.split("?")[0]);
-  const local = isUploadedMedia(clean) ? path.join(uploadsDir, baseName) : clean;
+  const candidates: string[] = [];
 
-  if (fs.existsSync(local)) {
-    return { source: local };
+  if (isUploadedMedia(clean)) {
+    candidates.push(path.join(uploadsDir, baseName));
+  }
+  candidates.push(clean);
+
+  for (const local of candidates) {
+    if (local && fs.existsSync(local)) {
+      return { source: local };
+    }
   }
 
   if (isUploadedMedia(clean) && env.PUBLIC_BASE_URL) {
@@ -61,13 +68,16 @@ async function resolveMediaSource(url: string) {
       const res = await fetch(`${env.PUBLIC_BASE_URL}${clean}`, { signal: AbortSignal.timeout(30_000) });
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());
-        return { source: buf, filename: baseName || "media.jpg" };
+        const filename = baseName || "media.jpg";
+        console.log(`[tg] Midia baixada: ${env.PUBLIC_BASE_URL}${clean}`);
+        return { source: buf, filename };
       }
     } catch (error) {
       console.error(`[tg] Falha ao baixar midia ${clean}:`, error);
     }
   }
 
+  console.error(`[tg] Midia nao resolvida: ${clean} (uploadsDir=${uploadsDir})`);
   return null;
 }
 

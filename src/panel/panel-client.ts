@@ -242,6 +242,25 @@ export const panelClientScript = `
       }
       a.classList.toggle("active", active);
     });
+    document.querySelectorAll(".mobile-tab[data-nav]").forEach((a) => {
+      const href = normPath(a.getAttribute("href") || "");
+      let active = href === current;
+      if (!active && current.startsWith("/instances") && href === "/instances" && current !== "/instances/new") {
+        active = true;
+      }
+      a.classList.toggle("active", active);
+    });
+    document.querySelectorAll(".mobile-menu-link[data-nav]").forEach((a) => {
+      const href = normPath(a.getAttribute("href") || "");
+      let active = href === current;
+      if (!active && current.startsWith("/instances") && href === "/instances" && current !== "/instances/new") {
+        active = true;
+      }
+      if (!active && current === "/perfil" && href === "/perfil") {
+        active = true;
+      }
+      a.classList.toggle("active", active);
+    });
   }
 
   function isInternalNavLink(a) {
@@ -1050,13 +1069,13 @@ export const panelClientScript = `
   bindGlobalSearch();
 
   function bindMobileDrawer() {
-    const drawer = document.getElementById("mobile-menu-drawer");
-    const backdrop = document.getElementById("mobile-drawer-backdrop");
-    const menuBtn = document.getElementById("mobile-menu-btn");
-    const closeBtn = document.getElementById("mobile-menu-close");
-    if (!drawer || !backdrop || !menuBtn) return;
+    if (document.body.dataset.mobileDrawerBound) return;
+    document.body.dataset.mobileDrawerBound = "1";
 
     function openDrawer() {
+      const drawer = document.getElementById("mobile-menu-drawer");
+      const backdrop = document.getElementById("mobile-drawer-backdrop");
+      if (!drawer || !backdrop) return;
       drawer.classList.add("mobile-menu-drawer--open");
       backdrop.classList.add("is-open");
       drawer.setAttribute("aria-hidden", "false");
@@ -1064,6 +1083,9 @@ export const panelClientScript = `
       document.body.classList.add("mobile-menu-open");
     }
     function closeDrawer() {
+      const drawer = document.getElementById("mobile-menu-drawer");
+      const backdrop = document.getElementById("mobile-drawer-backdrop");
+      if (!drawer || !backdrop) return;
       drawer.classList.remove("mobile-menu-drawer--open");
       backdrop.classList.remove("is-open");
       drawer.setAttribute("aria-hidden", "true");
@@ -1071,16 +1093,22 @@ export const panelClientScript = `
       document.body.classList.remove("mobile-menu-open");
     }
 
-    menuBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (drawer.classList.contains("mobile-menu-drawer--open")) closeDrawer();
-      else openDrawer();
-    });
-    if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
-    backdrop.addEventListener("click", closeDrawer);
-    drawer.querySelectorAll("a[data-nav], form[action='/logout'] button").forEach((el) => {
-      el.addEventListener("click", closeDrawer);
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("#mobile-menu-btn")) {
+        e.preventDefault();
+        e.stopPropagation();
+        const drawer = document.getElementById("mobile-menu-drawer");
+        if (drawer && drawer.classList.contains("mobile-menu-drawer--open")) closeDrawer();
+        else openDrawer();
+        return;
+      }
+      if (e.target.closest("#mobile-menu-close") || e.target.closest("#mobile-drawer-backdrop")) {
+        closeDrawer();
+        return;
+      }
+      if (e.target.closest("#mobile-menu-drawer a[data-nav], #mobile-menu-drawer form[action='/logout'] button")) {
+        closeDrawer();
+      }
     });
   }
   bindMobileDrawer();

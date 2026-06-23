@@ -158,9 +158,7 @@ async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: strin
 async function parseBotMultipart(request: FastifyRequest) {
   const fields: Record<string, string> = {};
   const previewUploads: string[] = [];
-  const presentationUploads: string[] = [];
   const deliveryUploads: string[] = [];
-  let avatarUrl = "";
   let newNamedAudioUrl = "";
 
   for await (const part of request.parts()) {
@@ -173,9 +171,6 @@ async function parseBotMultipart(request: FastifyRequest) {
       ) {
         previewUploads.push(url);
       }
-      if (part.fieldname === "presentationFiles") {
-        presentationUploads.push(url);
-      }
       if (
         part.fieldname === "deliveryFiles" ||
         part.fieldname === "deliveryAudioFiles"
@@ -183,11 +178,10 @@ async function parseBotMultipart(request: FastifyRequest) {
         deliveryUploads.push(url);
       }
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
-      if (part.fieldname === "avatarFile") avatarUrl = url;
       continue;
     }
     const key = part.fieldname;
-    if (key === "removeAudioIndexes" || key === "removePreviewIndexes" || key === "removePresentationIndexes") {
+    if (key === "removeAudioIndexes" || key === "removePreviewIndexes") {
       const prev = fields[key] ? `${fields[key]},` : "";
       fields[key] = `${prev}${String(part.value || "")}`;
     } else {
@@ -195,7 +189,7 @@ async function parseBotMultipart(request: FastifyRequest) {
     }
   }
 
-  return { fields, previewUploads, presentationUploads, deliveryUploads, avatarUrl, newNamedAudioUrl };
+  return { fields, previewUploads, deliveryUploads, newNamedAudioUrl };
 }
 
 function mergeAudioLibrary(
@@ -261,29 +255,12 @@ function mergeDeliveryUrls(
   return [...kept, ...uploads];
 }
 
-function mergePresentationUrls(
-  existing: string[],
-  fields: Record<string, string>,
-  uploads: string[]
-) {
-  const removeRaw = fields.removePresentationIndexes || "";
-  const removeSet = new Set(
-    removeRaw
-      .split(",")
-      .map((v) => Number(v.trim()))
-      .filter((n) => Number.isFinite(n))
-  );
-  const kept = existing.filter((_, index) => !removeSet.has(index));
-  return [...kept, ...uploads];
-}
-
 const botFormFieldsSchema = z.object({
   name: z.string().min(1),
   token: z.string().optional(),
   platform: z.enum(["whatsapp", "telegram"]).default("whatsapp"),
   telegramBotToken: z.string().optional(),
   waPhoneNumber: z.string().optional(),
-  productPresentationEnabled: z.enum(["true", "false"]).default("false"),
   prompt: z.string().min(1),
   pixKey: z.string().default(""),
   pixRecipientName: z.string().optional(),
@@ -1576,7 +1553,7 @@ export async function registerPanelRoutes(
       const existing = await getBotById(params.id, user.id);
       if (!existing) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-      const { fields, previewUploads, presentationUploads, deliveryUploads, avatarUrl, newNamedAudioUrl } =
+      const { fields, previewUploads, deliveryUploads, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
@@ -1594,15 +1571,8 @@ export async function registerPanelRoutes(
           pixRecipientName: body.pixRecipientName?.trim() || body.name,
           messageDelayMs: messageDelayMsFromForm(body),
           previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
-          productPresentationEnabled: body.productPresentationEnabled === "true",
-          productPresentationMediaUrls: mergePresentationUrls(
-            existing.productPresentationMediaUrls ?? [],
-            fields,
-            presentationUploads
-          ),
           deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
           audioLibrary: mergeAudioLibrary(existing.audioLibrary ?? [], fields, newNamedAudioUrl),
-          avatarUrl: avatarUrl || existing.avatarUrl,
           active: body.active === "true",
           paymentMethod: body.paymentMethod,
           laranjinhaApiKeyEncrypted: laranjinhaKey
@@ -1710,7 +1680,7 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     try {
-      const { fields, previewUploads, presentationUploads, deliveryUploads, avatarUrl, newNamedAudioUrl } =
+      const { fields, previewUploads, deliveryUploads, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
@@ -1740,11 +1710,9 @@ export async function registerPanelRoutes(
               pixRecipientName: body.pixRecipientName?.trim() || body.name,
               messageDelayMs: messageDelayMsFromForm(body),
               previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
-              productPresentationEnabled: body.productPresentationEnabled === "true",
-              productPresentationMediaUrls: mergePresentationUrls([], fields, presentationUploads),
               deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
               audioLibrary: mergeAudioLibrary([], fields, newNamedAudioUrl),
-              avatarUrl,
+              avatarUrl: "",
               active: body.active === "true",
               paymentMethod: body.paymentMethod,
               laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()

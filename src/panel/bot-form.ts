@@ -85,54 +85,6 @@ export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-pre
     </div>`;
 }
 
-/** Apresentação do produto — o que o lead recebe após comprar (funil, envio único). */
-export function productPresentationConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
-  const enabled = Boolean(bot?.productPresentationEnabled);
-  const urls = bot?.productPresentationMediaUrls ?? [];
-  const list =
-    urls.length === 0
-      ? `<p class="form-hint">Nenhuma mídia cadastrada. Envie foto ou vídeo abaixo.</p>`
-      : `<ul class="preview-url-list">
-      ${urls
-        .map((url, i) => {
-          const name = url.split("/").pop() || url;
-          return `<li class="preview-url-item">
-            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="preview-url-link">${escapeHtml(name)}</a>
-            <span class="badge badge-online">Produto</span>
-            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removePresentationIndexes" value="${i}" /> Remover</label>
-          </li>`;
-        })
-        .join("")}
-    </ul>`;
-
-  return `
-    <div class="form-section form-section-preview" id="apresentacao-produto">
-      <div class="form-section-head">
-        <span class="form-section-icon form-section-icon-cyan">${icons.image}</span>
-        <div>
-          <h4>Apresentação do produto</h4>
-          <p>Foto ou vídeo mostrando <strong>o que o lead vai receber</strong> após comprar. Enviado <strong>uma vez por lead</strong> com <code>[[send_apresentacao_produto]]</code>.</p>
-        </div>
-      </div>
-      <label class="field">
-        <span>Ativar apresentação do produto</span>
-        <select name="productPresentationEnabled">
-          <option value="false" ${!enabled ? "selected" : ""}>Desativado</option>
-          <option value="true" ${enabled ? "selected" : ""}>Ativado</option>
-        </select>
-      </label>
-      ${list}
-      <label class="field">
-        <span>Mídia do produto (foto ou vídeo)</span>
-        <div class="dropzone dropzone-neon">
-          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} JPG, PNG ou MP4</p>
-          <input form="${formId}" name="presentationFiles" type="file" accept="image/*,video/*" multiple />
-        </div>
-      </label>
-      <p class="form-hint">Quando o lead demonstrar interesse, o bot envia automaticamente (antes da prévia). Use a tag se quiser reforçar manualmente no prompt.</p>
-    </div>`;
-}
-
 function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
   const platform = bot?.platform ?? "whatsapp";
   const isTg = platform === "telegram";
@@ -397,13 +349,6 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         <div id="wa-platform-blocks" style="${(bot?.platform ?? "whatsapp") === "telegram" ? "display:none" : ""}">
         ${waConnectionBlock(isEdit, bot)}
         </div>
-        <label class="field span-2">Foto de perfil do bot
-          <div class="dropzone">
-            ${isEdit && bot.avatarUrl ? `<div style="margin-bottom:10px">${botAvatarHtml(bot)}</div>` : ""}
-            <p style="color:var(--muted);margin-bottom:8px">${icons.upload} ${isEdit ? "Trocar foto (opcional)" : "Imagem quadrada (JPG/PNG)"}</p>
-            <input name="avatarFile" type="file" accept="image/*" />
-          </div>
-        </label>
         <label class="field">Chave Pix
           <input name="pixKey" value="${isEdit ? escapeHtml(bot.pixKey) : ""}" placeholder="CPF, email ou telefone" required />
         </label>
@@ -458,7 +403,6 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
-        ${productPresentationConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         ${promptGeneratorBlock()}

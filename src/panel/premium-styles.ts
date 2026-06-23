@@ -72,13 +72,92 @@ body:not(.auth-body) .ambient {
   position: relative; z-index: 3;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 0.85fr 1.15fr;
   align-items: center;
   gap: 56px;
   padding: 48px 64px;
   max-width: 1400px;
   margin: 0 auto;
   box-sizing: border-box;
+}
+.login-premium--shark .login-card-wrap { order: 1; }
+.login-premium--shark .login-showcase--promo { order: 2; }
+.brand-wordmark--login { font-size: clamp(2rem, 4vw, 2.8rem); margin-bottom: 12px; display: inline-block; }
+.login-promo-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  color: #fff;
+  margin: 0 0 20px;
+}
+.login-promo-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.login-promo-badge {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--blue-bright);
+  background: rgba(10, 92, 255, 0.1);
+  border: 1px solid rgba(10, 92, 255, 0.28);
+}
+.login-feature-list {
+  list-style: none;
+  display: grid;
+  gap: 16px;
+  max-width: 520px;
+  padding: 0;
+  margin: 0;
+}
+.login-feature-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(10, 92, 255, 0.06);
+  border: 1px solid rgba(10, 92, 255, 0.16);
+}
+.login-feature-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-top: 2px;
+}
+.login-feature-list strong {
+  display: block;
+  font-size: 0.92rem;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.login-feature-list span {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.72);
+  line-height: 1.45;
+}
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+.login-forgot {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.login-forgot:hover { color: var(--blue-bright); }
+.login-card-premium h2 {
+  text-transform: lowercase;
+  letter-spacing: -0.03em;
 }
 @media (max-width: 1000px) {
   .login-premium {
@@ -2602,7 +2681,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
 /* Mobile bottom tab bar */
 .mobile-tabbar {
   display: none;
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 460;
   height: 64px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   background: rgba(5, 5, 5, 0.94);
   backdrop-filter: blur(16px);

@@ -1,17 +1,20 @@
 import { escapeHtml } from "./layout.js";
 
 export const BRAND_LOGO_SRC = "/brand/onlychat.svg";
-export const BRAND_MARK_SRC = "/brand/onlychat-mark.svg";
 
 export const FAVICON_LINK = `<link rel="icon" href="${BRAND_LOGO_SRC}" type="image/svg+xml" />`;
 
-/** Logo + OnlyChat na sidebar. */
+export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
+
+/** Wordmark tipográfico OnlyChat (sem imagem). */
+export function brandWordmarkHtml(className = "brand-wordmark") {
+  return `<span class="${className}">Only<span class="brand-wordmark-accent">Chat</span></span>`;
+}
+
+/** Marca na sidebar — só texto radical. */
 export function brandMarkHtml(subtitle = "") {
-  return `<div class="brand-mark">
-    <img class="brand-logo" src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="44" height="44" />
-    <div class="brand-copy">
-      <span class="brand-title">OnlyChat</span>
-      ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
-    </div>
+  return `<div class="brand-mark brand-mark--text">
+    ${brandWordmarkHtml()}
+    ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
   </div>`;
 }

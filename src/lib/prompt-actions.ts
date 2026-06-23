@@ -3,7 +3,6 @@ import { parseAudioTags } from "./named-audio.js";
 export type PromptAction =
   | "send_informacoes"
   | "send_amostra_gratis"
-  | "send_apresentacao_produto"
   | "send_chave_pix"
   | "naosou_fake"
   | "ignorar_lead"
@@ -11,7 +10,7 @@ export type PromptAction =
   | "pedir_presente";
 
 const ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_apresentacao_produto|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
@@ -52,7 +51,6 @@ export const PROMPT_ACTION_HINT = `
 ACOES (tag na ultima linha quando precisar):
 [[send_informacoes]] = tabela de precos (lead confirmou que quer ver)
 [[send_amostra_gratis]] = previa gratis (UMA vez por lead)
-[[send_apresentacao_produto]] = mostrar foto/video do produto que o lead recebe apos comprar (UMA vez, cedo no funil — ANTES da previa, se habilitado no painel)
 [[naosou_fake]] = mesmo que [[audio:nao_sou_fake]] se existir no cadastro
 [[ignorar_lead]] = parar de responder lead enrolado
 [[chamada_video]] = explicar chamada 5 min aqui no Telegram apos pagamento

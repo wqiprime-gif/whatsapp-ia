@@ -20,12 +20,6 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
     example: "Lead pede amostra → tag + \"Gostou amor? 😘\""
   },
   {
-    tag: "[[send_apresentacao_produto]]",
-    label: "Apresentação do produto",
-    when: "Uma vez por lead, cedo no funil — quando demonstrar interesse, ANTES da prévia. Mostra o que recebe após comprar.",
-    example: "Lead pergunta o que vem no pack → tag + \"É isso que você recebe amor 😘\""
-  },
-  {
     tag: "[[send_chave_pix]]",
     label: "Chave Pix",
     when: "Quando o lead quiser comprar. A chave vem do campo Chave Pix — nunca escreva manualmente.",

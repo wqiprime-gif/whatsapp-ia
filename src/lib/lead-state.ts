@@ -6,7 +6,6 @@ export type LeadState = {
   userMessageCount: number;
   hasSentInformacoes: boolean;
   hasSentAmostra: boolean;
-  hasSentApresentacao: boolean;
   hasSentNaoSouFake: boolean;
   coldStrike: number;
   paid: boolean;
@@ -19,7 +18,6 @@ export function createLeadState(): LeadState {
     userMessageCount: 0,
     hasSentInformacoes: false,
     hasSentAmostra: false,
-    hasSentApresentacao: false,
     hasSentNaoSouFake: false,
     coldStrike: 0,
     paid: false
@@ -68,9 +66,6 @@ export function leadStateContext(state: LeadState) {
     `Mensagens do lead nesta conversa: ${state.userMessageCount}.`,
     state.hasSentInformacoes ? "Tabela de precos JA enviada — nao use [[send_informacoes]] de novo." : "Tabela ainda NAO enviada.",
     state.hasSentAmostra ? "Previa gratis JA enviada — nao use [[send_amostra_gratis]]." : "Previa ainda nao enviada.",
-    state.hasSentApresentacao
-      ? "Apresentacao do produto JA enviada — nao use [[send_apresentacao_produto]]."
-      : "Apresentacao do produto ainda nao enviada — envie cedo no funil (quando houver interesse), ANTES da previa.",
     state.paid ? "Lead ja pagou — nao responda." : ""
   ];
   return parts.filter(Boolean).join(" ");

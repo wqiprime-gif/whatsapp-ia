@@ -2,7 +2,7 @@ import { APP_VERSION } from "../version.js";
 import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
-import { brandMarkHtml, BRAND_LOGO_SRC, BRAND_MARK_SRC, FAVICON_LINK } from "./brand.js";
+import { brandMarkHtml, brandWordmarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
 
@@ -160,14 +160,14 @@ export function appLayout(
   <div class="mesh-blob mesh-blob--app" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
   <header class="mobile-topbar" aria-label="OnlyChat">
-    <img class="mobile-topbar-logo" src="${BRAND_MARK_SRC}" alt="OnlyChat" height="34" />
+    ${brandWordmarkHtml("brand-wordmark brand-wordmark--topbar")}
   </header>
   <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
   <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu OnlyChat">
     <div class="mobile-menu-head">
       <div class="mobile-menu-brand">
-        <img src="${BRAND_LOGO_SRC}" alt="OnlyChat" width="40" height="40" />
-        <span>ONLYCHAT MENU</span>
+        ${brandWordmarkHtml("brand-wordmark brand-wordmark--drawer")}
+        <span class="mobile-menu-brand-label">MENU</span>
       </div>
       <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Fechar menu">×</button>
     </div>
@@ -185,6 +185,7 @@ export function appLayout(
       ${mobileMenuLink("/media", "Mídias", icons.image, is("media"))}
       <div class="mobile-menu-section">CONTA</div>
       ${mobileMenuLink("/perfil", "Minha conta", icons.users, is("profile"))}
+      <a href="${SUPPORT_WHATSAPP_URL}" class="mobile-menu-link" target="_blank" rel="noopener">${icons.help}<span>Suporte WhatsApp</span></a>
       <a href="/instances/new" class="mobile-menu-link mobile-menu-link--cta" data-nav>${icons.plus}<span>Nova Instância</span></a>
     </nav>
     <div class="mobile-menu-foot">
@@ -213,6 +214,7 @@ export function appLayout(
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
+          <a href="${SUPPORT_WHATSAPP_URL}" class="nav-support" target="_blank" rel="noopener">${icons.help}<span class="nav-text"> Suporte WhatsApp</span></a>
         </div>
       </nav>
       <div class="sidebar-plan">

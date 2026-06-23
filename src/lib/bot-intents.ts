@@ -50,21 +50,6 @@ export function conversationOfferedPreview(
   return /pr[eé]via|amostra|quer ver|posso te enviar|mando uma|foto gr[aá]tis|teste gr[aá]tis/i.test(assistants);
 }
 
-export function conversationOfferedPresentation(
-  history: { role: string; content?: unknown }[]
-) {
-  const assistants = history
-    .filter((m) => m.role === "assistant")
-    .slice(-4)
-    .map((m) => String(m.content || ""))
-    .join(" ");
-  return /recebe|apresenta|pack|conte[uú]do|o que (voce|vc) (ganha|recebe)|mostrar o que/i.test(assistants);
-}
-
-export function textPromisesPresentation(text: string) {
-  return /é isso que (voce|vc) recebe|olha o que (voce|vc) (recebe|ganha)|isso que (voce|vc) recebe/i.test(text);
-}
-
 export function limitSentences(text: string, max = 2) {
   const trimmed = text.replace(/\[\[[\w_]+\]\]/gi, "").trim();
   if (!trimmed) return "";
