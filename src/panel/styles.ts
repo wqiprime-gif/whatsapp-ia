@@ -35,6 +35,7 @@ ${premiumStyles}
   --warning: ${ds.colors.warning};
   --warning-bg: ${ds.colors.warningBg};
   --font-display: ${ds.fonts.display};
+  --font-brand: 'Orbitron', ${ds.fonts.display};
   --font: ${ds.fonts.sans};
   --font-mono: ${ds.fonts.mono};
   --ease: ${ds.motion};
@@ -101,20 +102,29 @@ body {
   filter: drop-shadow(0 2px 10px rgba(30, 123, 255, 0.4));
 }
 .brand-lockup-text {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-  color: #fff;
+  font-family: var(--font-brand, 'Orbitron', sans-serif);
+  font-weight: 900;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
   line-height: 1;
+  text-transform: uppercase;
+  transform: skewX(-6deg);
+  background: linear-gradient(100deg, #ffffff 0%, #c8e4ff 45%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(79, 195, 255, 0.25));
 }
 .brand-lockup-accent {
-  color: #4fc3ff;
-  text-shadow: 0 0 20px rgba(79, 195, 255, 0.45);
+  background: linear-gradient(100deg, #7dd3fc 0%, #4fc3ff 35%, #0a5cff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(10, 92, 255, 0.65));
 }
-.brand-lockup--login .brand-lockup-text { font-size: 1.15rem; }
-.brand-lockup--mobile .brand-lockup-text { font-size: 0.92rem; }
-.brand-lockup--drawer .brand-lockup-text { font-size: 1rem; }
+.brand-lockup--login .brand-lockup-text { font-size: 0.88rem; letter-spacing: 0.16em; }
+.brand-lockup--mobile .brand-lockup-text { font-size: 0.72rem; letter-spacing: 0.14em; }
+.brand-lockup--drawer .brand-lockup-text { font-size: 0.82rem; letter-spacing: 0.16em; }
 .brand-wordmark {
   font-family: var(--font-display);
   font-weight: 800;

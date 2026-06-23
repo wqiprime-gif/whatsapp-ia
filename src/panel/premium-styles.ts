@@ -1,9 +1,10 @@
 /** TEXTURA-style: preto · branco · azul Shark + raios CSS */
 export const premiumStyles = `
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500&family=Orbitron:wght@700;800;900&display=swap');
 
 :root {
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-brand: 'Orbitron', 'Bricolage Grotesque', system-ui, sans-serif;
   --font: 'Instrument Sans', system-ui, sans-serif;
   --blue: #0a5cff;
   --blue-bright: #3b82f6;
