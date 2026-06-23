@@ -2,7 +2,8 @@ import { APP_VERSION } from "../version.js";
 import { globalStyles } from "./styles.js";
 import { icons } from "./icons.js";
 import { panelClientScript } from "./panel-client.js";
-import { brandMarkHtml, brandWordmarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
+import { brandLockupHtml, brandMarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
+import { mobileDrawerScript } from "./mobile-drawer.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
 
@@ -159,15 +160,24 @@ export function appLayout(
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob mesh-blob--app" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
-  <header class="mobile-topbar" aria-label="OnlyChat">
-    ${brandWordmarkHtml("brand-wordmark brand-wordmark--topbar")}
+  <header class="mobile-topbar mobile-topbar--account" aria-label="OnlyChat">
+    ${brandLockupHtml("mobile")}
+    <div class="mobile-account-shell">
+      <a href="/perfil" class="mobile-account-head" data-nav>
+        ${userAvatarHtml(userAvatar, userName)}
+        <span class="mobile-account-name">${escapeHtml(userName)}</span>
+        <form method="post" action="/logout" class="mobile-account-power" onclick="event.stopPropagation()">
+          <button type="submit" aria-label="Sair">${icons.logout}</button>
+        </form>
+      </a>
+      <a href="/perfil" class="mobile-account-manage" data-nav>GERENCIAR CONTA</a>
+    </div>
   </header>
   <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
   <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu OnlyChat">
     <div class="mobile-menu-head">
       <div class="mobile-menu-brand">
-        ${brandWordmarkHtml("brand-wordmark brand-wordmark--drawer")}
-        <span class="mobile-menu-brand-label">MENU</span>
+        ${brandLockupHtml("drawer")}
       </div>
       <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Fechar menu">×</button>
     </div>
@@ -255,10 +265,11 @@ export function appLayout(
     <a href="/instances" class="mobile-tab${is("instances") || is("new") ? " active" : ""}" data-nav="instances">${icons.layers}<span>Bots</span></a>
     <a href="/links" class="mobile-tab${is("links") ? " active" : ""}" data-nav="links">${icons.link}<span>Links</span></a>
     <a href="/leads" class="mobile-tab${is("leads") ? " active" : ""}" data-nav="leads">${icons.users}<span>Leads</span></a>
-    <button type="button" class="mobile-tab mobile-tab--more" id="mobile-menu-btn" aria-label="Mais">${icons.menu}<span>Mais</span></button>
+    <button type="button" class="mobile-tab mobile-tab--more" id="mobile-menu-btn" aria-label="Mais" aria-expanded="false" onclick="if(window.toggleOnlyChatMobileMenu)window.toggleOnlyChatMobileMenu(event)">${icons.menu}<span>Mais</span></button>
   </nav>
   <div id="panel-toasts" class="panel-toasts"></div>
   <div id="sale-popup-root" class="sale-popup-root" aria-live="polite"></div>
+${mobileDrawerScript}
 ${panelClientScript}
   <script>${panelSceneScript("app")}</script>
 </body>

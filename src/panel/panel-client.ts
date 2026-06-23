@@ -1068,49 +1068,6 @@ export const panelClientScript = `
   function bindGlobalSearch() {}
   bindGlobalSearch();
 
-  function bindMobileDrawer() {
-    if (document.body.dataset.mobileDrawerBound) return;
-    document.body.dataset.mobileDrawerBound = "1";
-
-    function openDrawer() {
-      const drawer = document.getElementById("mobile-menu-drawer");
-      const backdrop = document.getElementById("mobile-drawer-backdrop");
-      if (!drawer || !backdrop) return;
-      drawer.classList.add("mobile-menu-drawer--open");
-      backdrop.classList.add("is-open");
-      drawer.setAttribute("aria-hidden", "false");
-      backdrop.setAttribute("aria-hidden", "false");
-      document.body.classList.add("mobile-menu-open");
-    }
-    function closeDrawer() {
-      const drawer = document.getElementById("mobile-menu-drawer");
-      const backdrop = document.getElementById("mobile-drawer-backdrop");
-      if (!drawer || !backdrop) return;
-      drawer.classList.remove("mobile-menu-drawer--open");
-      backdrop.classList.remove("is-open");
-      drawer.setAttribute("aria-hidden", "true");
-      backdrop.setAttribute("aria-hidden", "true");
-      document.body.classList.remove("mobile-menu-open");
-    }
-
-    document.addEventListener("click", (e) => {
-      if (e.target.closest("#mobile-menu-btn")) {
-        e.preventDefault();
-        e.stopPropagation();
-        const drawer = document.getElementById("mobile-menu-drawer");
-        if (drawer && drawer.classList.contains("mobile-menu-drawer--open")) closeDrawer();
-        else openDrawer();
-        return;
-      }
-      if (e.target.closest("#mobile-menu-close") || e.target.closest("#mobile-drawer-backdrop")) {
-        closeDrawer();
-        return;
-      }
-      if (e.target.closest("#mobile-menu-drawer a[data-nav], #mobile-menu-drawer form[action='/logout'] button")) {
-        closeDrawer();
-      }
-    });
-  }
-  bindMobileDrawer();
+  bindGlobalSearch();
 })();
 </script>`;

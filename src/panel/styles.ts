@@ -84,7 +84,37 @@ body {
 }
 .ambient::after { display: none; }
 .brand-mark { display: flex; align-items: center; gap: 12px; }
-.brand-mark--text { flex-direction: column; align-items: flex-start; gap: 4px; padding: 4px 0 8px; }
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-lockup-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.brand-icon {
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 10px rgba(30, 123, 255, 0.4));
+}
+.brand-lockup-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: #fff;
+  line-height: 1;
+}
+.brand-lockup-accent {
+  color: #4fc3ff;
+  text-shadow: 0 0 20px rgba(79, 195, 255, 0.45);
+}
+.brand-lockup--login .brand-lockup-text { font-size: 1.15rem; }
+.brand-lockup--mobile .brand-lockup-text { font-size: 0.92rem; }
+.brand-lockup--drawer .brand-lockup-text { font-size: 1rem; }
 .brand-wordmark {
   font-family: var(--font-display);
   font-weight: 800;
@@ -269,8 +299,18 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar:hover {
   width: 248px;
 }
+.sidebar:not(:hover) .brand-lockup-copy,
+.sidebar:not(:hover) .brand-lockup-text {
+  display: none;
+}
+.sidebar:not(:hover) .brand-lockup {
+  justify-content: center;
+}
+.sidebar:not(:hover) .brand-icon {
+  width: 36px !important;
+  height: 36px !important;
+}
 .sidebar:not(:hover) .brand-wordmark-accent { display: none; }
-.sidebar:not(:hover) .brand-wordmark { font-size: 0.82rem; }
 .sidebar:not(:hover) .nav-support .nav-text { display: none; }
 .sidebar:not(:hover) .nav-support {
   width: 34px;
@@ -783,16 +823,72 @@ button, input, textarea, select { font-family: inherit; }
   }
   .mobile-topbar {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
     position: sticky;
     top: 0;
     z-index: 150;
-    padding: 12px 16px;
-    background: rgba(5, 5, 5, 0.92);
+    padding: 12px 14px 14px;
+    background: rgba(5, 5, 5, 0.94);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
+  .mobile-topbar--account .brand-lockup--mobile {
+    padding: 2px 0;
+  }
+  .mobile-account-shell {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+  }
+  .mobile-account-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .mobile-account-name {
+    flex: 1;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fff;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-account-power {
+    margin: 0;
+  }
+  .mobile-account-power button {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .mobile-account-power button svg { width: 16px; height: 16px; }
+  .mobile-account-manage {
+    display: block;
+    padding: 10px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-decoration: none;
+    text-align: center;
+  }
+  .mobile-account-manage:hover { color: #fff; background: rgba(255,255,255,0.03); }
   .mobile-drawer-backdrop {
     display: none;
     position: fixed;
@@ -808,20 +904,22 @@ button, input, textarea, select { font-family: inherit; }
     right: 0;
     bottom: 0;
     width: min(92vw, 380px);
-    z-index: 450;
+    z-index: 480;
     background: #070707;
     border-left: 1px solid rgba(59, 130, 246, 0.2);
     transform: translateX(100%);
-    transition: transform 0.28s ease;
+    transition: transform 0.28s ease, visibility 0.28s;
     display: flex;
     flex-direction: column;
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
     box-shadow: -12px 0 40px rgba(0, 0, 0, 0.55);
     pointer-events: none;
+    visibility: hidden;
   }
   .mobile-menu-drawer--open {
     transform: translateX(0);
     pointer-events: auto;
+    visibility: visible;
   }
   .mobile-menu-head {
     display: flex;

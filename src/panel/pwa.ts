@@ -10,6 +10,12 @@ export const PWA_MANIFEST = {
   orientation: "portrait-primary",
   icons: [
     {
+      src: "/brand/onlychat.png",
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "any"
+    },
+    {
       src: "/brand/onlychat.svg",
       sizes: "any",
       type: "image/svg+xml",
@@ -69,5 +75,5 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
-<link rel="apple-touch-icon" href="/brand/onlychat.svg" />
+<link rel="apple-touch-icon" href="/brand/onlychat.png" />
 `;

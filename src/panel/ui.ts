@@ -6,7 +6,7 @@ import { playerTier } from "../db/events.js";
 import { botInstanceForm, instancesTableHtml, previewConfigBlock } from "./bot-form.js";
 import { icons } from "./icons.js";
 import { alertHtml, appLayout, escapeHtml, greetingDisplayName, timeGreeting, dashboardDateLabel } from "./layout.js";
-import { brandWordmarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
+import { brandLockupHtml, brandIconHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } from "./brand.js";
 import { salesChartSvgFromData, conversionGaugeSvg, sharkPerformanceChartHtml, sharkChartBootScript } from "./charts.js";
 import { globalStyles } from "./styles.js";
 import { panelSceneScript } from "./panel-scene.js";
@@ -216,6 +216,34 @@ function connectedDevicesHtml(bots: BotConfig[], statuses: Record<string, WaLive
   return `<div class="devices-head"><span class="devices-count">${connected} / ${bots.length}</span> dispositivos conectados</div><div class="devices-grid">${rows}</div>`;
 }
 
+function loginSharkPromo(title: string, lead: string) {
+  return `
+    <section class="login-shark-right">
+      <div class="login-shark-hero-icon">${brandIconHtml("brand-icon brand-icon--hero", 72)}</div>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="login-shark-lead">${lead}</p>
+      <div class="login-shark-metrics">
+        <div class="login-shark-metric"><span class="login-shark-metric-dot"></span> Bots 24/7</div>
+        <div class="login-shark-metric"><span class="login-shark-metric-dot"></span> Pix automático</div>
+        <div class="login-shark-metric"><span class="login-shark-metric-dot"></span> 100% uptime</div>
+      </div>
+      <ul class="login-feature-list">
+        <li>
+          <span class="login-feature-icon">${icons.layers}</span>
+          <div><strong>Instâncias ilimitadas</strong><span>Prompt, Pix e prévia por produto no WhatsApp e Telegram</span></div>
+        </li>
+        <li>
+          <span class="login-feature-icon">${icons.zap}</span>
+          <div><strong>Remarketing automático</strong><span>Sequências com delay humanizado e follow-up inteligente</span></div>
+        </li>
+        <li>
+          <span class="login-feature-icon">${icons.trending}</span>
+          <div><strong>IA que vende</strong><span>Prévia, tabela de preços e validação de comprovante Pix</span></div>
+        </li>
+      </ul>
+    </section>`;
+}
+
 export function loginPage(message = "") {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -223,7 +251,7 @@ export function loginPage(message = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>Login · WhatsApp IA</title>
+  <title>Login · OnlyChat</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
@@ -232,47 +260,42 @@ export function loginPage(message = "") {
   <canvas id="login-particles-canvas" aria-hidden="true"></canvas>
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob" aria-hidden="true"></div>
-  <main class="login-premium login-premium--shark">
-    <section class="login-card-wrap">
-      <div class="login-card-glow" aria-hidden="true"></div>
-      <div class="login-card-premium login-card-auth">
+  <main class="login-premium">
+    <div class="login-shark-left">
+      <a href="/login" class="login-shark-brand">${brandLockupHtml("login")}</a>
+      <div class="login-shark-card">
         <h2>entrar</h2>
-        <p class="sub">Acesse seu painel OnlyChat</p>
+        <p class="sub">use seu email e senha pra continuar</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/login" class="auth-form">
           <label class="field">
-            <span class="field-label">E-mail</span>
-            <input name="email" type="email" placeholder="voce@email.com" required autofocus />
+            <span class="field-label">email</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.chat}</span>
+              <input name="email" type="email" placeholder="voce@email.com" required autofocus />
+            </div>
           </label>
           <label class="field login-password-field">
             <span class="field-label-row">
-              <span class="field-label">Senha</span>
+              <span class="field-label">senha</span>
               <a href="${SUPPORT_WHATSAPP_URL}" class="login-forgot" target="_blank" rel="noopener">esqueceu?</a>
             </span>
-            <input name="password" type="password" placeholder="Sua senha" required />
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.lock}</span>
+              <input name="password" type="password" placeholder="••••••••" required />
+            </div>
           </label>
-          <button type="submit" class="btn btn-primary btn-block btn-glow">acessar dashboard</button>
+          <button type="submit" class="login-shark-submit">acessar dashboard <span aria-hidden="true">→</span></button>
         </form>
-        <p class="auth-footer">
-          Não tem conta? <a href="/register">criar</a>
-        </p>
+        <p class="auth-footer">não tem conta? <a href="/register">criar</a></p>
       </div>
-    </section>
-    <section class="login-showcase login-showcase--promo">
-      ${brandWordmarkHtml("brand-wordmark brand-wordmark--login")}
-      <p class="login-eyebrow">Painel profissional · WhatsApp + Telegram</p>
-      <h1 class="login-promo-title">Bem-vindo de volta</h1>
-      <div class="login-promo-badges">
-        <span class="login-promo-badge">Bots ativos 24/7</span>
-        <span class="login-promo-badge">Uptime monitorado</span>
-        <span class="login-promo-badge">IA por instância</span>
+      <div class="login-shark-stats">
+        <div class="login-shark-stat"><strong>24/7</strong><span>Bots ativos</span></div>
+        <div class="login-shark-stat"><strong>Pix</strong><span>Automático</span></div>
+        <div class="login-shark-stat"><strong>100%</strong><span>Uptime</span></div>
       </div>
-      <ul class="login-feature-list">
-        <li><span class="login-feature-icon" aria-hidden="true">⚡</span><div><strong>Instâncias ilimitadas</strong><span>Prompt, Pix e prévia por produto</span></div></li>
-        <li><span class="login-feature-icon" aria-hidden="true">📈</span><div><strong>Remarketing automático</strong><span>Sequências com delay humanizado</span></div></li>
-        <li><span class="login-feature-icon" aria-hidden="true">🤖</span><div><strong>IA que vende</strong><span>Prévia, tabela e comprovante Pix</span></div></li>
-      </ul>
-    </section>
+    </div>
+    ${loginSharkPromo("Bem-vindo de volta", "Acesse seu dashboard e continue vendendo no WhatsApp e Telegram com IA por instância.")}
   </main>
   <script>${panelSceneScript("auth")}</script>
   <script>${loginParticlesScript()}</script>
@@ -794,7 +817,7 @@ export function registerPage(message = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>Criar conta · WhatsApp IA</title>
+  <title>Criar conta · OnlyChat</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
@@ -803,53 +826,49 @@ export function registerPage(message = "") {
   <canvas id="login-particles-canvas" aria-hidden="true"></canvas>
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob" aria-hidden="true"></div>
-  <main class="login-premium login-premium--shark">
-    <section class="login-card-wrap">
-      <div class="login-card-glow" aria-hidden="true"></div>
-      <div class="login-card-premium login-card-auth">
+  <main class="login-premium">
+    <div class="login-shark-left">
+      <a href="/login" class="login-shark-brand">${brandLockupHtml("login")}</a>
+      <div class="login-shark-card">
         <h2>criar conta</h2>
-        <p class="sub">Comece em menos de 1 minuto</p>
+        <p class="sub">comece em menos de 1 minuto</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/register" class="auth-form">
           <label class="field">
-            <span class="field-label">Seu nome</span>
-            <input name="name" placeholder="Como quer ser chamado" required />
+            <span class="field-label">nome</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.users}</span>
+              <input name="name" placeholder="Como quer ser chamado" required />
+            </div>
           </label>
           <label class="field">
-            <span class="field-label">E-mail</span>
-            <input name="email" type="email" placeholder="voce@email.com" required />
+            <span class="field-label">email</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.chat}</span>
+              <input name="email" type="email" placeholder="voce@email.com" required />
+            </div>
           </label>
           <label class="field">
-            <span class="field-label">Senha</span>
-            <input name="password" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
+            <span class="field-label">senha</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.lock}</span>
+              <input name="password" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
+            </div>
           </label>
           <label class="field">
-            <span class="field-label">Código de convite</span>
-            <input name="inviteCode" required placeholder="Ex: BOT2026" autocomplete="off" />
+            <span class="field-label">código de convite</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.sparkles}</span>
+              <input name="inviteCode" required placeholder="Ex: BOT2026" autocomplete="off" />
+            </div>
             <small>Conta liberada apenas com convite válido.</small>
           </label>
-          <button type="submit" class="btn btn-primary btn-block btn-glow">acessar dashboard</button>
+          <button type="submit" class="login-shark-submit">acessar dashboard <span aria-hidden="true">→</span></button>
         </form>
-        <p class="auth-footer">
-          Já tem conta? <a href="/login">entrar</a>
-        </p>
+        <p class="auth-footer">já tem conta? <a href="/login">entrar</a></p>
       </div>
-    </section>
-    <section class="login-showcase login-showcase--promo">
-      ${brandWordmarkHtml("brand-wordmark brand-wordmark--login")}
-      <p class="login-eyebrow">Comece em minutos</p>
-      <h1 class="login-promo-title">Automatize suas vendas</h1>
-      <div class="login-promo-badges">
-        <span class="login-promo-badge">WhatsApp + Telegram</span>
-        <span class="login-promo-badge">Pix automático</span>
-        <span class="login-promo-badge">Convite exclusivo</span>
-      </div>
-      <ul class="login-feature-list">
-        <li><span class="login-feature-icon" aria-hidden="true">🔐</span><div><strong>Acesso por convite</strong><span>Contas liberadas para operadores sérios</span></div></li>
-        <li><span class="login-feature-icon" aria-hidden="true">💬</span><div><strong>Multi-instância</strong><span>Cada produto com prompt e funil próprio</span></div></li>
-        <li><span class="login-feature-icon" aria-hidden="true">📊</span><div><strong>Dashboard completo</strong><span>Vendas, leads e remarketing em tempo real</span></div></li>
-      </ul>
-    </section>
+    </div>
+    ${loginSharkPromo("Automatize suas vendas", "Crie sua conta para configurar instâncias, conectar WhatsApp/Telegram e acompanhar vendas em tempo real.")}
   </main>
   <script>${panelSceneScript("auth")}</script>
   <script>${loginParticlesScript()}</script>
