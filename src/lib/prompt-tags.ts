@@ -49,3 +49,6 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
 
 export const PROMPT_TAGS_HINT =
   "Monte seu prompt com texto livre e cole as tags onde a IA deve disparar uma ação automática.";
+
+export const PROMPT_EFFECTIVE_HINT =
+  "O sistema adiciona automaticamente: chave Pix real, regras de negociacao (so apos escolher pacote), presentes cadastrados e estado da conversa. WhatsApp e Telegram usam o mesmo prompt e tags.";

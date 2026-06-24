@@ -392,6 +392,16 @@ body:not(.auth-body) .ambient {
   .gift-add-row { grid-template-columns: 1fr 1.4fr auto; align-items: end; }
 }
 .gift-prompt-field { min-height: 120px; font-size: 0.95rem; line-height: 1.55; }
+.post-sale-title { font-family: var(--font-display); font-size: 1.05rem; margin-bottom: 6px; color: var(--blue-bright); }
+.post-sale-grid { display: grid; gap: 14px; margin: 12px 0 16px; }
+@media (min-width: 720px) { .post-sale-grid { grid-template-columns: repeat(3, 1fr); } }
+.post-sale-timeline {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+  background: rgba(10, 92, 255, 0.08); border: 1px solid rgba(10, 92, 255, 0.2);
+  font-size: 0.82rem; color: var(--text-2);
+}
+.range-val { display: inline-block; margin-left: 8px; font-weight: 600; color: var(--blue-bright); }
+.toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .schedule-block {
   margin-top: 8px; padding-top: 12px;
   border-top: 1px solid rgba(10,92,255,0.15);

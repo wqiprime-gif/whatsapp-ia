@@ -1,5 +1,7 @@
 import type { Product } from "../db/events.js";
 import { parseOfferReais } from "./sales-packages.js";
+import { askWhichPackageMessage, pickProductExplicit } from "./package-selection.js";
+import { formatPriceBrl } from "./product-catalog.js";
 
 const CANT_PAY =
   /nao consigo|n[aã]o consigo|nao tenho|n[aã]o tenho|sem dinheiro|t[aá] caro|muito caro|caro demais|nao da|n[aã]o d[aá]|imposs[ií]vel|nao posso|n[aã]o posso|so tenho|s[oó] tenho|nao pago|n[aã]o pago/i;
@@ -11,49 +13,45 @@ export function cantPayIntent(text: string) {
   return CANT_PAY.test(text) || DISCOUNT_INTENT.test(text);
 }
 
-function pickProduct(text: string, products: Product[]) {
-  const t = text.toLowerCase();
-  const pkgNum = t.match(/pacote\s*#?\s*(\d+)/i);
-  if (pkgNum) {
-    const idx = Number(pkgNum[1]) - 1;
-    const sorted = [...products].sort((a, b) => a.priceCents - b.priceCents);
-    if (sorted[idx]) return sorted[idx];
-  }
-  if (/complet/i.test(t)) {
-    const m = products.find((p) => /complet/i.test(p.name));
-    if (m) return m;
-  }
-  if (/b[aá]sico|basico/i.test(t)) {
-    const m = products.find((p) => /b[aá]sico|basico/i.test(p.name));
-    if (m) return m;
-  }
-  if (/chamada|v[ií]deo|video/i.test(t)) {
-    const m = products.find((p) => /chamada|v[ií]deo|video/i.test(p.name));
-    if (m) return m;
-  }
-  const offer = parseOfferReais(text);
-  if (offer !== null) {
-    const match = products.find((p) => Math.abs(p.priceCents / 100 - offer) < 2);
-    if (match) return match;
-  }
-  return products[0];
-}
+export type HalfPriceOfferResult =
+  | { type: "offer"; message: string }
+  | { type: "ask_package"; message: string }
+  | null;
 
-export function halfPriceOfferReply(
-  text: string,
-  products: Product[],
-  alreadyOffered: boolean
-): string | null {
-  if (alreadyOffered) return null;
-  if (!cantPayIntent(text)) return null;
-  const eligible = products.filter((p) => p.active && p.allowHalfPrice);
+export function halfPriceOfferReply(input: {
+  text: string;
+  products: Product[];
+  alreadyOffered: boolean;
+  hasSentInformacoes: boolean;
+}): HalfPriceOfferResult {
+  if (input.alreadyOffered) return null;
+  if (!cantPayIntent(input.text)) return null;
+  if (!input.hasSentInformacoes) return null;
+
+  const eligible = input.products.filter((p) => p.active && p.allowHalfPrice);
   if (eligible.length === 0) return null;
 
-  const product = pickProduct(text, eligible);
+  const product = pickProductExplicit(input.text, eligible);
+  if (!product) {
+    return { type: "ask_package", message: askWhichPackageMessage(eligible) };
+  }
+
   const pct = product.halfPricePercent ?? 50;
   const halfCents = Math.round(product.priceCents * (pct / 100));
-  const half = (halfCents / 100).toFixed(2).replace(".", ",");
-  const full = (product.priceCents / 100).toFixed(2).replace(".", ",");
+  const half = formatPriceBrl(halfCents);
+  const full = formatPriceBrl(product.priceCents);
 
-  return `entendo amor 💕 o ${product.name} ta R$ ${full}, mas dessa vez consigo fazer por metade — R$ ${half}. e so pra voce, manda o pix? 😘`;
+  return {
+    type: "offer",
+    message: `entendo amor 💕 o ${product.name} ta R$ ${full}, mas dessa vez consigo fazer por metade — R$ ${half}. e so pra voce, manda o pix? 😘`
+  };
+}
+
+/** @deprecated use halfPriceOfferReply with gate */
+export function pickProduct(text: string, products: Product[]) {
+  return pickProductExplicit(text, products);
+}
+
+export function parseOfferAmount(text: string) {
+  return parseOfferReais(text);
 }

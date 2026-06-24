@@ -1,5 +1,6 @@
 import type OpenAI from "openai";
 import type { PackageId } from "./lead-state.js";
+import { explicitPackageIdInText } from "./package-selection.js";
 
 export const PACKAGES = {
   basico: { label: "Pacote Basico", price: 9.9, minimum: 5, desc: "50 fotos e videos" },
@@ -11,20 +12,17 @@ export function chamadaVideoMessage() {
   return "e aqui no telegram mesmo amor 😘 depois que voce comprar eu te chamo aqui, sao 5 min";
 }
 
+/** Só retorna pacote se mencionado explicitamente — sem default. */
 export function detectPackageFromHistory(
   history: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-): PackageId {
+): PackageId | undefined {
   const userText = history
     .filter((m) => m.role === "user" && typeof m.content === "string")
     .map((m) => m.content as string)
-    .slice(-5)
-    .join(" ")
-    .toLowerCase();
+    .slice(-8)
+    .join(" ");
 
-  if (/20[,.]00|\b20\b|vinte|completo|combo|tudo|os.?dois/i.test(userText)) return "completo";
-  if (/15[,.]00|\b15\b|quinze|chamada|videochamada|liga/i.test(userText)) return "chamada";
-  if (/9[,.]90|\b9\b|nove|b[aá]sico|pack|foto/i.test(userText)) return "basico";
-  return "basico";
+  return explicitPackageIdInText(userText) ?? undefined;
 }
 
 export function parseOfferReais(text: string): number | null {
@@ -45,12 +43,15 @@ export function inferPackageFromOffer(amount: number): PackageId {
 export function negotiationReply(input: {
   text: string;
   selected?: PackageId;
+  requirePackage?: boolean;
 }): string | null {
   const amount = parseOfferReais(input.text);
   if (amount === null) return null;
   if (!/(r\$|\d+[,.]?\d*|reais|tenho|consigo|pago|ofereço|ofereco)/i.test(input.text)) {
     return null;
   }
+
+  if (input.requirePackage && !input.selected) return null;
 
   const pkg = input.selected ?? inferPackageFromOffer(amount);
   const p = PACKAGES[pkg];

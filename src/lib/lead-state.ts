@@ -10,7 +10,11 @@ export type LeadState = {
   coldStrike: number;
   paid: boolean;
   selectedPackage?: PackageId;
+  selectedProductName?: string;
   offeredHalfPrice?: boolean;
+  postSaleActive?: boolean;
+  postSaleStage?: "scheduled" | "reopened" | "warmed" | "gift_asked" | "done";
+  postSaleUserReplies?: number;
 };
 
 export function createLeadState(): LeadState {
@@ -66,7 +70,11 @@ export function leadStateContext(state: LeadState) {
     `Mensagens do lead nesta conversa: ${state.userMessageCount}.`,
     state.hasSentInformacoes ? "Tabela de precos JA enviada — nao use [[send_informacoes]] de novo." : "Tabela ainda NAO enviada.",
     state.hasSentAmostra ? "Previa gratis JA enviada — nao use [[send_amostra_gratis]]." : "Previa ainda nao enviada.",
-    state.paid ? "Lead ja pagou — nao responda." : ""
+    state.selectedPackage
+      ? `Pacote escolhido pelo lead: ${state.selectedPackage}. Pode negociar desconto neste pacote.`
+      : "Lead ainda NAO escolheu pacote — se pedir desconto, pergunte qual pacote quer ANTES de oferecer valor.",
+    state.paid && !state.postSaleActive ? "Lead ja pagou — nao responda." : "",
+    state.postSaleActive ? "Modo pos-venda ativo — pode conversar com carinho e pedir presente quando fizer sentido." : ""
   ];
   return parts.filter(Boolean).join(" ");
 }

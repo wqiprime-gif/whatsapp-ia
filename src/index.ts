@@ -161,6 +161,16 @@ void processDueScheduledCampaigns().catch((error) =>
   console.error("[schedule] Erro na verificação inicial:", error)
 );
 
+const { processDuePostSaleJobs } = await import("./lib/post-sale-scheduler.js");
+setInterval(() => {
+  void processDuePostSaleJobs().catch((error) =>
+    console.error("[post-sale] Erro ao processar jobs:", error)
+  );
+}, 60_000);
+void processDuePostSaleJobs().catch((error) =>
+  console.error("[post-sale] Erro na verificação inicial:", error)
+);
+
 let appShuttingDown = false;
 
 async function onShutdownSignal(signal: string) {

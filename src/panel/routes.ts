@@ -454,10 +454,11 @@ export async function registerPanelRoutes(
         return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
       }
 
-      const { validateReceiptFromImage, validateReceiptFromText } = await import(
-        "../lib/receipt-validator.js"
-      );
+      const { validateReceiptFromImage } = await import("../lib/receipt-validator.js");
       const { formatReceiptOutcome } = await import("../lib/receipt-messages.js");
+
+      const { validateReceiptFromPdf } = await import("../lib/pdf-receipt.js");
+      const { personaReceiptRejection } = await import("../lib/receipt-persona.js");
 
       const ctx = {
         pixKey: bot.pixKey,
@@ -471,21 +472,20 @@ export async function registerPanelRoutes(
 
       let result;
       if (isPdf) {
-        const { PDFParse } = await import("pdf-parse");
         const buffer = Buffer.from(body.base64, "base64");
-        const parser = new PDFParse({ data: buffer });
-        const parsed = await parser.getText();
-        await parser.destroy();
-        const text = parsed.text.trim();
-        if (text.length >= 20) {
-          result = await validateReceiptFromText({ text, ...ctx });
-        } else {
-          const dataUrl = `data:${body.mimetype};base64,${body.base64}`;
-          result = await validateReceiptFromImage({ imageUrl: dataUrl, ...ctx });
-        }
+        result = await validateReceiptFromPdf({ buffer, ...ctx });
       } else {
         const dataUrl = `data:${body.mimetype || "image/jpeg"};base64,${body.base64}`;
         result = await validateReceiptFromImage({ imageUrl: dataUrl, ...ctx });
+      }
+
+      let outcomeMessage = formatReceiptOutcome(result, result.userMessage);
+      if (!result.paid) {
+        outcomeMessage = await personaReceiptRejection({
+          config: bot,
+          reason: result.reason,
+          userMessage: result.userMessage
+        });
       }
 
       return reply.send({
@@ -494,7 +494,7 @@ export async function registerPanelRoutes(
         confidence: result.confidence,
         reason: result.reason,
         userMessage: result.userMessage,
-        outcomeMessage: formatReceiptOutcome(result, result.userMessage)
+        outcomeMessage
       });
     } catch (error) {
       request.log.error(error);
@@ -503,7 +503,7 @@ export async function registerPanelRoutes(
         paid: false,
         confidence: 0,
         reason: error instanceof Error ? error.message : "Erro ao validar comprovante",
-        outcomeMessage: "Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo."
+        outcomeMessage: "amor, travou aqui… manda o comprovante de novo? 😘"
       });
     }
   });
@@ -617,6 +617,15 @@ export async function registerPanelRoutes(
           amountCents: body.amountCents ?? 0,
           paymentMethod: (body.paymentMethod as "pix" | "laranjinha") ?? "pix"
         });
+        const saleBot = await getBotByIdAny(body.botId);
+        if (saleBot?.postSaleEnabled) {
+          const { schedulePostSaleJob } = await import("../lib/post-sale-scheduler.js");
+          await schedulePostSaleJob({
+            botId: saleBot.id,
+            chatId,
+            waitDays: saleBot.postSaleWaitDays ?? 2
+          });
+        }
       } else if (body.type === "receipt") {
         await logReceipt({
           botId: body.botId,
@@ -1047,7 +1056,16 @@ export async function registerPanelRoutes(
       if (!bot) throw new Error("Instância não encontrada.");
       const giftItems = mergeGiftItems(bot.giftItems ?? [], raw);
       const giftPrompt = String(raw.giftPrompt || "").trim();
-      await upsertBot({ ...bot, giftPrompt, giftItems });
+      await upsertBot({
+        ...bot,
+        giftPrompt,
+        giftItems,
+        postSaleEnabled: raw.postSaleEnabled === "on" || raw.postSaleEnabled === "true",
+        postSaleWaitDays: Math.min(7, Math.max(1, Number(raw.postSaleWaitDays) || 2)),
+        postSaleOpenerPrompt: String(raw.postSaleOpenerPrompt || "").trim(),
+        postSaleWarmupReplies: Math.min(5, Math.max(1, Number(raw.postSaleWarmupReplies) || 2)),
+        postSaleGiftDelayMinutes: Math.min(240, Math.max(5, Number(raw.postSaleGiftDelayMinutes) || 45))
+      });
       hooks.syncBots();
       return reply.redirect(flashRedirect(`/gifts?botId=${botId}`, "Presentes atualizados!"));
     } catch (error) {

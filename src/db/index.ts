@@ -158,6 +158,9 @@ export async function initDatabase() {
     const { initScheduledCampaignsSchema } = await import("../lib/scheduled-campaigns.js");
     await initScheduledCampaignsSchema();
 
+    const { initPostSaleSchema } = await import("../lib/post-sale-scheduler.js");
+    await initPostSaleSchema();
+
     const { initWaRedirectLinksSchema } = await import("../lib/wa-redirect-links.js");
     await initWaRedirectLinksSchema();
 

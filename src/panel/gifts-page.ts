@@ -110,6 +110,33 @@ export function giftsPage(
             <textarea name="giftPrompt" rows="5" class="gift-prompt-field" placeholder="Ex: Depois que o lead elogiar, demonstrar carinho ou perguntar como ajudar, peça um mimo com leveza. Nunca na primeira mensagem. Use [[pedir_presente]] na resposta." ${canSave ? "" : "disabled"}>${escapeHtml(bot?.giftPrompt ?? "")}</textarea>
           </label>
           <p class="form-hint">Este texto entra no contexto da IA junto com os presentes cadastrados abaixo.</p>
+
+          <div class="post-sale-panel" style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+            <h4 class="post-sale-title">Pós-venda automático</h4>
+            <p class="form-hint">Depois de uma compra, o bot volta a conversar com naturalidade e pede presente (ex: açaí).</p>
+            <label class="toggle-row" style="margin:14px 0">
+              <input type="checkbox" name="postSaleEnabled" form="gift-save-form" value="on" ${bot?.postSaleEnabled ? "checked" : ""} ${canSave ? "" : "disabled"} />
+              <span>Ativar reengajamento pós-venda</span>
+            </label>
+            <div class="post-sale-grid">
+              <label class="field">Esperar quantos dias após a compra?
+                <input type="range" name="postSaleWaitDays" form="gift-save-form" min="1" max="7" value="${bot?.postSaleWaitDays ?? 2}" ${canSave ? "" : "disabled"} oninput="this.nextElementSibling.textContent=this.value+' dias'" />
+                <span class="range-val">${bot?.postSaleWaitDays ?? 2} dias</span>
+              </label>
+              <label class="field">Mensagens de conversa antes do pedido
+                <input type="number" name="postSaleWarmupReplies" form="gift-save-form" min="1" max="5" value="${bot?.postSaleWarmupReplies ?? 2}" ${canSave ? "" : "disabled"} />
+              </label>
+              <label class="field">Minutos até pedir presente
+                <input type="number" name="postSaleGiftDelayMinutes" form="gift-save-form" min="5" max="240" value="${bot?.postSaleGiftDelayMinutes ?? 45}" ${canSave ? "" : "disabled"} />
+              </label>
+            </div>
+            <label class="field">Como reabrir a conversa (IA)
+              <textarea name="postSaleOpenerPrompt" form="gift-save-form" rows="3" placeholder="Ex: Puxe assunto leve, pergunte como ele tá, sem falar de venda." ${canSave ? "" : "disabled"}>${escapeHtml(bot?.postSaleOpenerPrompt ?? "")}</textarea>
+            </label>
+            <div class="post-sale-timeline">
+              <span>Dia N → conversa → pede presente → continua conversando</span>
+            </div>
+          </div>
         </form>
       </div>
     </div>

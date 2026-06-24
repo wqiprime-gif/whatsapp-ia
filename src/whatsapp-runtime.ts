@@ -288,6 +288,9 @@ async function syncBotFiles(bot: BotConfig, port: number) {
           allowHalfPrice: p.allowHalfPrice,
           halfPricePercent: p.halfPricePercent
         })),
+        giftPrompt: bot.giftPrompt ?? "",
+        giftItems: bot.giftItems ?? [],
+        postSaleEnabled: Boolean(bot.postSaleEnabled),
         updatedAt: new Date().toISOString()
       },
       null,
@@ -800,7 +803,12 @@ export async function readWaQr(botId: string): Promise<{
   };
 }
 
-export async function sendWaMessage(input: { botId: string; jid: string; message: string }) {
+export async function sendWaMessage(input: {
+  botId: string;
+  jid: string;
+  message: string;
+  postSale?: boolean;
+}) {
   const bots = await loadBots();
   const bot = bots.find((b) => b.id === input.botId);
   if (!bot) throw new Error("Instância não encontrada.");
@@ -817,7 +825,7 @@ export async function sendWaMessage(input: { botId: string; jid: string; message
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ to: input.jid, message: input.message })
+    body: JSON.stringify({ to: input.jid, message: input.message, postSale: Boolean(input.postSale) })
   });
   if (!response.ok) {
     let detail = "";

@@ -359,16 +359,24 @@ function pickProductForOffer(text, products) {
     const match = products.find((p) => Math.abs((p.priceCents || 0) / 100 - offer) < 2);
     if (match) return match;
   }
-  return products.find((p) => p.allowHalfPrice) || products[0];
+  return null;
 }
 
 function tryHalfPriceOffer(jid, text) {
   if (halfPriceOffered[jid]) return null;
   if (!wantsDiscount(text)) return null;
+  if (!hasSentInformacoes[jid]) return null;
+
   const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
   if (products.length === 0) return null;
 
   const product = pickProductForOffer(text, products);
+  if (!product) {
+    const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+    const list = sorted.map((p, i) => `${i + 1}) ${p.name}`).join(', ');
+    return `qual pacote vc quer amor? ${list} 😊`;
+  }
+
   const pct = product.halfPricePercent ?? 50;
   const halfCents = Math.round((product.priceCents || 0) * (pct / 100));
   const half = (halfCents / 100).toFixed(2).replace('.', ',');
@@ -423,13 +431,13 @@ function scheduleFollowUp(jid) {
   clearFollowUpTimer(jid);
   const { enabled, afterMs, maxPerLead } = getFollowUpConfig();
   if (!enabled) return;
-  if (comprovantesRecebidos[jid] || paidUsers[jid]) return;
+  if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid]) return;
   if ((followUpCounts[jid] || 0) >= maxPerLead) return;
 
   const scheduledAt = Date.now();
   followUpTimers[jid] = setTimeout(async () => {
     followUpTimers[jid] = null;
-    if (comprovantesRecebidos[jid] || paidUsers[jid]) return;
+    if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid]) return;
     if ((lastUserActivityAt[jid] || 0) > (lastBotMessageAt[jid] || scheduledAt)) return;
     if ((followUpCounts[jid] || 0) >= maxPerLead) return;
 
@@ -597,24 +605,40 @@ function buildPixAppendix() {
 function buildDiscountAppendix() {
   const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
   if (products.length === 0) return '';
-  let block = '\n\n--- POLÍTICA DE DESCONTO (OBRIGATÓRIO) ---\n';
-  block += 'Se o lead pedir desconto, disser que está caro, ou quiser metade do valor, você PODE e DEVE aceitar e oferecer o desconto UMA VEZ por lead.\n';
-  block += 'Pacotes com desconto disponível:\n';
+  let block = '\n\n--- NEGOCIACAO (OBRIGATORIO) ---\n';
+  block += 'So negocie desconto DEPOIS que o lead viu a tabela E escolheu um pacote especifico.\n';
+  block += 'Se pedir desconto sem escolher pacote, pergunte qual pacote quer (basico, chamada, completo).\n';
+  block += 'Pergunte quanto ele tem e respeite os minimos do seu prompt.\n';
+  block += 'Pacotes com desconto disponivel (so apos escolha):\n';
   for (const p of products) {
     const pct = p.halfPricePercent ?? 50;
     const halfCents = Math.round((p.priceCents || 0) * (pct / 100));
     const half = (halfCents / 100).toFixed(2).replace('.', ',');
     const full = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
-    block += `- ${p.name}: de R$ ${full} por R$ ${half} (${pct}% off)\n`;
+    block += `- ${p.name}: de R$ ${full} por R$ ${half} (${pct}% off) — UMA vez por lead\n`;
   }
-  block += 'NUNCA diga que não consegue dar desconto se o lead pedir — ofereça o valor com desconto acima.\n';
+  return block;
+}
+
+function buildGiftsAppendix() {
+  const cfg = loadBotConfig();
+  const items = cfg.giftItems || [];
+  const custom = String(cfg.giftPrompt || '').trim();
+  if (!items.length && !custom) return '';
+  let block = '\n\n--- PEDIR PRESENTES ---\n';
+  if (custom) block += custom + '\n';
+  for (const g of items) {
+    const slug = g.slug || String(g.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+    block += `- ${g.name} → [[pedir_presente:${slug}]]\n`;
+  }
+  block += 'Tag: [[pedir_presente]] sorteia um | [[pedir_presente:slug]] especifico.\n';
   return block;
 }
 
 function buildSystemPrompt() {
   const panelPrompt = readPanelPromptRaw();
   const base = panelPrompt || loadDefaultPrompt() || '';
-  return base + buildPixAppendix() + buildDiscountAppendix();
+  return base + buildPixAppendix() + buildDiscountAppendix() + buildGiftsAppendix();
 }
 
 function refreshAllConversationPrompts() {
@@ -1068,6 +1092,7 @@ let isProcessing = {};
 const audioFailures = {};
 const comprovantesRecebidos = {}; // Tracks which users have sent proof of payment
 const paidUsers = {}; // Users who have already paid
+const postSaleActive = {}; // Reengajamento pos-venda — bypass silencio
 
 loadCustomPrompt();
 loadConversationsStore();
@@ -1089,16 +1114,45 @@ function getUserConversation(userNumber) {
 const PROMPT_ACTION_RE =
   /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
 
+const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
+
 function parsePromptActions(text) {
   const actions = [];
+  let giftSlug;
   let clean = String(text || '')
+    .replace(GIFT_TAG_RE, (_, slug) => {
+      actions.push('pedir_presente');
+      if (slug) giftSlug = slug.toLowerCase();
+      return '';
+    })
     .replace(PROMPT_ACTION_RE, (_, tag) => {
       actions.push(tag.toLowerCase());
       return '';
     })
     .replace(/\[\[audio:([a-z0-9_]+)\]\]|\[\[audio_([a-z0-9_]+)\]\]/gi, '')
     .trim();
-  return { clean, actions: [...new Set(actions)] };
+  return { clean, actions: [...new Set(actions)], giftSlug };
+}
+
+function pickGiftMessageJs(items, slug) {
+  if (!items || !items.length) return null;
+  if (slug) {
+    const found = items.find((g) => (g.slug || String(g.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_')) === slug);
+    return found?.askMessage || null;
+  }
+  const pick = items[Math.floor(Math.random() * items.length)];
+  return pick?.askMessage || null;
+}
+
+function buildPriceTableFromProducts(products) {
+  const sorted = [...(products || [])].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+  if (!sorted.length) return null;
+  const lines = sorted.map((p, i) => {
+    const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'][i] || '•';
+    const price = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
+    return `${emoji} *${String(p.name).toUpperCase()}* - R$ ${price}`;
+  });
+  return ['💎 *MEUS PACOTES* 💎', ...lines, '', 'Qual pacote te interessa, amor? 💕'].join('\n');
 }
 
 function wantsPreviewIntent(text) {
@@ -1200,7 +1254,7 @@ function responseContainsPixKey(text) {
   return digits.length >= 8 && String(text).replace(/\D/g, '').includes(digits);
 }
 
-async function executePromptActions(client, messageFrom, actions) {
+async function executePromptActions(client, messageFrom, actions, giftSlug) {
   const conversation = getUserConversation(messageFrom);
   for (const action of sortPromptActions(actions)) {
     if (action === 'send_amostra_gratis' && !hasPreviewBeenSent(messageFrom)) {
@@ -1216,6 +1270,10 @@ async function executePromptActions(client, messageFrom, actions) {
       await functionCalls.chamada_video(client, messageFrom, conversation);
     } else if (action === 'send_chave_pix') {
       await functionCalls.send_chave_pix(client, messageFrom, conversation);
+    } else if (action === 'pedir_presente') {
+      const cfg = loadBotConfig();
+      const msg = pickGiftMessageJs(cfg.giftItems || [], giftSlug);
+      if (msg) await sendTextHuman(client, messageFrom, msg);
     } else if (action === 'ignorar_lead') {
       await functionCalls.ignorar_lead(client, messageFrom, conversation);
     }
@@ -1408,7 +1466,10 @@ async function sendInformacoes(client, messageFrom, conversation) {
     isProcessing[messageFrom] = true;
     console.log('Iniciando send_informacoes para ', messageFrom);
 
-    const tabelaPrecos = pacotesConfig?.texto || `
+    const tabelaPrecos =
+      buildPriceTableFromProducts(loadBotConfig().products) ||
+      pacotesConfig?.texto ||
+      `
 💎 *MEUS PACOTES* 💎
 
 1️⃣ *PACOTE BÁSICO* - R$ 9,90
@@ -1532,7 +1593,7 @@ Qual pacote te interessa, amor? 💕
 
       const reply = await generatePersonaReply(
         messageFrom,
-        `Você acabou de analisar o comprovante e ele NÃO foi aprovado. Motivo: ${resultado.reason || 'valor não confere'}. Peça outro comprovante no seu tom informal e carinhoso — NUNCA diga "recebi seu comprovante" nem fale como atendente.`
+        `O comprovante NAO foi aprovado. Motivo interno: ${resultado.reason || 'nao bateu'}. Peça outro comprovante no SEU tom informal (amor, bb). PROIBIDO: probleminha, conferir, atendente, "recebi seu comprovante". Max 2 frases.`
       );
       if (reply) {
         await sendTextHuman(client, messageFrom, reply);
@@ -1543,7 +1604,7 @@ Qual pacote te interessa, amor? 💕
       console.error(`❌ Erro ao processar comprovante: ${error.message}`);
       const errReply = await generatePersonaReply(
         messageFrom,
-        'Deu erro ao conferir o comprovante. Peça para o lead mandar de novo, no seu tom.'
+        'Deu erro ao ler o comprovante. Peça para mandar de novo no seu tom — sem falar como atendente.'
       );
       if (errReply) {
         await sendTextHuman(client, messageFrom, errReply);
@@ -1967,7 +2028,7 @@ client.on("message", async (message) => {
     return;
   }
   // Verificar se o lead já pagou
-  if (comprovantesRecebidos[message.from] || paidUsers[message.from]) {
+  if ((comprovantesRecebidos[message.from] || paidUsers[message.from]) && !postSaleActive[message.from]) {
     console.log(`⏸️  Bot pausado para ${message.from} - Aguardando ação manual`);
     return; // Para de enviar mensagens
   }
@@ -2082,7 +2143,7 @@ client.on("message", async (message) => {
         }
 
         if (result) {
-          let { clean, actions } = parsePromptActions(result);
+          let { clean, actions, giftSlug } = parsePromptActions(result);
           clean = sanitizePixPlaceholders(clean);
           console.log('✅ RESPOSTA GERADA:');
           console.log('─'.repeat(60));
@@ -2108,7 +2169,7 @@ client.on("message", async (message) => {
           }
 
           if (actions.length > 0) {
-            await executePromptActions(client, from, actions);
+            await executePromptActions(client, from, actions, giftSlug);
           }
 
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
@@ -2586,6 +2647,7 @@ app.post('/api/send', async (req, res) => {
     });
   }
   try {
+    if (req.body?.postSale) postSaleActive[to] = true;
     await client.sendMessage(to, message);
     return res.json({ ok: true });
   } catch (error) {

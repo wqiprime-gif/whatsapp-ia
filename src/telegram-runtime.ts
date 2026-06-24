@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { PDFParse } from "pdf-parse";
 import { Telegraf } from "telegraf";
 import { loadBots, type BotConfig, isTelegramBot } from "./bots.js";
 import { logMessage, logReceipt, logSale, setLeadSource, upsertLead, listProducts } from "./db/events.js";
@@ -35,23 +34,28 @@ import {
   naosouFakeMessage,
   parsePromptActions,
   priceTableMessage,
+  chamadaVideoMessage,
   PROMPT_ACTION_HINT
 } from "./lib/prompt-actions.js";
 import {
-  chamadaVideoMessage,
   detectPackageFromHistory,
   lowOfferBasicoHint,
   negotiationReply,
   parseOfferReais
 } from "./lib/sales-packages.js";
 import { cantPayIntent, halfPriceOfferReply } from "./lib/product-offers.js";
+import { negotiationFromProducts } from "./lib/product-catalog.js";
+import { pickProductExplicit } from "./lib/package-selection.js";
 import { randomPreviewIntro, randomGreeting, randomAiErrorHint, randomPixReceiptHint } from "./lib/humanize.js";
 import { formatReceiptOutcome, randomReceiptAck } from "./lib/receipt-messages.js";
+import { personaReceiptRejection } from "./lib/receipt-persona.js";
 import {
   validateReceiptFromImage,
   validateReceiptFromText,
   type ReceiptVerdict
 } from "./lib/receipt-validator.js";
+import { validateReceiptFromPdf } from "./lib/pdf-receipt.js";
+import { schedulePostSaleJob, onPostSaleUserReply } from "./lib/post-sale-scheduler.js";
 import { createChatCompletionForBot } from "./lib/ai-chat.js";
 import {
   humanReadingPause,
@@ -154,7 +158,7 @@ function scheduleFollowUp(runtime: RuntimeBot, chatId: number) {
   if (!enabled) return;
   if (runtime.ignoredChats.has(chatId)) return;
   const leadState = getLeadState(runtime, chatId);
-  if (leadState.paid) return;
+  if (leadState.paid && !leadState.postSaleActive) return;
   if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
 
   const scheduledAt = Date.now();
@@ -162,7 +166,7 @@ function scheduleFollowUp(runtime: RuntimeBot, chatId: number) {
     key,
     setTimeout(async () => {
       followUpTimers.delete(key);
-      if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
+      if (runtime.ignoredChats.has(chatId) || (leadState.paid && !leadState.postSaleActive)) return;
       if ((lastUserActivityAt.get(key) || 0) > (lastBotMessageAt.get(key) || scheduledAt)) return;
       if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
 
@@ -225,14 +229,7 @@ async function downloadBuffer(url: string) {
 
 async function analyzeReceiptPdf(input: { pdfUrl: string; config: BotConfig }): Promise<ReceiptVerdict> {
   const buffer = await downloadBuffer(input.pdfUrl);
-  const parser = new PDFParse({ data: buffer });
-  const parsed = await parser.getText();
-  await parser.destroy();
-  const text = parsed.text.trim();
-  if (!text) {
-    return { paid: false, confidence: 0, reason: "Nao foi possivel extrair texto do PDF." };
-  }
-  return validateReceiptFromText({ text, ...receiptContext(input.config) });
+  return validateReceiptFromPdf({ buffer, ...receiptContext(input.config) });
 }
 
 async function deliverProduct(input: {
@@ -250,6 +247,14 @@ async function deliverProduct(input: {
     amountCents: config.productPriceCents,
     paymentMethod: config.paymentMethod
   });
+
+  if (config.postSaleEnabled) {
+    await schedulePostSaleJob({
+      botId: config.id,
+      chatId,
+      waitDays: config.postSaleWaitDays ?? 2
+    });
+  }
 
   await humanSendText(telegram, chatId, config, "Pagamento confirmado amor, obrigada! 💕");
   await logMessage({
@@ -302,7 +307,14 @@ async function handleReceiptResult(input: {
     telegram,
     input.chatId,
     input.config,
-    formatReceiptOutcome(input.result, input.result.userMessage)
+    input.result.paid
+      ? formatReceiptOutcome(input.result, input.result.userMessage)
+      : await personaReceiptRejection({
+          config: input.config,
+          reason: input.result.reason,
+          userMessage: input.result.userMessage,
+          history: runningBots.get(input.config.id)?.historyByChat.get(input.chatId)
+        })
   );
 }
 
@@ -456,7 +468,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
   bot.on("photo", async (ctx) => {
     const chatId = ctx.chat.id;
     const leadState = getLeadState(runtime, chatId);
-    if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
+    if (runtime.ignoredChats.has(chatId) || (leadState.paid && !leadState.postSaleActive)) return;
 
     try {
       const photos = ctx.message.photo;
@@ -476,7 +488,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
         ctx.telegram,
         ctx.chat.id,
         config,
-        "Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo."
+        "amor, travou aqui… manda o comprovante de novo? 😘"
       );
     }
   });
@@ -484,7 +496,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
   bot.on("document", async (ctx) => {
     const chatId = ctx.chat.id;
     const leadState = getLeadState(runtime, chatId);
-    if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
+    if (runtime.ignoredChats.has(chatId) || (leadState.paid && !leadState.postSaleActive)) return;
 
     try {
       const document = ctx.message.document;
@@ -519,7 +531,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
         ctx.telegram,
         ctx.chat.id,
         config,
-        "Deu um probleminha ao conferir. Tenta mandar de novo ou fala comigo."
+        "amor, travou aqui… manda o comprovante de novo? 😘"
       );
     }
   });
@@ -530,9 +542,12 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
     const from = ctx.from;
     const leadState = getLeadState(runtime, chatId);
 
-    if (runtime.ignoredChats.has(chatId) || leadState.paid) return;
+    if (runtime.ignoredChats.has(chatId) || (leadState.paid && !leadState.postSaleActive)) return;
 
     onLeadMessage(runtime, chatId);
+    if (leadState.postSaleActive) {
+      void onPostSaleUserReply(config.id, chatId);
+    }
 
     await upsertLead({
       botId: config.id,
@@ -569,19 +584,44 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
       return;
     }
 
+    const products = await listProducts(config.id);
+
     const offer = parseOfferReais(text);
     if (cantPayIntent(text)) {
-      const products = await listProducts(config.id);
-      const halfReply = halfPriceOfferReply(text, products, Boolean(leadState.offeredHalfPrice));
+      const halfReply = halfPriceOfferReply({
+        text,
+        products,
+        alreadyOffered: Boolean(leadState.offeredHalfPrice),
+        hasSentInformacoes: leadState.hasSentInformacoes
+      });
       if (halfReply) {
         leadState.offeredHalfPrice = true;
-        await humanSendText(ctx.telegram, chatId, config, halfReply);
-        history.push({ role: "user", content: text }, { role: "assistant", content: halfReply });
+        await humanSendText(ctx.telegram, chatId, config, halfReply.message);
+        history.push({ role: "user", content: text }, { role: "assistant", content: halfReply.message });
         return;
       }
     }
 
-    const negReply = negotiationReply({ text, selected: leadState.selectedPackage });
+    const selectedProduct = pickProductExplicit(text, products);
+    if (selectedProduct) leadState.selectedProductName = selectedProduct.name;
+
+    const negFromProducts = negotiationFromProducts({
+      text,
+      products,
+      selected: leadState.selectedPackage,
+      selectedProduct
+    });
+    if (negFromProducts && offer !== null && leadState.hasSentInformacoes && leadState.selectedPackage) {
+      await humanSendText(ctx.telegram, chatId, config, negFromProducts);
+      history.push({ role: "user", content: text }, { role: "assistant", content: negFromProducts });
+      return;
+    }
+
+    const negReply = negotiationReply({
+      text,
+      selected: leadState.selectedPackage,
+      requirePackage: true
+    });
     if (negReply && offer !== null) {
       await humanSendText(ctx.telegram, chatId, config, negReply);
       const hint = lowOfferBasicoHint(offer);
@@ -712,9 +752,9 @@ Audios: ${audioLibraryPrompt(library)}.`
 
       if (wantsTable && !leadState.hasSentInformacoes && !isFirstTurn) {
         leadState.hasSentInformacoes = true;
-        await humanSendText(ctx.telegram, chatId, config, priceTableMessage());
+        await humanSendText(ctx.telegram, chatId, config, priceTableMessage(products, "telegram"));
       } else if (actions.includes("chamada_video")) {
-        await humanSendText(ctx.telegram, chatId, config, chamadaVideoMessage());
+        await humanSendText(ctx.telegram, chatId, config, chamadaVideoMessage("telegram"));
       } else if (actions.includes("pedir_presente")) {
         const giftMsg = pickGiftMessage(config.giftItems ?? [], giftSlug);
         if (giftMsg) await humanSendText(ctx.telegram, chatId, config, limitSentences(giftMsg));
@@ -904,9 +944,15 @@ export async function sendTelegramMessage(input: {
   botId: string;
   chatId: number;
   message: string;
+  postSale?: boolean;
 }) {
   const runtime = runningBots.get(input.botId);
   if (runtime) {
+    if (input.postSale) {
+      const leadState = getLeadState(runtime, input.chatId);
+      leadState.postSaleActive = true;
+      leadState.postSaleStage = "reopened";
+    }
     await humanSendText(runtime.bot.telegram, input.chatId, runtime.config, input.message);
     return;
   }

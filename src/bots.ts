@@ -56,6 +56,12 @@ export type BotConfig = {
   backupToken?: string;
   giftPrompt?: string;
   giftItems?: GiftItem[];
+  /** Pós-venda automático — reengajar compradores */
+  postSaleEnabled?: boolean;
+  postSaleWaitDays?: number;
+  postSaleOpenerPrompt?: string;
+  postSaleWarmupReplies?: number;
+  postSaleGiftDelayMinutes?: number;
   /** whatsapp-web.js ou API oficial Meta (legado) */
   waApiProvider?: WaApiProvider;
   /** Número WhatsApp conectado (DDI+DDD+número) — usado no gerador de links */
@@ -197,6 +203,11 @@ function rowToBot(row: {
     backupToken: row.backup_token ?? undefined,
     giftPrompt: row.gift_prompt ?? "",
     giftItems: parseGiftItems(row.gift_items),
+    postSaleEnabled: Boolean((row as { post_sale_enabled?: boolean }).post_sale_enabled),
+    postSaleWaitDays: Number((row as { post_sale_wait_days?: number }).post_sale_wait_days ?? 2),
+    postSaleOpenerPrompt: (row as { post_sale_opener_prompt?: string }).post_sale_opener_prompt ?? "",
+    postSaleWarmupReplies: Number((row as { post_sale_warmup_replies?: number }).post_sale_warmup_replies ?? 2),
+    postSaleGiftDelayMinutes: Number((row as { post_sale_gift_delay_minutes?: number }).post_sale_gift_delay_minutes ?? 45),
     followUpEnabled: row.follow_up_enabled !== false,
     followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
     followUpMaxPerLead: row.follow_up_max_per_lead ?? 2,
@@ -241,6 +252,11 @@ export async function loadBots(userId?: string) {
     audioLibrary: parseAudioLibrary(b.audioLibrary),
     giftPrompt: b.giftPrompt ?? "",
     giftItems: parseGiftItems(b.giftItems),
+    postSaleEnabled: Boolean(b.postSaleEnabled),
+    postSaleWaitDays: b.postSaleWaitDays ?? 2,
+    postSaleOpenerPrompt: b.postSaleOpenerPrompt ?? "",
+    postSaleWarmupReplies: b.postSaleWarmupReplies ?? 2,
+    postSaleGiftDelayMinutes: b.postSaleGiftDelayMinutes ?? 45,
     waApiProvider: parseWaApiProvider(b.waApiProvider),
     waPhoneNumber: b.waPhoneNumber?.trim() || "",
     proxyEnabled: Boolean(b.proxyEnabled),

@@ -1,4 +1,4 @@
-import { PROMPT_ACTION_TAGS, PROMPT_TAGS_HINT } from "../lib/prompt-tags.js";
+import { PROMPT_ACTION_TAGS, PROMPT_EFFECTIVE_HINT, PROMPT_TAGS_HINT } from "../lib/prompt-tags.js";
 import { escapeHtml } from "./layout.js";
 
 /** Painel lateral fixo — guia completo das tags para clientes. */
@@ -27,6 +27,7 @@ export function promptTagsSidebar() {
         <p class="form-hint prompt-tags-panel-tip">Clique na tag para inserir no cursor do prompt.</p>
         <div class="prompt-tag-doc-list">${items}</div>
         <div class="prompt-tags-panel-foot">
+          <p>${escapeHtml(PROMPT_EFFECTIVE_HINT)}</p>
           <p><strong>Comprovante:</strong> lead manda imagem/PDF → sistema valida sozinho.</p>
           <p><strong>Entrega:</strong> após pagamento aprovado, envia link e mídias de Entrega do produto.</p>
         </div>

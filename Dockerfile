@@ -2,6 +2,7 @@ FROM node:22-bookworm-slim
 
 # Chromium do sistema (mais estável no Railway que cache do Puppeteer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    poppler-utils \
     ca-certificates \
     chromium \
     fonts-liberation \

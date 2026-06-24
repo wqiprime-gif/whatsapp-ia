@@ -1,5 +1,8 @@
 import { parseAudioTags } from "./named-audio.js";
 
+import type { Product } from "../db/events.js";
+import { priceTableFromProducts, chamadaVideoMessageForPlatform } from "./product-catalog.js";
+
 export type PromptAction =
   | "send_informacoes"
   | "send_amostra_gratis"
@@ -33,14 +36,12 @@ export function parsePromptActions(text: string) {
   return { clean, actions: [...new Set(actions)], audioSlugs, giftSlug };
 }
 
-export function priceTableMessage() {
-  return [
-    "Pacotes amor 😘",
-    "• Básico: 50 fotos e vídeos — R$ 9,90",
-    "• Chamada vídeo (5 min no zap) — R$ 15,00",
-    "• Completo: chamada + pack — R$ 20,00",
-    "Qual você quer bb?"
-  ].join("\n");
+export function priceTableMessage(products: Product[] = [], platform: "whatsapp" | "telegram" = "telegram") {
+  return priceTableFromProducts(products, platform);
+}
+
+export function chamadaVideoMessage(platform: "whatsapp" | "telegram" = "telegram") {
+  return chamadaVideoMessageForPlatform(platform);
 }
 
 export function naosouFakeMessage() {
