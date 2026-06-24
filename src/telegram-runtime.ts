@@ -21,6 +21,7 @@ import {
   wantsPreviewIntent,
   wantsPriceTable
 } from "./lib/bot-intents.js";
+import { resolveFollowUpStep, followUpMaxSteps } from "./lib/follow-up.js";
 import {
   createLeadState,
   leadShowsBuyIntent,
@@ -111,8 +112,7 @@ function followKey(botId: string, chatId: number) {
 function getFollowUpConfig(config: BotConfig) {
   return {
     enabled: config.followUpEnabled !== false,
-    afterMs: Math.max(60_000, (config.followUpAfterMinutes || 10) * 60_000),
-    maxPerLead: Math.min(5, Math.max(1, config.followUpMaxPerLead || 2))
+    maxPerLead: followUpMaxSteps(config)
   };
 }
 
@@ -154,12 +154,17 @@ async function generatePersonaReply(runtime: RuntimeBot, chatId: number, instruc
 function scheduleFollowUp(runtime: RuntimeBot, chatId: number) {
   const key = followKey(runtime.config.id, chatId);
   clearFollowUpTimer(key);
-  const { enabled, afterMs, maxPerLead } = getFollowUpConfig(runtime.config);
+  const { enabled, maxPerLead } = getFollowUpConfig(runtime.config);
   if (!enabled) return;
   if (runtime.ignoredChats.has(chatId)) return;
   const leadState = getLeadState(runtime, chatId);
   if (leadState.paid && !leadState.postSaleActive) return;
-  if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
+  const stepIndex = followUpCounts.get(key) || 0;
+  if (stepIndex >= maxPerLead) return;
+
+  const resolved = resolveFollowUpStep(runtime.config, stepIndex);
+  if (!resolved) return;
+  const { afterMs, message: fixedMessage } = resolved;
 
   const scheduledAt = Date.now();
   followUpTimers.set(
@@ -170,11 +175,14 @@ function scheduleFollowUp(runtime: RuntimeBot, chatId: number) {
       if ((lastUserActivityAt.get(key) || 0) > (lastBotMessageAt.get(key) || scheduledAt)) return;
       if ((followUpCounts.get(key) || 0) >= maxPerLead) return;
 
-      const msg = await generatePersonaReply(
-        runtime,
-        chatId,
-        "O lead ficou quieto sem responder depois da sua ultima mensagem. Mande UMA frase curta e carinhosa para puxar conversa. Varie — nao copie frase de atendente."
-      );
+      let msg = fixedMessage?.trim() || "";
+      if (!msg) {
+        msg = await generatePersonaReply(
+          runtime,
+          chatId,
+          "O lead ficou quieto sem responder depois da sua ultima mensagem. Mande UMA frase curta e carinhosa para puxar conversa. Varie — nao copie frase de atendente."
+        );
+      }
       if (!msg) return;
 
       followUpCounts.set(key, (followUpCounts.get(key) || 0) + 1);

@@ -397,10 +397,12 @@ function getMessageDelayMs() {
 
 function getFollowUpConfig() {
   const cfg = loadBotConfig();
+  const steps = Array.isArray(cfg.followUpSteps) ? cfg.followUpSteps.filter((s) => s && String(s.message || '').trim()) : [];
   return {
     enabled: cfg.followUpEnabled !== false,
     afterMs: Math.max(60000, (Number(cfg.followUpAfterMinutes) || 10) * 60 * 1000),
-    maxPerLead: Math.min(5, Math.max(1, Number(cfg.followUpMaxPerLead) || 2))
+    maxPerLead: steps.length > 0 ? steps.length : Math.min(5, Math.max(1, Number(cfg.followUpMaxPerLead) || 2)),
+    steps
   };
 }
 
@@ -429,10 +431,16 @@ function onBotOutbound(jid) {
 
 function scheduleFollowUp(jid) {
   clearFollowUpTimer(jid);
-  const { enabled, afterMs, maxPerLead } = getFollowUpConfig();
+  const { enabled, afterMs, maxPerLead, steps } = getFollowUpConfig();
   if (!enabled) return;
   if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid]) return;
-  if ((followUpCounts[jid] || 0) >= maxPerLead) return;
+  const stepIndex = followUpCounts[jid] || 0;
+  if (stepIndex >= maxPerLead) return;
+
+  const step = steps.length > 0 ? steps[stepIndex] : null;
+  const delayMs = step
+    ? Math.max(60000, (Number(step.afterMinutes) || 10) * 60 * 1000)
+    : afterMs;
 
   const scheduledAt = Date.now();
   followUpTimers[jid] = setTimeout(async () => {
@@ -441,17 +449,20 @@ function scheduleFollowUp(jid) {
     if ((lastUserActivityAt[jid] || 0) > (lastBotMessageAt[jid] || scheduledAt)) return;
     if ((followUpCounts[jid] || 0) >= maxPerLead) return;
 
-    const msg = await generatePersonaReply(
-      jid,
-      'O lead ficou quieto sem responder depois da sua última mensagem. Mande UMA frase curta e carinhosa para puxar conversa (tipo "oii amor, esqueceu de mim?" ou "me deixou no vácuo né kkk"). Varie — não copie frase de atendente.'
-    );
+    let msg = step ? String(step.message || '').trim() : '';
+    if (!msg) {
+      msg = await generatePersonaReply(
+        jid,
+        'O lead ficou quieto sem responder depois da sua última mensagem. Mande UMA frase curta e carinhosa para puxar conversa (tipo "oii amor, esqueceu de mim?" ou "me deixou no vácuo né kkk"). Varie — não copie frase de atendente.'
+      );
+    }
     if (!msg) return;
 
     followUpCounts[jid] = (followUpCounts[jid] || 0) + 1;
     await sendTextHuman(client, jid, msg);
     void panelLog({ type: 'message', jid, role: 'assistant', content: msg });
     onBotOutbound(jid);
-  }, afterMs);
+  }, delayMs);
 }
 
 async function typingForMs(chat, durationMs) {

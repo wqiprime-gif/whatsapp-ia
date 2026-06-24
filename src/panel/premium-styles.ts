@@ -392,6 +392,20 @@ body:not(.auth-body) .ambient {
   .gift-add-row { grid-template-columns: 1fr 1.4fr auto; align-items: end; }
 }
 .gift-prompt-field { min-height: 120px; font-size: 0.95rem; line-height: 1.55; }
+.follow-up-steps { display: grid; gap: 12px; margin: 14px 0; }
+.follow-up-row {
+  display: grid; gap: 10px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(10, 92, 255, 0.05); border: 1px solid rgba(10, 92, 255, 0.18);
+}
+.follow-up-num {
+  font-family: var(--font-display); font-size: 0.85rem; color: var(--blue-bright); font-weight: 600;
+}
+@media (min-width: 720px) {
+  .follow-up-row { grid-template-columns: auto 1.6fr 120px auto; align-items: start; }
+}
+.follow-up-fallback summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; margin-bottom: 8px; }
+.follow-up-fallback-grid { display: grid; gap: 12px; margin-top: 8px; }
+@media (min-width: 720px) { .follow-up-fallback-grid { grid-template-columns: 1fr 1fr; } }
 .post-sale-title { font-family: var(--font-display); font-size: 1.05rem; margin-bottom: 6px; color: var(--blue-bright); }
 .post-sale-grid { display: grid; gap: 14px; margin: 12px 0 16px; }
 @media (min-width: 720px) { .post-sale-grid { grid-template-columns: repeat(3, 1fr); } }

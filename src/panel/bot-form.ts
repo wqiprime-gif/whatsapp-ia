@@ -329,6 +329,24 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
   const followUpOn = !isEdit || bot.followUpEnabled !== false;
   const followUpMinutes = isEdit ? bot.followUpAfterMinutes ?? 10 : 10;
   const followUpMax = isEdit ? bot.followUpMaxPerLead ?? 2 : 2;
+  const followUpSteps = isEdit ? bot.followUpSteps ?? [] : [];
+  const followUpStepRows =
+    followUpSteps.length > 0
+      ? followUpSteps
+          .map(
+            (step, i) => `<div class="follow-up-row" data-follow-row>
+            <span class="follow-up-num">${i + 1}</span>
+            <label class="field">Mensagem
+              <textarea name="followUpMessage" rows="2" placeholder="Ex: oii amor, esqueceu de mim?">${escapeHtml(step.message)}</textarea>
+            </label>
+            <label class="field">Esperar (min)
+              <input name="followUpMinutes" type="number" min="1" max="180" value="${step.afterMinutes}" />
+            </label>
+            <button type="button" class="btn btn-secondary btn-sm follow-row-remove">Remover</button>
+          </div>`
+          )
+          .join("")
+      : "";
   return `
     <form id="bot-preview-form" method="post" action="${action}" enctype="multipart/form-data">
       <div class="instance-form-layout">
@@ -381,7 +399,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
             <span class="form-section-icon form-section-icon-cyan">💬</span>
             <div>
               <h4>Reengajar lead parado</h4>
-              <p>Se o lead não responder depois da sua última mensagem, a IA manda um puxão de conversa no tom do prompt.</p>
+              <p>Se o lead não responder, o bot manda mensagens de follow-up na ordem abaixo — cada uma após o tempo configurado.</p>
             </div>
           </div>
           <label class="field">
@@ -391,15 +409,23 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
               <option value="false" ${!followUpOn ? "selected" : ""}>Não</option>
             </select>
           </label>
-          <label class="field">
-            Esperar (minutos)
-            <input name="followUpAfterMinutes" type="number" min="1" max="180" value="${followUpMinutes}" />
-          </label>
-          <label class="field">
-            Máx. por lead
-            <input name="followUpMaxPerLead" type="number" min="1" max="5" value="${followUpMax}" />
-          </label>
-          <p class="form-hint span-2">Exemplos no prompt: "oii amor, esqueceu de mim?", "me deixou no vácuo né kkk". O motor escolhe variação no seu tom.</p>
+          <div id="follow-up-steps" class="follow-up-steps">${followUpStepRows}</div>
+          <button type="button" class="btn btn-secondary btn-sm" id="follow-up-add-btn">+ Adicionar mensagem</button>
+          <p class="form-hint">Máximo 5 mensagens. O tempo é contado desde a <strong>última mensagem do bot</strong> sem resposta do lead.</p>
+          <details class="follow-up-fallback" style="margin-top:14px">
+            <summary>Modo automático (sem mensagens cadastradas)</summary>
+            <div class="follow-up-fallback-grid">
+              <label class="field">
+                Esperar (minutos) — IA
+                <input name="followUpAfterMinutes" type="number" min="1" max="180" value="${followUpMinutes}" />
+              </label>
+              <label class="field">
+                Máx. por lead — IA
+                <input name="followUpMaxPerLead" type="number" min="1" max="5" value="${followUpMax}" />
+              </label>
+            </div>
+            <p class="form-hint">Só entra se você não cadastrar mensagens acima. A IA inventa frases no tom do prompt.</p>
+          </details>
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
@@ -447,6 +473,47 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
       if (platformSel) {
         platformSel.addEventListener("change", syncPlatformForm);
         syncPlatformForm();
+      }
+      var fuWrap = document.getElementById("follow-up-steps");
+      var fuBtn = document.getElementById("follow-up-add-btn");
+      function renumberFollowRows() {
+        if (!fuWrap) return;
+        var rows = fuWrap.querySelectorAll("[data-follow-row]");
+        rows.forEach(function (row, idx) {
+          var num = row.querySelector(".follow-up-num");
+          if (num) num.textContent = String(idx + 1);
+        });
+      }
+      function addFollowRow(msg, mins) {
+        if (!fuWrap) return;
+        if (fuWrap.querySelectorAll("[data-follow-row]").length >= 5) return;
+        var row = document.createElement("div");
+        row.className = "follow-up-row";
+        row.setAttribute("data-follow-row", "");
+        row.innerHTML = '<span class="follow-up-num">1</span>'
+          + '<label class="field">Mensagem<textarea name="followUpMessage" rows="2" placeholder="Ex: oii amor, esqueceu de mim?"></textarea></label>'
+          + '<label class="field">Esperar (min)<input name="followUpMinutes" type="number" min="1" max="180" value="' + (mins || 10) + '" /></label>'
+          + '<button type="button" class="btn btn-secondary btn-sm follow-row-remove">Remover</button>';
+        var ta = row.querySelector("textarea");
+        if (ta && msg) ta.value = msg;
+        row.querySelector(".follow-row-remove").onclick = function () { row.remove(); renumberFollowRows(); };
+        fuWrap.appendChild(row);
+        renumberFollowRows();
+      }
+      if (fuBtn && fuWrap) {
+        fuBtn.onclick = function () { addFollowRow("", 10); };
+        if (!fuWrap.querySelector("[data-follow-row]")) {
+          addFollowRow("oii amor, esqueceu de mim?", 10);
+          addFollowRow("me deixou no vácuo né kkk", 25);
+        } else {
+          fuWrap.querySelectorAll(".follow-row-remove").forEach(function (btn) {
+            btn.onclick = function () {
+              var row = btn.closest("[data-follow-row]");
+              if (row) row.remove();
+              renumberFollowRows();
+            };
+          });
+        }
       }
     })();
     </script>`;

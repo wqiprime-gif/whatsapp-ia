@@ -39,6 +39,7 @@ import {
   type NamedAudio
 } from "../bots.js";
 import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
+import { followUpStepsFromForm } from "../lib/follow-up.js";
 import { parseBotPlatform, type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
@@ -1611,7 +1612,8 @@ export async function registerPanelRoutes(
           backupToken: body.backupToken?.trim() || existing.backupToken,
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
-          followUpMaxPerLead: body.followUpMaxPerLead
+          followUpMaxPerLead: body.followUpMaxPerLead,
+          followUpSteps: followUpStepsFromForm(fields)
         },
         body
         ),
@@ -1751,7 +1753,8 @@ export async function registerPanelRoutes(
               backupToken: body.backupToken?.trim() || undefined,
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,
-              followUpMaxPerLead: body.followUpMaxPerLead
+              followUpMaxPerLead: body.followUpMaxPerLead,
+              followUpSteps: followUpStepsFromForm(fields)
             },
             body
           ),

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "./config.js";
 import { getPool, useDatabase } from "./db/index.js";
 import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
+import { parseFollowUpSteps, type FollowUpStep } from "./lib/follow-up.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
 import { parseBotPlatform, type BotPlatform, isTelegramBot, isWhatsAppBot } from "./lib/platform-types.js";
@@ -77,6 +78,8 @@ export type BotConfig = {
   followUpEnabled?: boolean;
   followUpAfterMinutes?: number;
   followUpMaxPerLead?: number;
+  /** Mensagens fixas de follow-up (vazio = IA no tom do prompt) */
+  followUpSteps?: FollowUpStep[];
   /** IA dedicada desta instância (sobrescreve Configurações globais). */
   aiProvider?: AIProviderId;
   aiModel?: string;
@@ -153,6 +156,7 @@ function rowToBot(row: {
   follow_up_enabled?: boolean | null;
   follow_up_after_minutes?: number | null;
   follow_up_max_per_lead?: number | null;
+  follow_up_steps?: FollowUpStep[] | string | null;
   ai_provider?: string | null;
   ai_model?: string | null;
   ai_api_key_encrypted?: string | null;
@@ -211,6 +215,7 @@ function rowToBot(row: {
     followUpEnabled: row.follow_up_enabled !== false,
     followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
     followUpMaxPerLead: row.follow_up_max_per_lead ?? 2,
+    followUpSteps: parseFollowUpSteps(row.follow_up_steps),
     aiProvider: normalizeAIProvider(row.ai_provider),
     aiModel: sanitizeAIModel(normalizeAIProvider(row.ai_provider), row.ai_model),
     aiApiKeyEncrypted: row.ai_api_key_encrypted ?? undefined
@@ -223,7 +228,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
   gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
-  follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
+  follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
   ai_provider, ai_model, ai_api_key_encrypted
   FROM bots`;
 
@@ -269,7 +274,8 @@ export async function loadBots(userId?: string) {
     aiApiKeyEncrypted: b.aiApiKeyEncrypted,
     platform: parseBotPlatform(b.platform),
     productPresentationEnabled: Boolean(b.productPresentationEnabled),
-    productPresentationMediaUrls: b.productPresentationMediaUrls ?? []
+    productPresentationMediaUrls: b.productPresentationMediaUrls ?? [],
+    followUpSteps: parseFollowUpSteps(b.followUpSteps)
   })) as BotConfig[];
 
   return userId ? normalized.filter((b) => b.userId === userId) : normalized;
@@ -295,9 +301,9 @@ export async function upsertBot(bot: BotConfig) {
         payment_method, laranjinha_api_key_encrypted, product_name, product_price_cents, telegram_group_link, backup_token,
         gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
-        follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead,
+        follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
         ai_provider, ai_model, ai_api_key_encrypted)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -333,6 +339,7 @@ export async function upsertBot(bot: BotConfig) {
          follow_up_enabled = EXCLUDED.follow_up_enabled,
          follow_up_after_minutes = EXCLUDED.follow_up_after_minutes,
          follow_up_max_per_lead = EXCLUDED.follow_up_max_per_lead,
+         follow_up_steps = EXCLUDED.follow_up_steps,
          ai_provider = EXCLUDED.ai_provider,
          ai_model = EXCLUDED.ai_model,
          ai_api_key_encrypted = COALESCE(EXCLUDED.ai_api_key_encrypted, bots.ai_api_key_encrypted)`,
@@ -372,6 +379,7 @@ export async function upsertBot(bot: BotConfig) {
         bot.followUpEnabled !== false,
         bot.followUpAfterMinutes ?? 10,
         bot.followUpMaxPerLead ?? 2,
+        JSON.stringify(bot.followUpSteps ?? []),
         bot.aiProvider ?? "openai",
         bot.aiModel ?? null,
         bot.aiApiKeyEncrypted ?? null
