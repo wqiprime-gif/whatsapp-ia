@@ -309,7 +309,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], productPresentationEnabled: false, productPresentationMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, priceTableImageUrl: '', products: [] };
+  return { previewMediaUrls: [], productPresentationEnabled: false, productPresentationMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, priceTableImageUrl: '', audioLibrary: [], products: [] };
 }
 
 const halfPriceOffered = {};
@@ -646,10 +646,26 @@ function buildGiftsAppendix() {
   return block;
 }
 
+function buildAudioAppendix() {
+  const library = (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+  if (!library.length) return '';
+  const lines = library.map((a) => {
+    const slug = audioItemSlug(a);
+    const triggers = ((a.triggers || a.keywords) || '').trim();
+    return `- [[audio:${slug}]] → áudio "${a.label}"${triggers ? ` (gatilhos do lead: ${triggers})` : ''}`;
+  });
+  return (
+    '\n\nÁUDIOS (notas de voz gravadas):\n' +
+    'Você tem áudios reais gravados. Para enviar um, coloque a tag correspondente no FIM da sua resposta (pode ser só a tag, sem texto). ' +
+    'Use no máximo 1 áudio por mensagem e apenas quando fizer sentido no funil — nunca em toda mensagem.\n' +
+    lines.join('\n')
+  );
+}
+
 function buildSystemPrompt() {
   const panelPrompt = readPanelPromptRaw();
   const base = panelPrompt || loadDefaultPrompt() || '';
-  return base + buildPixAppendix() + buildDiscountAppendix() + buildGiftsAppendix();
+  return base + buildPixAppendix() + buildDiscountAppendix() + buildGiftsAppendix() + buildAudioAppendix();
 }
 
 function refreshAllConversationPrompts() {
@@ -1062,6 +1078,7 @@ function loadConversationsStore() {
     if (data.halfPriceOffered) Object.assign(halfPriceOffered, data.halfPriceOffered);
     if (data.hasSentInformacoes) Object.assign(hasSentInformacoes, data.hasSentInformacoes);
     if (data.hasSentNaoSouFake) Object.assign(hasSentNaoSouFake, data.hasSentNaoSouFake);
+    if (data.sentAudios) Object.assign(sentAudios, data.sentAudios);
     console.log(`💾 Memória: ${Object.keys(userConversations).length} conversa(s) restaurada(s)`);
   } catch (error) {
     console.warn('⚠️ Erro ao carregar memória de conversas:', error.message);
@@ -1084,6 +1101,7 @@ function scheduleSaveConversations() {
         halfPriceOffered,
         hasSentInformacoes,
         hasSentNaoSouFake,
+        sentAudios,
         updatedAt: new Date().toISOString()
       }, null, 0));
     } catch (error) {
@@ -1095,6 +1113,7 @@ function scheduleSaveConversations() {
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
 const hasSentNaoSouFake = {};
+const sentAudios = {}; // jid -> [slug] dos áudios já enviados (evita repetir)
 hydratePreviewSentFromDisk();
 const arrayImport = require('./arrayImport');
 const messageBuffers = {};
@@ -1118,6 +1137,7 @@ function getUserConversation(userNumber) {
     hasSentInformacoes[userNumber] = false;
     hasSentAmostra[userNumber] = Boolean(loadPreviewSentStore()[userNumber]);
     hasSentNaoSouFake[userNumber] = false;
+    sentAudios[userNumber] = [];
   }
   return userConversations[userNumber];
 }
@@ -1127,9 +1147,137 @@ const PROMPT_ACTION_RE =
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
+// ── Biblioteca de áudios (nota de voz no funil) ──────────────
+const AUDIO_STOP_WORDS = new Set(['amor', 'bb', 'bebe', 'oi', 'oii', 'oie', 'ola', 'eae', 'bem', 'tudo', 'vc', 'voce', 'quer', 'saber', 'tabela']);
+const AUDIO_SLUG_ALIASES = {
+  nao_sou_fake: ['naosou_fake', 'naosoufake', 'eu_nao_sou_fake'],
+  naosou_fake: ['nao_sou_fake', 'naosoufake', 'eu_nao_sou_fake']
+};
+
+function normalizeAudioKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9,\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeAudioSlug(value) {
+  return normalizeAudioKey(value).replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
+function audioItemSlug(item) {
+  return normalizeAudioSlug((item && (item.slug || item.label)) || '');
+}
+
+function audioItemTriggers(item) {
+  const raw = ((item && (item.triggers || item.keywords)) || '').trim();
+  return raw
+    .split(',')
+    .map((k) => normalizeAudioKey(k))
+    .filter((k) => k.length >= 4 && !AUDIO_STOP_WORDS.has(k));
+}
+
+function getAudioLibrary() {
+  return (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+}
+
+function resolveAudioBySlug(slug, library) {
+  const norm = normalizeAudioSlug(slug);
+  if (!norm || !Array.isArray(library)) return null;
+  for (const item of library) {
+    if (audioItemSlug(item) === norm) return item;
+  }
+  for (const alias of AUDIO_SLUG_ALIASES[norm] || []) {
+    const found = library.find((it) => audioItemSlug(it) === alias);
+    if (found) return found;
+  }
+  return null;
+}
+
+function parseAudioTagSlugs(text) {
+  const slugs = [];
+  const re = /\[\[audio:([a-z0-9_]+)\]\]|\[\[audio_([a-z0-9_]+)\]\]/gi;
+  let m;
+  while ((m = re.exec(String(text || ''))) !== null) {
+    const s = normalizeAudioSlug(m[1] || m[2] || '');
+    if (s) slugs.push(s);
+  }
+  return [...new Set(slugs)];
+}
+
+function isAudioDistrustMessage(text) {
+  return /fake|golpe|golp|é bot|e bot|rob[oô]|inteligencia artificial|\bia\b|e real|é real|serio\?|desconfi|confio nao|fraude|scam|verdade mesmo|pessoa real|nao confio|golpista/i.test(
+    String(text || '')
+  );
+}
+
+/** Saudação "pura" (oi, oii amor, bom dia) — sem pergunta/pedido junto. */
+function isGreetingText(text) {
+  const t = String(text || '').trim().toLowerCase();
+  if (!t) return false;
+  return (
+    /^(oi+|oii+|oie+|ola|olá|eae|e ai|eai|hey|opa|opaa+|bom dia|boa tarde|boa noite)[\s!.,?]*$/i.test(t) ||
+    /^(oi+|oii+|ola|olá)[\s,]*(amor|bb|bebe|gata|gato|linda|gostosa|safada|tudo bem|td bem|tudo bom)[\s!.,?]*$/i.test(t)
+  );
+}
+
+/** Primeiro contato = a IA ainda não respondeu nada para esse lead. */
+function isFirstContact(userNumber) {
+  const conv = userConversations[userNumber] || [];
+  return !conv.some((m) => m.role === 'assistant');
+}
+
+function findContextualLeadAudio(text, library) {
+  if (!Array.isArray(library) || !library.length) return null;
+  const norm = normalizeAudioKey(text);
+  if (!norm) return null;
+
+  let best = null;
+  for (const item of library) {
+    for (const trigger of audioItemTriggers(item)) {
+      let score = 0;
+      if (norm === trigger) score = 100;
+      else if (norm.includes(trigger)) score = 70 + Math.min(trigger.length, 25);
+      if (score > (best ? best.score : 0)) best = { item, score };
+    }
+  }
+  if (best && best.score >= 60) return best.item;
+
+  if (isAudioDistrustMessage(text)) {
+    const distrust = library.find(
+      (a) =>
+        /nao.?sou.?fake|naosou_fake|fake|golpe/.test(audioItemSlug(a)) ||
+        /fake|golpe|bot|desconfi/.test(((a.triggers || a.keywords) || '').toLowerCase())
+    );
+    if (distrust) return distrust;
+  }
+  return null;
+}
+
+/** Decide quais áudios enviar: tags explícitas do AI ou gatilho do lead. */
+function pickFunnelAudios(input) {
+  const library = input.library || [];
+  const picks = [];
+  const seen = new Set();
+  const add = (item) => {
+    if (!item) return;
+    const slug = audioItemSlug(item);
+    if (seen.has(slug)) return;
+    seen.add(slug);
+    picks.push(item);
+  };
+  for (const slug of input.audioSlugs || []) add(resolveAudioBySlug(slug, library));
+  if (picks.length === 0) add(findContextualLeadAudio(input.userText, library));
+  return picks;
+}
+
 function parsePromptActions(text) {
   const actions = [];
   let giftSlug;
+  const audioSlugs = parseAudioTagSlugs(text);
   let clean = String(text || '')
     .replace(GIFT_TAG_RE, (_, slug) => {
       actions.push('pedir_presente');
@@ -1142,7 +1290,7 @@ function parsePromptActions(text) {
     })
     .replace(/\[\[audio:([a-z0-9_]+)\]\]|\[\[audio_([a-z0-9_]+)\]\]/gi, '')
     .trim();
-  return { clean, actions: [...new Set(actions)], giftSlug };
+  return { clean, actions: [...new Set(actions)], giftSlug, audioSlugs };
 }
 
 function pickGiftMessageJs(items, slug) {
@@ -1938,6 +2086,21 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
   async function naosouFake(client, messageFrom, conversation) {
     try {
       isProcessing[messageFrom] = true;
+
+      // Se houver áudio "não sou fake" cadastrado, manda a nota de voz (mais convincente)
+      const library = getAudioLibrary();
+      const audioItem =
+        resolveAudioBySlug('nao_sou_fake', library) || resolveAudioBySlug('naosou_fake', library);
+      if (audioItem) {
+        const sent = await sendNamedAudioVoiceOnce(client, messageFrom, audioItem);
+        if (sent) {
+          conversation.push({ role: 'system', content: 'Foi enviado o áudio provando que você não é fake. Não repita.' });
+          hasSentNaoSouFake[messageFrom] = true;
+          isProcessing[messageFrom] = false;
+          return;
+        }
+      }
+
       const text = await generatePersonaReply(
         messageFrom,
         'O lead achou que você é fake ou golpe. Reafirme com naturalidade que é você de verdade, sem soar defensiva.'
@@ -2116,6 +2279,26 @@ client.on("message", async (message) => {
       console.log(`⏳ Gerando resposta...`);
       console.log('─'.repeat(60) + '\n');
       try {
+        // Saudação em ÁUDIO no primeiro contato (substitui o "oi tudo bem" em texto)
+        const greetLibrary = getAudioLibrary();
+        const saudacaoAudio = resolveAudioBySlug('saudacao', greetLibrary);
+        if (
+          saudacaoAudio &&
+          isGreetingText(combinedMessage) &&
+          isFirstContact(from) &&
+          !audioAlreadySent(from, audioItemSlug(saudacaoAudio))
+        ) {
+          const sentGreeting = await sendNamedAudioVoiceOnce(client, from, saudacaoAudio);
+          if (sentGreeting) {
+            const conv = getUserConversation(from);
+            conv.push({ role: 'user', content: combinedMessage });
+            conv.push({ role: 'system', content: 'Você já enviou o áudio de saudação inicial. Não repita a saudação; siga o funil normalmente na próxima mensagem.' });
+            scheduleSaveConversations();
+            onBotOutbound(from);
+            return;
+          }
+        }
+
         const halfReply = tryHalfPriceOffer(from, combinedMessage);
         if (halfReply) {
           await sendTextHuman(client, from, halfReply);
@@ -2132,7 +2315,7 @@ client.on("message", async (message) => {
         }
 
         if (result) {
-          let { clean, actions, giftSlug } = parsePromptActions(result);
+          let { clean, actions, giftSlug, audioSlugs } = parsePromptActions(result);
           clean = sanitizePixPlaceholders(clean);
           console.log('✅ RESPOSTA GERADA:');
           console.log('─'.repeat(60));
@@ -2159,6 +2342,19 @@ client.on("message", async (message) => {
 
           if (actions.length > 0) {
             await executePromptActions(client, from, actions, giftSlug);
+          }
+
+          // Áudios do funil: tags [[audio:slug]] do AI ou gatilho do lead (nota de voz)
+          const audioLibrary = getAudioLibrary();
+          if (audioLibrary.length > 0) {
+            const audioPicks = pickFunnelAudios({
+              audioSlugs,
+              userText: combinedMessage,
+              library: audioLibrary
+            });
+            for (const item of audioPicks) {
+              await sendNamedAudioVoiceOnce(client, from, item);
+            }
           }
 
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {
@@ -2301,6 +2497,67 @@ async function sendMediaWithTyping(client, messageFrom, media, options = {}) {
     console.error(`sendMediaWithTyping: ${error.message}`);
     return false;
   }
+}
+
+function audioAlreadySent(from, slug) {
+  return Array.isArray(sentAudios[from]) && sentAudios[from].includes(slug);
+}
+
+function markAudioSent(from, slug) {
+  if (!Array.isArray(sentAudios[from])) sentAudios[from] = [];
+  if (!sentAudios[from].includes(slug)) sentAudios[from].push(slug);
+  scheduleSaveConversations();
+}
+
+/** Envia um áudio da biblioteca como NOTA DE VOZ (uma vez por lead). */
+async function sendNamedAudioVoiceOnce(client, messageFrom, item) {
+  if (!item || !item.url) return false;
+  const slug = audioItemSlug(item);
+  if (audioAlreadySent(messageFrom, slug)) {
+    console.log(`⏩ Áudio "${slug}" já enviado para ${messageFrom} — ignorando.`);
+    return false;
+  }
+
+  const localPath = await resolveMediaLocalPath(item.url);
+  if (!localPath || !fs.existsSync(localPath)) {
+    console.error(`❌ Áudio não encontrado: ${item.url}`);
+    return false;
+  }
+
+  const media = MessageMedia.fromFilePath(localPath);
+  if (!media) {
+    console.error(`❌ Falha ao carregar áudio: ${localPath}`);
+    return false;
+  }
+
+  let chat = null;
+  try {
+    chat = await client.getChatById(messageFrom);
+  } catch (_) {}
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      if (chat) {
+        try {
+          await chat.sendStateRecording();
+        } catch (_) {}
+      }
+      await new Promise((r) => setTimeout(r, 2500 + Math.random() * 2500));
+      await client.sendMessage(messageFrom, media, { sendAudioAsVoice: true });
+      if (chat) {
+        try {
+          await chat.clearState();
+        } catch (_) {}
+      }
+      markAudioSent(messageFrom, slug);
+      console.log(`✅ Áudio "${slug}" enviado para ${messageFrom}`);
+      return true;
+    } catch (sendError) {
+      console.error(`❌ Erro ao enviar áudio "${slug}" (tentativa ${attempt}): ${sendError.message}`);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+  return false;
 }
 
 async function sendMessageParts(client, messageFrom, textParts) {
@@ -2489,6 +2746,7 @@ app.post('/api/prompt', (req, res) => {
       hasSentInformacoes[key] = false;
       hasSentAmostra[key] = Boolean(loadPreviewSentStore()[key]);
       hasSentNaoSouFake[key] = false;
+      sentAudios[key] = [];
     });
 
     res.json({

@@ -40,6 +40,7 @@ import {
 } from "../bots.js";
 import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { followUpStepsFromForm } from "../lib/follow-up.js";
+import { buildDefaultAudioLibrary } from "../lib/seed-audios.js";
 import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
@@ -1729,6 +1730,10 @@ export async function registerPanelRoutes(
       const botId = randomUUID();
       const platform: BotPlatform = "whatsapp";
 
+      // Áudios padrão prontos para teste + o que o cliente já tenha subido no form
+      const seededAudios = await buildDefaultAudioLibrary();
+      const initialAudioLibrary = mergeAudioLibrary(seededAudios, fields, newNamedAudioUrl);
+
       await upsertBot(
         applyAIFieldsFromForm(
           applyWaFieldsFromForm(
@@ -1749,7 +1754,7 @@ export async function registerPanelRoutes(
               messageDelayMs: messageDelayMsFromForm(body),
               previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
               deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
-              audioLibrary: mergeAudioLibrary([], fields, newNamedAudioUrl),
+              audioLibrary: initialAudioLibrary,
               avatarUrl: "",
               active: body.active === "true",
               paymentMethod: body.paymentMethod,

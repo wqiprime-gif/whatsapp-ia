@@ -283,6 +283,13 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
         followUpSteps: bot.followUpSteps ?? [],
         priceTableImageUrl: bot.priceTableImageUrl ?? "",
+        audioLibrary: (bot.audioLibrary ?? []).map((a) => ({
+          label: a.label,
+          url: a.url,
+          slug: a.slug ?? "",
+          triggers: a.triggers ?? "",
+          keywords: a.keywords ?? ""
+        })),
         products: catalog.map((p) => ({
           name: p.name,
           priceCents: p.priceCents,
