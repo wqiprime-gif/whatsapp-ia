@@ -135,28 +135,6 @@ export const panelClientScript = `
   let fetchCtrl = null;
   const progress = document.getElementById("panel-nav-progress");
 
-  function bindPlatformForm(root) {
-    const scope = root || document;
-    const platformSel = scope.querySelector("#instance-platform");
-    if (!platformSel || platformSel.dataset.platformBound) return;
-    platformSel.dataset.platformBound = "1";
-
-    const tgBlock = scope.querySelector("#telegram-token-block");
-    const waBlocks = scope.querySelector("#wa-platform-blocks");
-    const tgTokenInput = scope.querySelector('input[name="telegramBotToken"]');
-
-    function syncPlatform() {
-      const isTg = platformSel.value === "telegram";
-      if (tgBlock) tgBlock.style.display = isTg ? "" : "none";
-      if (waBlocks) waBlocks.style.display = isTg ? "none" : "";
-      if (tgTokenInput) {
-        tgTokenInput.required = Boolean(isTg && !(tgTokenInput.placeholder || "").includes("Atual:"));
-      }
-    }
-    platformSel.addEventListener("change", syncPlatform);
-    syncPlatform();
-  }
-
   function bindWaInstanceForm(root) {
     const scope = root || document;
     const marker = scope.querySelector("[data-wa-form-init]");
@@ -211,7 +189,6 @@ export const panelClientScript = `
         if (b) { b.disabled = true; b.textContent = "Salvando..."; }
       });
     });
-    bindPlatformForm(root);
     bindWaInstanceForm(root);
     runInlineScripts(root);
   }

@@ -35,8 +35,8 @@ export function parsePromptActions(text: string) {
   return { clean, actions: [...new Set(actions)], audioSlugs, giftSlug };
 }
 
-export function priceTableMessage(products: Product[] = [], platform: "whatsapp" | "telegram" = "telegram") {
-  return priceTableFromProducts(products, platform);
+export function priceTableMessage(products: Product[] = []) {
+  return priceTableFromProducts(products);
 }
 
 export function naosouFakeMessage() {

@@ -1981,7 +1981,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 .content:has(.tg-workspace) { padding: 12px 16px 8px; max-width: none; }
 
-/* Telegram inbox */
+/* Inbox de conversas */
 .tg-workspace {
   display: grid;
   grid-template-columns: minmax(280px, 340px) 1fr;

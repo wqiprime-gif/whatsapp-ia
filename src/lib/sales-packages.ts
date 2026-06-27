@@ -4,13 +4,9 @@ import { explicitPackageIdInText } from "./package-selection.js";
 
 export const PACKAGES = {
   basico: { label: "Pacote Basico", price: 9.9, minimum: 5, desc: "50 fotos e videos" },
-  chamada: { label: "Chamada Video", price: 15, minimum: 10, desc: "5 min no Telegram" },
+  chamada: { label: "Chamada Video", price: 15, minimum: 10, desc: "5 min no zap" },
   completo: { label: "Pacote Completo", price: 20, minimum: 15, desc: "chamada + pack" }
 } as const;
-
-export function chamadaVideoMessage() {
-  return "e aqui no telegram mesmo amor 😘 depois que voce comprar eu te chamo aqui, sao 5 min";
-}
 
 /** Só retorna pacote se mencionado explicitamente — sem default. */
 export function detectPackageFromHistory(

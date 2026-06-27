@@ -229,7 +229,7 @@ function loginSharkPromo(title: string, lead: string) {
       <ul class="login-feature-list">
         <li>
           <span class="login-feature-icon">${icons.layers}</span>
-          <div><strong>Instâncias ilimitadas</strong><span>Prompt, Pix e prévia por produto no WhatsApp e Telegram</span></div>
+          <div><strong>Instâncias ilimitadas</strong><span>Prompt, Pix e prévia por produto no WhatsApp</span></div>
         </li>
         <li>
           <span class="login-feature-icon">${icons.zap}</span>
@@ -294,7 +294,7 @@ export function loginPage(message = "") {
         <div class="login-shark-stat"><strong>100%</strong><span>Uptime</span></div>
       </div>
     </div>
-    ${loginSharkPromo("Bem-vindo de volta", "Acesse seu dashboard e continue vendendo no WhatsApp e Telegram com IA por instância.")}
+    ${loginSharkPromo("Bem-vindo de volta", "Acesse seu dashboard e continue vendendo no WhatsApp com IA por instância.")}
   </main>
   <script>${panelSceneScript("auth")}</script>
   <script>${loginParticlesScript()}</script>
@@ -867,7 +867,7 @@ export function registerPage(message = "") {
         <p class="auth-footer">já tem conta? <a href="/login">entrar</a></p>
       </div>
     </div>
-    ${loginSharkPromo("Automatize suas vendas", "Crie sua conta para configurar instâncias, conectar WhatsApp/Telegram e acompanhar vendas em tempo real.")}
+    ${loginSharkPromo("Automatize suas vendas", "Crie sua conta para configurar instâncias, conectar o WhatsApp e acompanhar vendas em tempo real.")}
   </main>
   <script>${panelSceneScript("auth")}</script>
   <script>${loginParticlesScript()}</script>

@@ -1,13 +1,9 @@
-export type BotPlatform = "whatsapp" | "telegram";
+export type BotPlatform = "whatsapp";
 
-export function parseBotPlatform(value?: string | null): BotPlatform {
-  return value === "telegram" ? "telegram" : "whatsapp";
+export function parseBotPlatform(_value?: string | null): BotPlatform {
+  return "whatsapp";
 }
 
-export function isTelegramBot(bot: { platform?: BotPlatform }): boolean {
-  return bot.platform === "telegram";
-}
-
-export function isWhatsAppBot(bot: { platform?: BotPlatform }): boolean {
-  return bot.platform !== "telegram";
+export function isWhatsAppBot(_bot: { platform?: BotPlatform }): boolean {
+  return true;
 }

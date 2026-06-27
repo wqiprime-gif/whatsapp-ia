@@ -40,7 +40,7 @@ import {
 } from "../bots.js";
 import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { followUpStepsFromForm } from "../lib/follow-up.js";
-import { parseBotPlatform, type BotPlatform } from "../lib/platform-types.js";
+import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
 import { authenticateUser, createUser, getUserById, updateUserProfile } from "../db/users.js";
@@ -276,8 +276,6 @@ function mergeDeliveryUrls(
 const botFormFieldsSchema = z.object({
   name: z.string().min(1),
   token: z.string().optional(),
-  platform: z.enum(["whatsapp", "telegram"]).default("whatsapp"),
-  telegramBotToken: z.string().optional(),
   waPhoneNumber: z.string().optional(),
   prompt: z.string().min(1),
   pixKey: z.string().default(""),
@@ -290,7 +288,7 @@ const botFormFieldsSchema = z.object({
   backupToken: z.string().optional(),
   productName: z.string().default("VIP"),
   productPrice: z.coerce.number().default(97),
-  telegramGroupLink: z.string().default(""),
+  deliveryLink: z.string().default(""),
   waApiProvider: z.enum(["whatsapp_web", "meta_cloud"]).default("whatsapp_web"),
   proxyEnabled: z.enum(["true", "false"]).default("false"),
   proxyType: z.enum(["http", "https", "socks5", "socks5h"]).default("http"),
@@ -1443,7 +1441,6 @@ export async function registerPanelRoutes(
     const links = await listWaRedirectLinks(user.id);
     const bots = await loadBots(user.id);
     const waBots = bots
-      .filter((b) => b.platform !== "telegram")
       .map((b) => ({ id: b.id, name: b.name, waPhoneNumber: b.waPhoneNumber?.trim() || "" }));
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
@@ -1602,14 +1599,13 @@ export async function registerPanelRoutes(
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
-      const tgToken = body.telegramBotToken?.trim();
       const merged = applyAIFieldsFromForm(
         applyWaFieldsFromForm(
           {
           ...existing,
           name: body.name,
-          token: tgToken && existing.platform === "telegram" ? tgToken : existing.token,
-          platform: existing.platform ?? parseBotPlatform(body.platform),
+          token: existing.token,
+          platform: "whatsapp",
           prompt: body.prompt,
           pixKey: body.pixKey || existing.pixKey,
           pixRecipientName: body.pixRecipientName?.trim() || body.name,
@@ -1624,7 +1620,7 @@ export async function registerPanelRoutes(
             : existing.laranjinhaApiKeyEncrypted,
           productName: body.productName,
           productPriceCents: Math.round(body.productPrice * 100),
-          telegramGroupLink: body.telegramGroupLink?.trim() || existing.telegramGroupLink || "",
+          deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
           backupToken: body.backupToken?.trim() || existing.backupToken,
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
@@ -1731,11 +1727,7 @@ export async function registerPanelRoutes(
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
       const botId = randomUUID();
-      const platform: BotPlatform = parseBotPlatform(body.platform);
-      const tgToken = body.telegramBotToken?.trim();
-      if (platform === "telegram" && (!tgToken || tgToken.length < 20)) {
-        throw new Error("Informe o token válido do bot Telegram (@BotFather).");
-      }
+      const platform: BotPlatform = "whatsapp";
 
       await upsertBot(
         applyAIFieldsFromForm(
@@ -1744,9 +1736,9 @@ export async function registerPanelRoutes(
               id: botId,
               userId: user.id,
               name: body.name,
-              token: platform === "telegram" ? tgToken! : `wa-${botId}`,
+              token: `wa-${botId}`,
               platform,
-              waPort: platform === "whatsapp" ? waPortForBot(botId) : undefined,
+              waPort: waPortForBot(botId),
               waApiProvider: "whatsapp_web",
               proxyEnabled: false,
               metaPhoneNumberId: "",
@@ -1766,7 +1758,7 @@ export async function registerPanelRoutes(
                 : undefined,
               productName: body.productName,
               productPriceCents: Math.round(body.productPrice * 100),
-              telegramGroupLink: body.telegramGroupLink?.trim() || "",
+              deliveryLink: body.deliveryLink?.trim() || "",
               backupToken: body.backupToken?.trim() || undefined,
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,
@@ -1785,10 +1777,8 @@ export async function registerPanelRoutes(
       hooks.ensureBots();
       return reply.redirect(
         flashRedirect(
-          platform === "telegram" ? "/instances" : `/instances/${botId}/qr`,
-          platform === "telegram"
-            ? "Bot Telegram criado e ativado!"
-            : "Instância criada! Escaneie o QR Code para conectar."
+          `/instances/${botId}/qr`,
+          "Instância criada! Escaneie o QR Code para conectar."
         )
       );
     } catch (error) {

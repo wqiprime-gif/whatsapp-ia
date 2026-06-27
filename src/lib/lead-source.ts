@@ -5,7 +5,6 @@ export type LeadSourceId =
   | "youtube"
   | "facebook"
   | "kwai"
-  | "telegram"
   | "organic"
   | "unknown";
 
@@ -16,7 +15,6 @@ export const LEAD_SOURCES: LeadSourceId[] = [
   "youtube",
   "facebook",
   "kwai",
-  "telegram",
   "organic",
   "unknown"
 ];
@@ -28,7 +26,6 @@ const LABELS: Record<LeadSourceId, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
   kwai: "Kwai",
-  telegram: "Telegram",
   organic: "Direto",
   unknown: "Não informado"
 };
@@ -40,7 +37,6 @@ const EMOJI: Record<LeadSourceId, string> = {
   youtube: "▶️",
   facebook: "📘",
   kwai: "🎬",
-  telegram: "✈️",
   organic: "🔗",
   unknown: "❓"
 };
@@ -60,7 +56,6 @@ export function detectSourceFromText(text: string): LeadSourceId | null {
   if (/\b(youtube|yt)\b|#youtube|vim do youtube/.test(t)) return "youtube";
   if (/\b(facebook|face|fb)\b|#facebook/.test(t)) return "facebook";
   if (/\b(kwai)\b/.test(t)) return "kwai";
-  if (/\b(telegram|vim do telegram)\b/.test(t)) return "telegram";
   if (/vim (do|pelo|da)|cheguei (do|pelo|da)|link (do|da)/.test(t)) {
     return normalizeSource(t);
   }
@@ -80,7 +75,6 @@ export function normalizeSource(raw: string): LeadSourceId {
   if (["youtube", "yt"].includes(s)) return "youtube";
   if (["facebook", "fb", "meta"].includes(s)) return "facebook";
   if (["kwai"].includes(s)) return "kwai";
-  if (["telegram", "tg"].includes(s)) return "telegram";
   if (["organic", "direto", "link", "bio"].includes(s)) return "organic";
   if (s.length >= 2 && LEAD_SOURCES.includes(s as LeadSourceId)) return s as LeadSourceId;
   return "unknown";
@@ -94,10 +88,4 @@ export function sourceLabel(id: string) {
 export function sourceEmoji(id: string) {
   const key = (LEAD_SOURCES.includes(id as LeadSourceId) ? id : "unknown") as LeadSourceId;
   return EMOJI[key];
-}
-
-export function trackingLink(botUsername: string, source: LeadSourceId) {
-  const user = botUsername.replace(/^@/, "");
-  const payload = source === "organic" ? "bio" : source;
-  return `https://t.me/${user}?start=${payload}`;
 }

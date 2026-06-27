@@ -116,52 +116,13 @@ export function priceTableConfigBlock(bot: BotConfig | undefined, formId = "bot-
     </div>`;
 }
 
-function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
-  const platform = bot?.platform ?? "whatsapp";
-  const isTg = platform === "telegram";
-  const tokenVal = isEdit && isTg ? bot?.token ?? "" : "";
-  const maskedToken =
-    isEdit && isTg && tokenVal
-      ? `${tokenVal.slice(0, 8)}…${tokenVal.slice(-4)}`
-      : "";
-
-  return `
-    <div class="form-section span-2" id="platform-section">
-      <div class="form-section-head">
-        <span class="form-section-icon form-section-icon-cyan">${icons.layers}</span>
-        <div>
-          <h4>Plataforma</h4>
-          <p>WhatsApp (QR) ou bot do Telegram.</p>
-        </div>
-      </div>
-      <label class="field">
-        <span>Canal da instância</span>
-        <select name="platform" id="instance-platform" ${isEdit ? "disabled" : ""}>
-          <option value="whatsapp" ${platform === "whatsapp" ? "selected" : ""}>WhatsApp</option>
-          <option value="telegram" ${platform === "telegram" ? "selected" : ""}>Telegram Bot</option>
-        </select>
-        ${isEdit ? `<input type="hidden" name="platform" value="${platform}" />` : ""}
-      </label>
-      <div id="telegram-token-block" style="${isTg ? "" : "display:none"}">
-        <label class="field span-2">
-          <span>Token do bot Telegram <small style="color:var(--muted)">(@BotFather)</small></span>
-          <input name="telegramBotToken" type="password" autocomplete="off"
-            placeholder="${isEdit && maskedToken ? `Atual: ${escapeHtml(maskedToken)} — vazio para manter` : "123456789:ABCdef..."}"
-            ${!isEdit && isTg ? "required minlength='20'" : ""} />
-        </label>
-        ${
-          isTg
-            ? `<p class="form-hint span-2">Links de rastreio: <code>https://t.me/SEU_BOT?start=instagram</code> (troque SEU_BOT pelo @ do bot).</p>`
-            : `<p class="form-hint span-2">Ao escolher Telegram, configure o token abaixo. Campos do WhatsApp ficam ocultos.</p>`
-        }
-      </div>
-      <div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>
-    </div>`;
+function platformConnectionBlock(_isEdit: boolean, _bot?: BotConfig) {
+  return `<div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>`;
 }
 
 /** Entrega automática após comprovante aprovado (link e/ou mídias). */
 export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
-  const link = bot?.telegramGroupLink ?? "";
+  const link = bot?.deliveryLink ?? "";
   const urls = bot?.deliveryMediaUrls ?? [];
   const list =
     urls.length === 0
@@ -189,8 +150,8 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         </div>
       </div>
       <label class="field span-2">Link de entrega do produto
-        <input name="telegramGroupLink" value="${escapeHtml(link)}" placeholder="https://t.me/seugrupo ou link Drive/Canal VIP" />
-        <span class="form-hint">Ex: link do Telegram, Google Drive, pasta ou página de acesso.</span>
+        <input name="deliveryLink" value="${escapeHtml(link)}" placeholder="https://drive.google.com/... ou link do canal/página VIP" />
+        <span class="form-hint">Ex: link do Google Drive, pasta, canal VIP ou página de acesso.</span>
       </label>
       ${list}
       <label class="field">
@@ -394,7 +355,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </label>
         ${aiConfigBlock(isEdit, bot)}
         ${platformConnectionBlock(isEdit, bot)}
-        <div id="wa-platform-blocks" style="${(bot?.platform ?? "whatsapp") === "telegram" ? "display:none" : ""}">
+        <div id="wa-platform-blocks">
         ${waConnectionBlock(isEdit, bot)}
         </div>
         <label class="field">Chave Pix
@@ -508,22 +469,6 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
     </form>
     <script>
     (function () {
-      function syncPlatformForm() {
-        var sel = document.getElementById("instance-platform");
-        var tg = document.getElementById("telegram-token-block");
-        var wa = document.getElementById("wa-platform-blocks");
-        var token = document.querySelector('input[name="telegramBotToken"]');
-        if (!sel) return;
-        var isTg = sel.value === "telegram";
-        if (tg) tg.style.display = isTg ? "" : "none";
-        if (wa) wa.style.display = isTg ? "none" : "";
-        if (token) token.required = isTg && !(token.placeholder || "").includes("Atual:");
-      }
-      var platformSel = document.getElementById("instance-platform");
-      if (platformSel) {
-        platformSel.addEventListener("change", syncPlatformForm);
-        syncPlatformForm();
-      }
       var fuWrap = document.getElementById("follow-up-steps");
       var fuBtn = document.getElementById("follow-up-add-btn");
       function renumberFollowRows() {
@@ -611,7 +556,6 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
         const live = statuses[bot.id] ?? (bot.active ? "starting" : "paused");
         const badge = waStatusBadge(live);
         const showQr =
-          bot.platform !== "telegram" &&
           bot.waApiProvider !== "meta_cloud" &&
           bot.active &&
           (live === "qr_pending" ||
@@ -626,7 +570,7 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
             ${botAvatarHtml(bot)}
             <div>
               <div class="title">${escapeHtml(bot.name)}</div>
-              <div class="sub">${bot.platform === "telegram" ? "Telegram Bot" : escapeHtml(bot.waApiProvider === "meta_cloud" ? "WhatsApp Web (legado)" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}${bot.waPhoneNumber ? ` · ${escapeHtml(bot.waPhoneNumber)}` : ""}</div>
+              <div class="sub">${escapeHtml(bot.waApiProvider === "meta_cloud" ? "WhatsApp Web (legado)" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}${bot.waPhoneNumber ? ` · ${escapeHtml(bot.waPhoneNumber)}` : ""}</div>
             </div>
           </div>
         </td>

@@ -15,16 +15,13 @@ export function minimumCentsForProduct(product: Product): number {
   return Math.max(500, Math.round(product.priceCents * 0.5));
 }
 
-export function priceTableFromProducts(products: Product[], platform: "whatsapp" | "telegram" = "whatsapp") {
+export function priceTableFromProducts(products: Product[]) {
   const sorted = [...products].filter((p) => p.active !== false).sort((a, b) => a.priceCents - b.priceCents);
   if (sorted.length === 0) {
-    return priceTableFallback(platform);
+    return priceTableFallback();
   }
 
-  const callHint =
-    platform === "telegram"
-      ? "5 min no Telegram"
-      : "5 min no zap";
+  const callHint = "5 min no zap";
 
   const lines = sorted.map((p, i) => {
     const emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][i] ?? "•";
@@ -37,8 +34,8 @@ export function priceTableFromProducts(products: Product[], platform: "whatsapp"
   return ["💎 *MEUS PACOTES* 💎", ...lines, "", "Qual pacote te interessa, amor? 💕"].join("\n");
 }
 
-function priceTableFallback(platform: "whatsapp" | "telegram") {
-  const callHint = platform === "telegram" ? "5 min no Telegram" : "5 min no zap";
+function priceTableFallback() {
+  const callHint = "5 min no zap";
   return [
     "💎 *MEUS PACOTES* 💎",
     "",
@@ -82,11 +79,4 @@ export function negotiationFromProducts(input: {
   }
   const minStr = min.toFixed(2).replace(".", ",");
   return `por esse valor nao da nao amor, o minimo que consigo fazer no ${product.name} e R$ ${minStr}`;
-}
-
-export function chamadaVideoMessageForPlatform(platform: "whatsapp" | "telegram") {
-  if (platform === "telegram") {
-    return "e aqui no telegram mesmo amor 😘 depois que voce comprar eu te chamo aqui, sao 5 min";
-  }
-  return "e aqui no whatsapp mesmo amor 😘 depois que voce comprar eu te ligo, sao 5 min";
 }

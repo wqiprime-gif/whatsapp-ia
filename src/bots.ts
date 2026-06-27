@@ -7,10 +7,10 @@ import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
 import { parseFollowUpSteps, type FollowUpStep } from "./lib/follow-up.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
-import { parseBotPlatform, type BotPlatform, isTelegramBot, isWhatsAppBot } from "./lib/platform-types.js";
+import { parseBotPlatform, type BotPlatform, isWhatsAppBot } from "./lib/platform-types.js";
 
 export type { BotPlatform };
-export { isTelegramBot, isWhatsAppBot, parseBotPlatform };
+export { isWhatsAppBot, parseBotPlatform };
 
 const dataDir = env.DATA_DIR;
 const uploadsDir = path.join(dataDir, "uploads");
@@ -32,9 +32,9 @@ export type BotConfig = {
   id: string;
   userId: string;
   name: string;
-  /** Legado Telegram; no WhatsApp usa placeholder wa-{id}. No Telegram = token do @BotFather. */
+  /** No WhatsApp usa placeholder wa-{id}. */
   token: string;
-  /** whatsapp (padrão) ou telegram */
+  /** Mantido por compatibilidade; sempre "whatsapp". */
   platform?: BotPlatform;
   waPort?: number;
   prompt: string;
@@ -53,7 +53,8 @@ export type BotConfig = {
   laranjinhaApiKeyEncrypted?: string;
   productName: string;
   productPriceCents: number;
-  telegramGroupLink: string;
+  /** Link de entrega do produto enviado após o Pix aprovado (Drive, canal VIP, página etc.). */
+  deliveryLink: string;
   backupToken?: string;
   giftPrompt?: string;
   giftItems?: GiftItem[];
@@ -206,7 +207,7 @@ function rowToBot(row: {
     laranjinhaApiKeyEncrypted: row.laranjinha_api_key_encrypted ?? undefined,
     productName: row.product_name ?? "VIP",
     productPriceCents: row.product_price_cents ?? 4990,
-    telegramGroupLink: row.telegram_group_link ?? "",
+    deliveryLink: row.telegram_group_link ?? "",
     backupToken: row.backup_token ?? undefined,
     giftPrompt: row.gift_prompt ?? "",
     giftItems: parseGiftItems(row.gift_items),
@@ -237,7 +238,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   ai_provider, ai_model, ai_api_key_encrypted
   FROM bots`;
 
-/** Carrega bots. Sem userId = todos (runtime Telegram). Com userId = painel do cliente. */
+/** Carrega bots. Sem userId = todos (runtime). Com userId = painel do cliente. */
 export async function loadBots(userId?: string) {
   if (useDatabase()) {
     const { rows } = userId
@@ -256,7 +257,7 @@ export async function loadBots(userId?: string) {
     pixRecipientName: b.pixRecipientName ?? b.name ?? "Recebedor",
     productName: b.productName ?? "VIP",
     productPriceCents: b.productPriceCents ?? 4990,
-    telegramGroupLink: b.telegramGroupLink ?? "",
+    deliveryLink: b.deliveryLink ?? (b as { telegramGroupLink?: string }).telegramGroupLink ?? "",
     backupToken: b.backupToken,
     paymentMethod: b.paymentMethod === "laranjinha" ? "laranjinha" : "pix",
     audioLibrary: parseAudioLibrary(b.audioLibrary),
@@ -372,7 +373,7 @@ export async function upsertBot(bot: BotConfig) {
         bot.laranjinhaApiKeyEncrypted ?? null,
         bot.productName,
         bot.productPriceCents,
-        bot.telegramGroupLink,
+        bot.deliveryLink,
         bot.backupToken ?? null,
         bot.giftPrompt ?? "",
         JSON.stringify(bot.giftItems ?? []),

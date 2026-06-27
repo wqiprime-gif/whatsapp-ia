@@ -73,7 +73,7 @@ export async function validateReceiptTranscript(input: {
       {
         role: "system",
         content: `Voce valida comprovantes Pix. Responda JSON:
-{"verdict":"validado"|"nao_validado","confidence":0-1,"reason":"motivo tecnico curto","user_message":"mensagem curta e humana em portugues para o cliente no Telegram, tom simpatico, sem jargao de sistema, sem palavras Motivo/Revisao manual/nao validado"}.
+{"verdict":"validado"|"nao_validado","confidence":0-1,"reason":"motivo tecnico curto","user_message":"mensagem curta e humana em portugues para o cliente no WhatsApp, tom simpatico, sem jargao de sistema, sem palavras Motivo/Revisao manual/nao validado"}.
 
 Aprove (validado) somente se:
 1) Parecer comprovante Pix/transferencia real com valor pago;

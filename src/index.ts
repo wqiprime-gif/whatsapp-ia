@@ -14,28 +14,21 @@ import {
   shutdownWhatsAppBots,
   syncWhatsAppBotConfigs
 } from "./whatsapp-runtime.js";
-import {
-  ensureTelegramBotsRunning,
-  restartSingleTelegramBot,
-  restartTelegramBots,
-  shutdownTelegramBots,
-  syncTelegramBotConfigs
-} from "./telegram-runtime.js";
 
 export async function restartBots() {
-  await Promise.all([restartWhatsAppBots(), restartTelegramBots()]);
+  await restartWhatsAppBots();
 }
 
 export async function ensureBots() {
-  await Promise.all([ensureWhatsAppBotsRunning(), ensureTelegramBotsRunning()]);
+  await ensureWhatsAppBotsRunning();
 }
 
 export async function syncBots() {
-  await Promise.all([syncWhatsAppBotConfigs(), syncTelegramBotConfigs()]);
+  await syncWhatsAppBotConfigs();
 }
 
 export async function restartBot(botId: string) {
-  await Promise.all([restartSingleWhatsAppBot(botId), restartSingleTelegramBot(botId)]);
+  await restartSingleWhatsAppBot(botId);
 }
 
 const WA_SESSION_BODY_LIMIT = 100 * 1024 * 1024;
@@ -150,7 +143,7 @@ console.log("[startup] Instâncias cadastradas:", botsOnStart);
 console.log("[startup] Painel:", `${localBase}/login`);
 console.log("[startup] Health:", `${localBase}/health`);
 
-void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias (WA + Telegram):", error));
+void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias WhatsApp:", error));
 
 const { processDueScheduledCampaigns } = await import("./lib/scheduled-campaigns.js");
 setInterval(() => {
@@ -179,7 +172,7 @@ async function onShutdownSignal(signal: string) {
   appShuttingDown = true;
   console.log(`[shutdown] ${signal} — salvando sessões WhatsApp antes de encerrar...`);
   try {
-    await Promise.all([shutdownWhatsAppBots(), shutdownTelegramBots()]);
+    await shutdownWhatsAppBots();
   } catch (error) {
     console.error("[shutdown] Erro ao encerrar bots:", error);
   }

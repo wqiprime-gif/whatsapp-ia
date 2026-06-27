@@ -5,9 +5,7 @@ import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
 import { getBotByIdAny, type BotConfig } from "../bots.js";
 import { pickGiftMessage } from "./gifts.js";
-import { sendTelegramMessage } from "../telegram-runtime.js";
 import { jidFromChatId, sendWaMessage } from "../whatsapp-runtime.js";
-import { isTelegramBot } from "../bots.js";
 import { createChatCompletionForBot } from "./ai-chat.js";
 
 const filePath = path.join(env.DATA_DIR, "post-sale-jobs.json");
@@ -168,12 +166,8 @@ async function generatePostSaleLine(bot: BotConfig, instruction: string) {
 }
 
 async function sendPostSaleMessage(bot: BotConfig, chatId: number, message: string) {
-  if (isTelegramBot(bot)) {
-    await sendTelegramMessage({ botId: bot.id, chatId, message, postSale: true });
-  } else {
-    const jid = jidFromChatId(chatId);
-    await sendWaMessage({ botId: bot.id, jid, message, postSale: true });
-  }
+  const jid = jidFromChatId(chatId);
+  await sendWaMessage({ botId: bot.id, jid, message, postSale: true });
 }
 
 export async function processDuePostSaleJobs() {

@@ -799,7 +799,7 @@ body:not(.auth-body) .ambient {
 .chart-wrap .chart-svg polyline { stroke: var(--blue-bright) !important; }
 .chart-wrap .chart-svg path { fill: rgba(10, 92, 255, 0.15) !important; }
 
-/* Telegram chat — azul */
+/* Bolha de chat — azul */
 .tg-bubble--out .tg-bubble-text {
   background: linear-gradient(135deg, #0a5cff, #3b82f6) !important;
   box-shadow: 0 8px 28px rgba(10, 92, 255, 0.3) !important;
