@@ -1,7 +1,7 @@
 import { parseAudioTags } from "./named-audio.js";
 
 import type { Product } from "../db/events.js";
-import { priceTableFromProducts, chamadaVideoMessageForPlatform } from "./product-catalog.js";
+import { priceTableFromProducts } from "./product-catalog.js";
 
 export type PromptAction =
   | "send_informacoes"
@@ -9,11 +9,10 @@ export type PromptAction =
   | "send_chave_pix"
   | "naosou_fake"
   | "ignorar_lead"
-  | "chamada_video"
   | "pedir_presente";
 
 const ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
@@ -40,10 +39,6 @@ export function priceTableMessage(products: Product[] = [], platform: "whatsapp"
   return priceTableFromProducts(products, platform);
 }
 
-export function chamadaVideoMessage(platform: "whatsapp" | "telegram" = "telegram") {
-  return chamadaVideoMessageForPlatform(platform);
-}
-
 export function naosouFakeMessage() {
   return "relaxa amor, sou real sim 😘 mando tudo certinho depois do pix, sem golpe";
 }
@@ -54,7 +49,6 @@ ACOES (tag na ultima linha quando precisar):
 [[send_amostra_gratis]] = previa gratis (UMA vez por lead)
 [[naosou_fake]] = mesmo que [[audio:nao_sou_fake]] se existir no cadastro
 [[ignorar_lead]] = parar de responder lead enrolado
-[[chamada_video]] = explicar chamada 5 min aqui no Telegram apos pagamento
 [[pedir_presente]] = pedir um presente/mimo ao lead (use quando fizer sentido no fluxo)
 [[pedir_presente:slug]] = pedir presente especifico cadastrado no painel
 

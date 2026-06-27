@@ -309,7 +309,7 @@ function loadBotConfig() {
   } catch (error) {
     console.warn('⚠️ Erro ao carregar bot-config.json:', error.message);
   }
-  return { previewMediaUrls: [], productPresentationEnabled: false, productPresentationMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, products: [] };
+  return { previewMediaUrls: [], productPresentationEnabled: false, productPresentationMediaUrls: [], deliveryMediaUrls: [], pixKey: '', pixRecipientName: '', productName: 'VIP', productPriceCents: 4990, productDeliveryLink: '', messageDelayMs: 4000, followUpEnabled: true, followUpAfterMinutes: 10, followUpMaxPerLead: 2, priceTableImageUrl: '', products: [] };
 }
 
 const halfPriceOffered = {};
@@ -1123,7 +1123,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|chamada_video|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
@@ -1222,7 +1222,6 @@ function sortPromptActions(actions) {
     'send_amostra_gratis',
     'send_chave_pix',
     'naosou_fake',
-    'chamada_video',
     'pedir_presente',
     'ignorar_lead'
   ];
@@ -1277,8 +1276,6 @@ async function executePromptActions(client, messageFrom, actions, giftSlug) {
     } else if (action === 'naosou_fake' && !hasSentNaoSouFake[messageFrom]) {
       hasSentNaoSouFake[messageFrom] = true;
       await functionCalls.naosou_fake(client, messageFrom, conversation);
-    } else if (action === 'chamada_video') {
-      await functionCalls.chamada_video(client, messageFrom, conversation);
     } else if (action === 'send_chave_pix') {
       await functionCalls.send_chave_pix(client, messageFrom, conversation);
     } else if (action === 'pedir_presente') {
@@ -1329,14 +1326,6 @@ async function runCompletion(userNumber, message) {
         function: {
           name: 'send_chave_pix',
           description: 'Envia a chave Pix real configurada no painel. Use quando o lead quiser comprar, pedir a chave Pix, ou confirmar que vai pagar.',
-          parameters: { type: 'object', properties: {} },
-        },
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'chamada_video',
-          description: 'Informa sobre a chamada de vídeo de 5 minutos e seus valores.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -1424,7 +1413,7 @@ async function runCompletion(userNumber, message) {
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
       }
-      if (fnName === 'chamada_video' || fnName === 'ignorar_lead') {
+      if (fnName === 'ignorar_lead') {
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
       }
@@ -1464,7 +1453,6 @@ const functionCalls = {
   },
   send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
   send_chave_pix: async (client, messageFrom, conversation) => enviarChavePix(messageFrom, conversation),
-  chamada_video: async (client, messageFrom, conversation) => { await chamadaVideo(client, messageFrom, conversation); },
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
   ignorar_lead: async (client, messageFrom, conversation) => {
     paidUsers[messageFrom] = true; // reusa o flag de silêncio para parar respostas
@@ -1502,12 +1490,31 @@ Qual pacote te interessa, amor? 💕
       return;
     }
 
+    const priceImageUrl = String(loadBotConfig().priceTableImageUrl || '').trim();
+
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await sendTextHuman(client, messageFrom, tabelaPrecos);
-      console.log(`✅ Tabela de preços enviada para ${messageFrom}`);
 
-      const descSistema = pacotesConfig?.descricao_sistema || 'Tabela enviada com 3 pacotes: (1) 50 fotos/vídeos R$9,90 (2) Chamada vídeo 5min R$15,00 (3) Chamada 5min + 50 fotos/vídeos R$20,00';
+      let sentImage = false;
+      if (priceImageUrl) {
+        const localPath = await resolveMediaLocalPath(priceImageUrl);
+        if (localPath) {
+          const media = MessageMedia.fromFilePath(localPath);
+          if (media) {
+            sentImage = await sendMediaWithTyping(client, messageFrom, media, {
+              caption: 'esses são meus pacotes amor 😈 qual te interessa?'
+            });
+          }
+        }
+        if (!sentImage) console.warn(`⚠️ Imagem da tabela não enviada (${priceImageUrl}) — usando texto.`);
+      }
+
+      if (!sentImage) {
+        await sendTextHuman(client, messageFrom, tabelaPrecos);
+      }
+      console.log(`✅ Tabela de preços enviada para ${messageFrom} (${sentImage ? 'imagem' : 'texto'})`);
+
+      const descSistema = pacotesConfig?.descricao_sistema || 'Tabela de pacotes enviada ao lead. Use os nomes e valores dos pacotes do prompt para vender e negociar.';
       conversation.push({ role: "system", content: descSistema });
       conversation.push({ role: "assistant", content: 'Qual pacote te interessa, amor? 💕' });
     } catch (sendError) {
@@ -1928,37 +1935,6 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
   }
 }
 
-async function chamadaVideo(client, messageFrom, conversation) {
-    try {
-      isProcessing[messageFrom] = true;
-
-      const chat = await client.getChatById(messageFrom);
-
-      const videoMessage = `📹 *CHAMADA DE VÍDEO* 📹
-
-Eu faço chamada privada sim amor! 😘
-
-⏱️ *5 MINUTOS* - R$ 15,00
-
-Vamos fazer? 💕`;
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await sendTextHuman(client, messageFrom, videoMessage);
-        console.log(`✅ Informação de chamada de vídeo enviada para ${messageFrom}`);
-
-        conversation.push({ role: "assistant", content: 'Faço chamada de vídeo privada! 5 minutos por R$ 15,00. Quer fazer?' });
-        conversation.push({ role: "system", content: 'Foi enviada a informação de chamada de vídeo: 5 minutos por R$15,00.' });
-      } catch (sendError) {
-        console.error(`❌ Erro ao enviar chamada de vídeo: ${sendError.message}`);
-      }
-
-      isProcessing[messageFrom] = false;
-    } catch (error) {
-      console.error('Error sending chamada_video:', error.message);
-      isProcessing[messageFrom] = false;
-    }
-  }
   async function naosouFake(client, messageFrom, conversation) {
     try {
       isProcessing[messageFrom] = true;

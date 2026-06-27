@@ -1326,6 +1326,14 @@ button, input, textarea, select { font-family: inherit; }
   box-shadow: 0 0 0 1px rgba(255, 210, 63, 0.4);
 }
 .prompt-hint-tag { color: #ffd23f; }
+
+/* Imagem da tabela de pacotes */
+.price-table-current { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 14px; }
+.price-table-thumb {
+  max-width: 240px; width: 100%; border-radius: 12px;
+  border: 1px solid rgba(10, 92, 255, 0.25);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-grid .span-2,
 .form-grid .form-section { grid-column: 1 / -1; }

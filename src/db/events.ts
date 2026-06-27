@@ -174,6 +174,7 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_after_minutes INTEGER NOT NULL DEFAULT 10;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_max_per_lead INTEGER NOT NULL DEFAULT 2;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS follow_up_steps JSONB NOT NULL DEFAULT '[]';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS price_table_image_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS ai_provider TEXT NOT NULL DEFAULT 'openai';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS ai_model TEXT;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS ai_api_key_encrypted TEXT;

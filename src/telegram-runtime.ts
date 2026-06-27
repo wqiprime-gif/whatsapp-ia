@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { Telegraf } from "telegraf";
 import { loadBots, type BotConfig, isTelegramBot } from "./bots.js";
-import { logMessage, logReceipt, logSale, setLeadSource, upsertLead, listProducts } from "./db/events.js";
+import { logMessage, logReceipt, logSale, setLeadSource, upsertLead, listProducts, type Product } from "./db/events.js";
 import { detectSourceFromText, parseStartPayload } from "./lib/lead-source.js";
 import { decryptSecret } from "./lib/crypto.js";
 import { createLaranjinhaCharge } from "./lib/laranjinha.js";
@@ -35,7 +35,6 @@ import {
   naosouFakeMessage,
   parsePromptActions,
   priceTableMessage,
-  chamadaVideoMessage,
   PROMPT_ACTION_HINT
 } from "./lib/prompt-actions.js";
 import {
@@ -388,6 +387,20 @@ async function sendPreview(runtime: RuntimeBot, chatId: number, opts?: { skipInt
   await humanSendMediaList(bot.telegram, chatId, config, config.previewMediaUrls);
   await humanSendText(bot.telegram, chatId, config, "Gostou amor? 😘");
   return true;
+}
+
+/** Envia a tabela de pacotes: imagem (se cadastrada) ou texto. */
+async function sendPriceTable(runtime: RuntimeBot, chatId: number, products: Product[]) {
+  const { bot, config } = runtime;
+  const img = (config.priceTableImageUrl || "").trim();
+  if (img) {
+    const sent = await humanSendMediaList(bot.telegram, chatId, config, [img]);
+    if (sent > 0) {
+      await humanSendText(bot.telegram, chatId, config, "esses são meus pacotes amor 😈 qual te interessa?");
+      return;
+    }
+  }
+  await humanSendText(bot.telegram, chatId, config, priceTableMessage(products, "telegram"));
 }
 
 async function processReceiptFile(input: {
@@ -760,9 +773,7 @@ Audios: ${audioLibraryPrompt(library)}.`
 
       if (wantsTable && !leadState.hasSentInformacoes && !isFirstTurn) {
         leadState.hasSentInformacoes = true;
-        await humanSendText(ctx.telegram, chatId, config, priceTableMessage(products, "telegram"));
-      } else if (actions.includes("chamada_video")) {
-        await humanSendText(ctx.telegram, chatId, config, chamadaVideoMessage("telegram"));
+        await sendPriceTable(runtime, chatId, products);
       } else if (actions.includes("pedir_presente")) {
         const giftMsg = pickGiftMessage(config.giftItems ?? [], giftSlug);
         if (giftMsg) await humanSendText(ctx.telegram, chatId, config, limitSentences(giftMsg));

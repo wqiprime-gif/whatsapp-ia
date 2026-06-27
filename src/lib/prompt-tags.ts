@@ -26,11 +26,6 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
     example: "Lead escolhe pacote → tag + peça o comprovante"
   },
   {
-    tag: "[[chamada_video]]",
-    label: "Chamada de vídeo",
-    when: "Lead pergunta como funciona a chamada. Explica que é chamada privada no celular após pagamento."
-  },
-  {
     tag: "[[naosou_fake]]",
     label: "Prova que é real",
     when: "Lead desconfia de golpe ou fake. Responda com naturalidade no seu tom."

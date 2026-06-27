@@ -85,6 +85,37 @@ export function previewConfigBlock(bot: BotConfig | undefined, formId = "bot-pre
     </div>`;
 }
 
+/** Imagem da tabela de pacotes — enviada no lugar do texto quando o lead pede preços. */
+export function priceTableConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
+  const url = (bot?.priceTableImageUrl ?? "").trim();
+  const current = url
+    ? `<div class="price-table-current">
+        <a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Tabela de pacotes" class="price-table-thumb" /></a>
+        <label class="audio-remove"><input type="checkbox" form="${formId}" name="removePriceTableImage" value="1" /> Remover imagem atual</label>
+      </div>`
+    : `<p class="form-hint">Nenhuma imagem cadastrada — o bot envia a tabela em texto (gerada dos pacotes do prompt).</p>`;
+
+  return `
+    <div class="form-section form-section-preview" id="tabela-pacotes">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.box}</span>
+        <div>
+          <h4>Imagem da tabela de pacotes</h4>
+          <p>Enviada quando o lead pede os preços (tag <code>[[send_informacoes]]</code>), no lugar do texto. Os <strong>nomes e valores</strong> que a IA usa pra vender e negociar desconto vêm dos pacotes escritos no seu prompt — mantenha a imagem batendo com eles.</p>
+        </div>
+      </div>
+      ${current}
+      <label class="field">
+        <span>Imagem dos pacotes (JPG/PNG)</span>
+        <div class="dropzone dropzone-neon">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Suba a imagem com os pacotes e valores</p>
+          <input form="${formId}" name="priceTableImage" type="file" accept="image/*" />
+        </div>
+      </label>
+      <p class="form-hint">Para a IA entender o que vende, escreva os pacotes no prompt em linhas como <code>- GRUPINHO VIP - R$ 19,80</code>. A imagem é só o visual enviado ao lead.</p>
+    </div>`;
+}
+
 function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
   const platform = bot?.platform ?? "whatsapp";
   const isTg = platform === "telegram";
@@ -428,6 +459,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </div>
 
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
+        ${priceTableConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
 
         ${promptGeneratorBlock()}

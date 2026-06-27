@@ -163,6 +163,7 @@ async function parseBotMultipart(request: FastifyRequest) {
   const previewUploads: string[] = [];
   const deliveryUploads: string[] = [];
   let newNamedAudioUrl = "";
+  let priceTableUpload = "";
 
   for await (const part of request.parts()) {
     if (part.type === "file") {
@@ -181,6 +182,7 @@ async function parseBotMultipart(request: FastifyRequest) {
         deliveryUploads.push(url);
       }
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
+      if (part.fieldname === "priceTableImage") priceTableUpload = url;
       continue;
     }
     const key = part.fieldname;
@@ -194,7 +196,18 @@ async function parseBotMultipart(request: FastifyRequest) {
     }
   }
 
-  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl };
+  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload };
+}
+
+/** Resolve a URL final da imagem da tabela: upload novo, remoção, ou mantém a atual. */
+function resolvePriceTableImageUrl(
+  existing: string | undefined,
+  fields: Record<string, string>,
+  uploaded: string
+): string {
+  if (fields.removePriceTableImage === "1") return "";
+  if (uploaded) return uploaded;
+  return existing ?? "";
 }
 
 function mergeAudioLibrary(
@@ -1584,7 +1597,7 @@ export async function registerPanelRoutes(
       const existing = await getBotById(params.id, user.id);
       if (!existing) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
@@ -1616,7 +1629,8 @@ export async function registerPanelRoutes(
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
           followUpMaxPerLead: body.followUpMaxPerLead,
-          followUpSteps: followUpStepsFromForm(fieldArrays)
+          followUpSteps: followUpStepsFromForm(fieldArrays),
+          priceTableImageUrl: resolvePriceTableImageUrl(existing.priceTableImageUrl, fields, priceTableUpload)
         },
         body
         ),
@@ -1712,7 +1726,7 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     try {
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
@@ -1757,7 +1771,8 @@ export async function registerPanelRoutes(
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,
               followUpMaxPerLead: body.followUpMaxPerLead,
-              followUpSteps: followUpStepsFromForm(fieldArrays)
+              followUpSteps: followUpStepsFromForm(fieldArrays),
+              priceTableImageUrl: priceTableUpload || ""
             },
             body
           ),
