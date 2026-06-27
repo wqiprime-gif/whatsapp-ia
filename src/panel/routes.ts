@@ -159,6 +159,7 @@ async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: strin
 
 async function parseBotMultipart(request: FastifyRequest) {
   const fields: Record<string, string> = {};
+  const fieldArrays: Record<string, string[]> = {};
   const previewUploads: string[] = [];
   const deliveryUploads: string[] = [];
   let newNamedAudioUrl = "";
@@ -183,15 +184,17 @@ async function parseBotMultipart(request: FastifyRequest) {
       continue;
     }
     const key = part.fieldname;
+    const value = String(part.value || "");
+    (fieldArrays[key] ||= []).push(value);
     if (key === "removeAudioIndexes" || key === "removePreviewIndexes") {
       const prev = fields[key] ? `${fields[key]},` : "";
-      fields[key] = `${prev}${String(part.value || "")}`;
+      fields[key] = `${prev}${value}`;
     } else {
-      fields[key] = String(part.value || "");
+      fields[key] = value;
     }
   }
 
-  return { fields, previewUploads, deliveryUploads, newNamedAudioUrl };
+  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl };
 }
 
 function mergeAudioLibrary(
@@ -1581,7 +1584,7 @@ export async function registerPanelRoutes(
       const existing = await getBotById(params.id, user.id);
       if (!existing) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-      const { fields, previewUploads, deliveryUploads, newNamedAudioUrl } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
@@ -1613,7 +1616,7 @@ export async function registerPanelRoutes(
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
           followUpMaxPerLead: body.followUpMaxPerLead,
-          followUpSteps: followUpStepsFromForm(fields)
+          followUpSteps: followUpStepsFromForm(fieldArrays)
         },
         body
         ),
@@ -1709,7 +1712,7 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     try {
-      const { fields, previewUploads, deliveryUploads, newNamedAudioUrl } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
@@ -1754,7 +1757,7 @@ export async function registerPanelRoutes(
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,
               followUpMaxPerLead: body.followUpMaxPerLead,
-              followUpSteps: followUpStepsFromForm(fields)
+              followUpSteps: followUpStepsFromForm(fieldArrays)
             },
             body
           ),

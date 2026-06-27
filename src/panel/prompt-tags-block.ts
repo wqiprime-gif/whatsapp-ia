@@ -49,6 +49,7 @@ export function promptTagsSidebar() {
             ta.focus();
             var pos = (before + glue + tag).length;
             ta.setSelectionRange(pos, pos);
+            ta.dispatchEvent(new Event("input", { bubbles: true }));
             ta.scrollIntoView({ behavior: "smooth", block: "center" });
           });
         });

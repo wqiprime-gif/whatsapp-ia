@@ -324,7 +324,6 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
   const isEdit = mode === "edit" && !!bot;
   const action = isEdit ? `/instances/${bot.id}` : "/bots";
   const activeTrue = !isEdit || bot.active;
-  const paymentPix = !isEdit || bot.paymentMethod !== "laranjinha";
   const delay = delayPartsFromMs(isEdit ? bot.messageDelayMs : 4000);
   const followUpOn = !isEdit || bot.followUpEnabled !== false;
   const followUpMinutes = isEdit ? bot.followUpAfterMinutes ?? 10 : 10;
@@ -434,19 +433,38 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         ${promptGeneratorBlock()}
 
         <label class="field span-2" id="prompt">Prompt / persona da IA
-          <textarea name="prompt" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(DEFAULT_PROMPT_WHATSAPP)}</textarea>
-          <span class="form-hint">Texto livre da IA desta instância. Use as <strong>tags à direita</strong> para ações automáticas (prévia, Pix, tabela…). Salve sem desconectar o WhatsApp se só alterou prompt, delay ou entrega.</span>
-        </label>
-        <label class="field">Forma de pagamento
-          <select name="paymentMethod">
-            <option value="pix" ${paymentPix ? "selected" : ""}>Pix manual (chave)</option>
-            <option value="laranjinha" ${!paymentPix ? "selected" : ""}>Gateway Laranjinha</option>
-          </select>
-        </label>
-        <label class="field">API Key Laranjinha <small style="color:var(--muted)">se gateway</small>
-          <input name="laranjinhaApiKey" type="password" placeholder="${isEdit ? "Deixe vazio para manter a atual" : "sua chave API"}" autocomplete="off" />
+          <div class="prompt-editor">
+            <div class="prompt-editor-backdrop" id="prompt-backdrop" aria-hidden="true"></div>
+            <textarea name="prompt" id="prompt-textarea" class="prompt-editor-input" spellcheck="false" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(DEFAULT_PROMPT_WHATSAPP)}</textarea>
+          </div>
+          <span class="form-hint">Texto livre da IA desta instância. As <strong class="prompt-hint-tag">tags</strong> ficam destacadas em amarelo — clique nas tags à direita para inserir ações automáticas (prévia, Pix, tabela…). Salve sem desconectar o WhatsApp se só alterou prompt, delay ou entrega.</span>
         </label>
       </div>
+      <script>
+        (function () {
+          var ta = document.getElementById("prompt-textarea");
+          var bd = document.getElementById("prompt-backdrop");
+          if (!ta || !bd) return;
+          function esc(s) {
+            return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          }
+          function render() {
+            var html = esc(ta.value).replace(/\\[\\[.+?\\]\\]/g, function (m) {
+              return '<mark class="prompt-tag-hl">' + m + "</mark>";
+            });
+            bd.innerHTML = html + "\\n";
+            bd.scrollTop = ta.scrollTop;
+            bd.scrollLeft = ta.scrollLeft;
+          }
+          ta.addEventListener("input", render);
+          ta.addEventListener("scroll", function () {
+            bd.scrollTop = ta.scrollTop;
+            bd.scrollLeft = ta.scrollLeft;
+          });
+          window.__refreshPromptHighlight = render;
+          render();
+        })();
+      </script>
       <div class="form-actions-bar">
         <button type="submit" class="btn btn-primary btn-lg">
           ${isEdit ? "Salvar alterações" : "Salvar e ativar instância"}

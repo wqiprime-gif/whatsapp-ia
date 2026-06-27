@@ -1,9 +1,11 @@
+import { icons } from "./icons.js";
+
 /** Gerador de prompt com IA — bloco no formulário de instância. */
 export function promptGeneratorBlock() {
   return `
     <div class="form-section span-2" id="prompt-generator">
       <div class="form-section-head">
-        <span class="form-section-icon form-section-icon-cyan">✨</span>
+        <span class="form-section-icon form-section-icon-cyan">${icons.sparkles}</span>
         <div>
           <h4>Gerador de prompt</h4>
           <p>Descreva a persona e a IA monta um prompt pronto com as tags corretas.</p>
@@ -31,7 +33,7 @@ export function promptGeneratorBlock() {
           <textarea id="pg-rules" rows="2" placeholder="Ex: não dar desconto abaixo de R$ 5 no básico"></textarea>
         </label>
       </div>
-      <button type="button" class="btn btn-primary" id="pg-generate-btn">✨ Gerar prompt com IA</button>
+      <button type="button" class="btn btn-primary" id="pg-generate-btn">Gerar prompt com IA</button>
       <p class="form-hint" id="pg-status" style="margin-top:8px"></p>
       <script>
         (function(){
@@ -61,7 +63,7 @@ export function promptGeneratorBlock() {
               var data = await res.json();
               if (!res.ok) throw new Error(data.error || "Erro ao gerar");
               var ta = document.querySelector('[name="prompt"]');
-              if (ta) { ta.value = data.prompt || ""; ta.focus(); }
+              if (ta) { ta.value = data.prompt || ""; ta.dispatchEvent(new Event("input", { bubbles: true })); ta.focus(); }
               status.textContent = "Prompt gerado! Revise e salve a instância.";
               status.style.color = "var(--primary)";
             } catch (e) {
