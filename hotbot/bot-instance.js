@@ -2120,12 +2120,14 @@ client.on("message", async (message) => {
         if (halfReply) {
           await sendTextHuman(client, from, halfReply);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: halfReply });
+          onBotOutbound(from);
           return;
         }
         const result = await runCompletion(from, combinedMessage);
 
         if (result === '') {
-          // Tool call ja enviou tudo (amostra, tabela, etc.)
+          // Tool call ja enviou tudo (amostra, tabela, etc.) — agenda follow-up mesmo assim
+          onBotOutbound(from);
           return;
         }
 

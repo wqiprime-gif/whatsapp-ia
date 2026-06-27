@@ -18,7 +18,8 @@ import {
   ensureTelegramBotsRunning,
   restartSingleTelegramBot,
   restartTelegramBots,
-  shutdownTelegramBots
+  shutdownTelegramBots,
+  syncTelegramBotConfigs
 } from "./telegram-runtime.js";
 
 export async function restartBots() {
@@ -30,7 +31,7 @@ export async function ensureBots() {
 }
 
 export async function syncBots() {
-  await syncWhatsAppBotConfigs();
+  await Promise.all([syncWhatsAppBotConfigs(), syncTelegramBotConfigs()]);
 }
 
 export async function restartBot(botId: string) {

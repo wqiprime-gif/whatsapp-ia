@@ -24,10 +24,7 @@ import {
 import { resolveFollowUpStep, followUpMaxSteps } from "./lib/follow-up.js";
 import {
   createLeadState,
-  leadShowsBuyIntent,
   leadStateContext,
-  looksLikeStalling,
-  nextColdMessage,
   type LeadState
 } from "./lib/lead-state.js";
 import { giftsPromptHint, pickGiftMessage } from "./lib/gifts.js";
@@ -71,6 +68,8 @@ const PREVIEW_COOLDOWN_MS = 90_000;
 type RuntimeBot = {
   config: BotConfig;
   bot: Telegraf;
+  /** assinatura do config carregado — usada para detectar edicoes e recarregar */
+  configKey: string;
   historyByChat: Map<number, OpenAI.Chat.Completions.ChatCompletionMessageParam[]>;
   previewSentAt: Map<number, number>;
   previewUsed: Set<number>;
@@ -79,6 +78,15 @@ type RuntimeBot = {
   /** evita mandar o mesmo input de audio toda hora (chatId:slug -> timestamp) */
   audioCooldown: Map<string, number>;
 };
+
+/** Gera uma assinatura estavel do config para detectar alteracoes salvas no painel. */
+function botConfigKey(config: BotConfig): string {
+  try {
+    return JSON.stringify(config);
+  } catch {
+    return `${config.id}:${Date.now()}`;
+  }
+}
 
 function getLeadState(runtime: RuntimeBot, chatId: number) {
   let state = runtime.leadStateByChat.get(chatId);
@@ -447,6 +455,7 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
   const runtime: RuntimeBot = {
     config,
     bot,
+    configKey: botConfigKey(config),
     historyByChat: new Map(),
     previewSentAt: new Map(),
     previewUsed: new Set(),
@@ -651,24 +660,6 @@ async function launchBotInstance(config: BotConfig, activeToken: string) {
       }
       history.push({ role: "user", content: text }, { role: "assistant", content: negReply });
       return;
-    }
-
-    if (
-      looksLikeStalling(text, history) &&
-      !leadShowsBuyIntent(text) &&
-      !isGreeting(text) &&
-      leadState.userMessageCount >= 3
-    ) {
-      const cold = nextColdMessage(leadState);
-      if (cold) {
-        leadState.coldStrike += 1;
-        await humanSendText(ctx.telegram, chatId, config, cold);
-        history.push({ role: "user", content: text }, { role: "assistant", content: cold });
-        if (leadState.userMessageCount >= 6 && leadState.coldStrike >= 3) {
-          runtime.ignoredChats.add(chatId);
-        }
-        return;
-      }
     }
 
     const leadAudio = findContextualLeadAudio(text, library);
@@ -879,6 +870,53 @@ export async function ensureTelegramBotsRunning() {
         await startBot(config);
       } catch (error) {
         console.error(`[tg] Nao foi possivel iniciar ${config.name}:`, error);
+      }
+    }
+  } finally {
+    restartInProgress = false;
+  }
+}
+
+/**
+ * Recarrega instancias Telegram cujo config mudou no painel.
+ * Diferente do WhatsApp (que observa bot-config.json), o Telegram mantem o
+ * config em memoria desde o launch — sem isto, editar prompt/previa/tabela nao
+ * tem efeito ate reiniciar o processo. Tambem sobe/derruba bots ativados/pausados.
+ */
+export async function syncTelegramBotConfigs() {
+  if (restartInProgress) return;
+  restartInProgress = true;
+  try {
+    const bots = await loadBots();
+    const activeTg = bots.filter((b) => b.active && isTelegramBot(b));
+    const activeIds = new Set(activeTg.map((b) => b.id));
+
+    for (const [id, runtime] of runningBots) {
+      if (!activeIds.has(id)) {
+        try {
+          runtime.bot.stop("sync");
+        } catch {
+          // ignore
+        }
+        runningBots.delete(id);
+      }
+    }
+
+    for (const config of activeTg) {
+      const running = runningBots.get(config.id);
+      if (running) {
+        if (running.configKey === botConfigKey(config)) continue;
+        try {
+          running.bot.stop("reload");
+        } catch {
+          // ignore
+        }
+        runningBots.delete(config.id);
+      }
+      try {
+        await startBot(config);
+      } catch (error) {
+        console.error(`[tg] Nao foi possivel recarregar ${config.name}:`, error);
       }
     }
   } finally {
