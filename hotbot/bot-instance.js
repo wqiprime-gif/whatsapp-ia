@@ -1718,6 +1718,13 @@ Qual pacote te interessa, amor? 💕
       }
       console.log(`✅ Tabela de preços enviada para ${messageFrom} (${sentImage ? 'imagem' : 'texto'})`);
 
+      // Áudios do funil amarrados à ação: explica os pacotes e pergunta qual pacote.
+      const infoLib = getAudioLibrary();
+      const infoAudio = resolveAudioBySlug('informacoes', infoLib);
+      if (infoAudio) await sendNamedAudioVoiceOnce(client, messageFrom, infoAudio);
+      const qualPackAudio = resolveAudioBySlug('qual_pack', infoLib);
+      if (qualPackAudio) await sendNamedAudioVoiceOnce(client, messageFrom, qualPackAudio);
+
       const descSistema = pacotesConfig?.descricao_sistema || 'Tabela de pacotes enviada ao lead. Use os nomes e valores dos pacotes do prompt para vender e negociar.';
       conversation.push({ role: "system", content: descSistema });
       conversation.push({ role: "assistant", content: 'Qual pacote te interessa, amor? 💕' });
@@ -1740,6 +1747,11 @@ Qual pacote te interessa, amor? 💕
     }
 
     try {
+      // Áudio do funil amarrado à ação: explica o pagamento antes da chave.
+      const pixLib = getAudioLibrary();
+      const pixAudio = resolveAudioBySlug('chave_pix', pixLib);
+      if (pixAudio) await sendNamedAudioVoiceOnce(client, messageFrom, pixAudio);
+
       const lines = [String(pixKey).trim(), "manda o comprovante aqui depois que pagar tá?"];
       for (const line of lines) {
         await sendTextHuman(client, messageFrom, line);
