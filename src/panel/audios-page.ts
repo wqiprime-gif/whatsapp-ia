@@ -105,5 +105,5 @@ export function audiosPage(
     }`;
 
   if (partial) return body;
-  return appLayout("Áudios", "instances", body, false);
+  return appLayout("Áudios", "audios", body, false);
 }

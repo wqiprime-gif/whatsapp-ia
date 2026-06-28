@@ -1470,6 +1470,16 @@ button, input, textarea, select { font-family: inherit; }
 .prompt-tags-panel-head p { margin: 0; font-size: 0.78rem; color: var(--muted); }
 .prompt-tags-panel-icon { font-size: 1.25rem; }
 .prompt-tags-panel-tip { margin: 0 0 12px; font-size: 0.72rem; }
+.prompt-tags-panel-subhead {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.prompt-tags-panel-subhead h4 { margin: 0 0 4px; font-size: 0.95rem; }
+.prompt-tags-panel-subhead p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+.prompt-tags-panel-subhead a { color: var(--accent, #f5c518); }
 .prompt-tag-doc-list { display: grid; gap: 10px; }
 .prompt-tag-doc {
   border: 1px solid var(--border);

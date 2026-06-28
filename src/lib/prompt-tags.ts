@@ -42,6 +42,58 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
   }
 ];
 
+/** Tags de áudio padrão (seed) — aparecem mesmo antes de cadastrar os próprios. */
+export const DEFAULT_AUDIO_TAGS: PromptTagDoc[] = [
+  {
+    tag: "[[audio:saudacao]]",
+    label: "Áudio de saudação",
+    when: "No primeiro \"oi\" a saudação já sai em áudio sozinha. Use a tag para repetir em outro momento."
+  },
+  {
+    tag: "[[audio:informacoes]]",
+    label: "Áudio dos pacotes",
+    when: "Explica os pacotes em voz. Mande junto com [[send_informacoes]]."
+  },
+  {
+    tag: "[[audio:qual_pack]]",
+    label: "Áudio: qual pacote?",
+    when: "Pergunta em voz qual pacote o lead quer."
+  },
+  {
+    tag: "[[audio:chave_pix]]",
+    label: "Áudio do Pix",
+    when: "Na hora de passar o pagamento. Mande junto com [[send_chave_pix]]."
+  },
+  {
+    tag: "[[audio:nao_sou_fake]]",
+    label: "Áudio: não sou fake",
+    when: "Quando o lead desconfiar de golpe/fake."
+  }
+];
+
+/** Monta as tags de áudio a partir da biblioteca cadastrada na instância. */
+export function audioTagsFromLibrary(
+  library: { label: string; slug?: string }[] = []
+): PromptTagDoc[] {
+  const docs = library
+    .map((a) => {
+      const slug = (a.slug || a.label || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_|_$/g, "");
+      if (!slug) return null;
+      return {
+        tag: `[[audio:${slug}]]`,
+        label: a.label || slug,
+        when: "Envia este áudio como nota de voz."
+      } as PromptTagDoc;
+    })
+    .filter((d): d is PromptTagDoc => Boolean(d));
+  return docs.length ? docs : DEFAULT_AUDIO_TAGS;
+}
+
 export const PROMPT_TAGS_HINT =
   "Monte seu prompt com texto livre e cole as tags onde a IA deve disparar uma ação automática.";
 

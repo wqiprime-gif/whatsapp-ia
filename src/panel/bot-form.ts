@@ -464,7 +464,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         </button>
       </div>
         </div>
-        ${promptTagsSidebar()}
+        ${promptTagsSidebar(isEdit ? bot : undefined)}
       </div>
     </form>
     <script>

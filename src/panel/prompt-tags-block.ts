@@ -1,18 +1,28 @@
-import { PROMPT_ACTION_TAGS, PROMPT_EFFECTIVE_HINT, PROMPT_TAGS_HINT } from "../lib/prompt-tags.js";
+import {
+  PROMPT_ACTION_TAGS,
+  PROMPT_EFFECTIVE_HINT,
+  PROMPT_TAGS_HINT,
+  audioTagsFromLibrary,
+  type PromptTagDoc
+} from "../lib/prompt-tags.js";
+import type { BotConfig } from "../bots.js";
 import { escapeHtml } from "./layout.js";
 
-/** Painel lateral fixo — guia completo das tags para clientes. */
-export function promptTagsSidebar() {
-  const items = PROMPT_ACTION_TAGS.map(
-    (item) => `<article class="prompt-tag-doc">
+function tagDocHtml(item: PromptTagDoc) {
+  return `<article class="prompt-tag-doc">
       <button type="button" class="prompt-tag-doc-head" data-prompt-tag="${escapeHtml(item.tag)}" title="Inserir no prompt">
         <code>${escapeHtml(item.tag)}</code>
         <span class="prompt-tag-doc-label">${escapeHtml(item.label)}</span>
       </button>
       <p class="prompt-tag-doc-when">${escapeHtml(item.when)}</p>
       ${item.example ? `<p class="prompt-tag-doc-ex"><strong>Ex:</strong> ${escapeHtml(item.example)}</p>` : ""}
-    </article>`
-  ).join("");
+    </article>`;
+}
+
+/** Painel lateral fixo — guia completo das tags para clientes. */
+export function promptTagsSidebar(bot?: BotConfig) {
+  const items = PROMPT_ACTION_TAGS.map(tagDocHtml).join("");
+  const audioItems = audioTagsFromLibrary(bot?.audioLibrary ?? []).map(tagDocHtml).join("");
 
   return `
     <aside class="instance-form-aside" id="prompt-tags">
@@ -26,6 +36,14 @@ export function promptTagsSidebar() {
         </div>
         <p class="form-hint prompt-tags-panel-tip">Clique na tag para inserir no cursor do prompt.</p>
         <div class="prompt-tag-doc-list">${items}</div>
+        <div class="prompt-tags-panel-subhead">
+          <span class="prompt-tags-panel-icon">🎙️</span>
+          <div>
+            <h4>Tags de áudio</h4>
+            <p>Notas de voz enviadas no funil. Cadastre/edite em <a href="/audios">Áudios</a>.</p>
+          </div>
+        </div>
+        <div class="prompt-tag-doc-list">${audioItems}</div>
         <div class="prompt-tags-panel-foot">
           <p>${escapeHtml(PROMPT_EFFECTIVE_HINT)}</p>
           <p><strong>Comprovante:</strong> lead manda imagem/PDF → sistema valida sozinho.</p>
@@ -58,6 +76,6 @@ export function promptTagsSidebar() {
 }
 
 /** Bloco inline (legado) — mantido para outras páginas se necessário. */
-export function promptTagsBlock() {
-  return promptTagsSidebar();
+export function promptTagsBlock(bot?: BotConfig) {
+  return promptTagsSidebar(bot);
 }
