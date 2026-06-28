@@ -255,6 +255,17 @@ const audioFiles = {
   amostra: path.join(__dirname, 'amostra.jpg')  // Nota: é .jpg, não .jpeg
 };
 
+// Áudios padrão versionados no repo (assets/seed-audios). Fallback quando a
+// instância não tem biblioteca própria — declarado cedo pois loadCustomPrompt()
+// roda no boot e chama getAudioLibrary() antes do fim do arquivo.
+const SEED_AUDIO_FALLBACK = [
+  { label: 'Saudação (oi, tudo bem?)', url: '/seed-audios/saudacao.mp3', slug: 'saudacao', triggers: '' },
+  { label: 'Explicando os pacotes', url: '/seed-audios/informacoes.mp3', slug: 'informacoes', triggers: '' },
+  { label: 'Qual pacote você quer?', url: '/seed-audios/qualpack.mp3', slug: 'qual_pack', triggers: '' },
+  { label: 'Chave Pix / pagamento', url: '/seed-audios/chavepix.mp3', slug: 'chave_pix', triggers: '' },
+  { label: 'Não sou fake', url: '/seed-audios/naosoufake.mp3', slug: 'nao_sou_fake', triggers: 'fake, golpe, voce e real, e bot' }
+];
+
 // Validate audio files exist
 console.log('🔊 Verificando arquivos de áudio...');
 for (const [name, filePath] of Object.entries(audioFiles)) {
@@ -1199,17 +1210,6 @@ function audioItemTriggers(item) {
     .map((k) => normalizeAudioKey(k))
     .filter((k) => k.length >= 4 && !AUDIO_STOP_WORDS.has(k));
 }
-
-// Áudios padrão versionados no repo (assets/seed-audios). Servem de fallback
-// quando a instância não tem biblioteca própria configurada — assim os áudios
-// funcionam mesmo em instâncias antigas ou após redeploy (Railway efêmero).
-const SEED_AUDIO_FALLBACK = [
-  { label: 'Saudação (oi, tudo bem?)', url: '/seed-audios/saudacao.mp3', slug: 'saudacao', triggers: '' },
-  { label: 'Explicando os pacotes', url: '/seed-audios/informacoes.mp3', slug: 'informacoes', triggers: '' },
-  { label: 'Qual pacote você quer?', url: '/seed-audios/qualpack.mp3', slug: 'qual_pack', triggers: '' },
-  { label: 'Chave Pix / pagamento', url: '/seed-audios/chavepix.mp3', slug: 'chave_pix', triggers: '' },
-  { label: 'Não sou fake', url: '/seed-audios/naosoufake.mp3', slug: 'nao_sou_fake', triggers: 'fake, golpe, voce e real, e bot' }
-];
 
 function getAudioLibrary() {
   const configured = (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
