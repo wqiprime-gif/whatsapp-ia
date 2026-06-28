@@ -421,7 +421,9 @@ function clearFollowUpTimer(jid) {
 function onLeadMessage(jid) {
   lastUserActivityAt[jid] = Date.now();
   clearFollowUpTimer(jid);
-  followUpCounts[jid] = 0;
+  // NÃO reseta followUpCounts: o follow-up é um orçamento por lead. Quando o lead
+  // responde, só cancela o timer pendente; a sequência continua de onde parou e,
+  // uma vez gastos todos os passos, não se repete na mesma conversa.
 }
 
 function onBotOutbound(jid) {
@@ -526,6 +528,21 @@ async function resolveMediaLocalPath(url) {
   const clean = String(url || '').trim();
   if (!clean) return null;
   if (fs.existsSync(clean)) return clean;
+
+  // Áudios padrão (seed): versionados no repo, sempre presentes mesmo após redeploy.
+  if (clean.includes('/seed-audios/')) {
+    const seedName = path.basename(clean.split('?')[0]);
+    const seedCandidates = [
+      path.join(__dirname, '..', 'assets', 'seed-audios', seedName),
+      path.join(process.cwd(), 'assets', 'seed-audios', seedName)
+    ];
+    for (const candidate of seedCandidates) {
+      if (candidate && fs.existsSync(candidate)) {
+        console.log(`✅ Áudio padrão (seed) encontrado: ${candidate}`);
+        return candidate;
+      }
+    }
+  }
 
   const baseName = ensureCacheFileName(path.basename(clean.split('?')[0]));
   const uploadsDir = process.env.UPLOADS_DIR;
@@ -647,7 +664,7 @@ function buildGiftsAppendix() {
 }
 
 function buildAudioAppendix() {
-  const library = (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+  const library = getAudioLibrary();
   if (!library.length) return '';
   const lines = library.map((a) => {
     const slug = audioItemSlug(a);
@@ -656,7 +673,10 @@ function buildAudioAppendix() {
   });
   return (
     '\n\nÁUDIOS (notas de voz gravadas):\n' +
-    'Você tem áudios reais gravados. Para enviar um, coloque a tag correspondente no FIM da sua resposta (pode ser só a tag, sem texto). ' +
+    'Você tem áudios reais gravados. Quando for mandar um áudio, sua resposta deve conter SOMENTE a tag, sem nenhum texto junto ' +
+    '(ex: responda apenas "[[audio:nao_sou_fake]]"). NUNCA escreva frases como "quer ouvir minha voz?", "vou te mandar um áudio" ou ' +
+    'qualquer texto anunciando/acompanhando o áudio — isso soa robótico. O áudio fala por si só.\n' +
+    'Só escreva uma resposta em texto (no lugar do áudio) se o lead disser claramente que NÃO PODE ouvir áudio agora.\n' +
     'Use no máximo 1 áudio por mensagem e apenas quando fizer sentido no funil — nunca em toda mensagem.\n' +
     lines.join('\n')
   );
@@ -1180,8 +1200,21 @@ function audioItemTriggers(item) {
     .filter((k) => k.length >= 4 && !AUDIO_STOP_WORDS.has(k));
 }
 
+// Áudios padrão versionados no repo (assets/seed-audios). Servem de fallback
+// quando a instância não tem biblioteca própria configurada — assim os áudios
+// funcionam mesmo em instâncias antigas ou após redeploy (Railway efêmero).
+const SEED_AUDIO_FALLBACK = [
+  { label: 'Saudação (oi, tudo bem?)', url: '/seed-audios/saudacao.mp3', slug: 'saudacao', triggers: '' },
+  { label: 'Explicando os pacotes', url: '/seed-audios/informacoes.mp3', slug: 'informacoes', triggers: '' },
+  { label: 'Qual pacote você quer?', url: '/seed-audios/qualpack.mp3', slug: 'qual_pack', triggers: '' },
+  { label: 'Chave Pix / pagamento', url: '/seed-audios/chavepix.mp3', slug: 'chave_pix', triggers: '' },
+  { label: 'Não sou fake', url: '/seed-audios/naosoufake.mp3', slug: 'nao_sou_fake', triggers: 'fake, golpe, voce e real, e bot' }
+];
+
 function getAudioLibrary() {
-  return (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+  const configured = (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+  if (configured.length > 0) return configured;
+  return SEED_AUDIO_FALLBACK.slice();
 }
 
 function resolveAudioBySlug(slug, library) {
@@ -2323,7 +2356,24 @@ client.on("message", async (message) => {
           if (actions.length) console.log('Tags:', actions.join(', '));
           console.log('─'.repeat(60) + '\n');
 
-          const messageParts = splitMessages(clean);
+          // Áudios do funil PRIMEIRO: tags [[audio:slug]] do AI ou gatilho do lead.
+          // Em momento de áudio manda-se SÓ o áudio (sem o texto robótico da IA).
+          const audioLibrary = getAudioLibrary();
+          let anyAudioSent = false;
+          if (audioLibrary.length > 0) {
+            const audioPicks = pickFunnelAudios({
+              audioSlugs,
+              userText: combinedMessage,
+              library: audioLibrary
+            });
+            for (const item of audioPicks) {
+              const ok = await sendNamedAudioVoiceOnce(client, from, item);
+              if (ok) anyAudioSent = true;
+            }
+          }
+
+          // Se um áudio foi enviado neste turno, suprime o texto da IA (só o áudio fala).
+          const messageParts = anyAudioSent ? [] : splitMessages(clean);
           if (messageParts.length > 0) {
             isProcessing[from] = true;
             try {
@@ -2338,23 +2388,12 @@ client.on("message", async (message) => {
               console.error(`❌ Erro fatal ao enviar mensagens: ${sendError.message}\n`);
             }
             isProcessing[from] = false;
+          } else if (anyAudioSent) {
+            onBotOutbound(from);
           }
 
           if (actions.length > 0) {
             await executePromptActions(client, from, actions, giftSlug);
-          }
-
-          // Áudios do funil: tags [[audio:slug]] do AI ou gatilho do lead (nota de voz)
-          const audioLibrary = getAudioLibrary();
-          if (audioLibrary.length > 0) {
-            const audioPicks = pickFunnelAudios({
-              audioSlugs,
-              userText: combinedMessage,
-              library: audioLibrary
-            });
-            for (const item of audioPicks) {
-              await sendNamedAudioVoiceOnce(client, from, item);
-            }
           }
 
           if (shouldAutoSendPreview(from, combinedMessage, clean, actions)) {

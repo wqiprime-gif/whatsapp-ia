@@ -1,9 +1,7 @@
-import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { rootDir } from "../config.js";
-import { uploadsDir, type NamedAudio } from "../bots.js";
+import { type NamedAudio } from "../bots.js";
 
 /**
  * Áudios padrão (notas de voz) entregues junto com a instância nova, para o
@@ -51,12 +49,13 @@ export function seedAudioPath(file: string): string | null {
 }
 
 /**
- * Copia os áudios padrão para a pasta de uploads e devolve a biblioteca pronta
- * (com URLs /uploads/...). Áudios faltando no pacote são apenas ignorados.
+ * Devolve a biblioteca de áudios padrão usando URLs estáveis `/seed-audios/...`.
+ * Esses arquivos ficam versionados no repositório (assets/seed-audios) e são
+ * servidos pelo painel, então NÃO somem em redeploys (a pasta data/uploads do
+ * Railway é efêmera). Áudios faltando no pacote são apenas ignorados.
  */
 export async function buildDefaultAudioLibrary(): Promise<NamedAudio[]> {
   const library: NamedAudio[] = [];
-  await fs.mkdir(uploadsDir, { recursive: true });
 
   for (const seed of SEED_AUDIOS) {
     const source = path.join(seedDir, seed.file);
@@ -64,19 +63,12 @@ export async function buildDefaultAudioLibrary(): Promise<NamedAudio[]> {
       console.warn(`[seed-audios] arquivo ausente, pulando: ${source}`);
       continue;
     }
-    const fileName = `seed-${seed.slug}-${randomUUID()}.mp3`;
-    const dest = path.join(uploadsDir, fileName);
-    try {
-      await fs.copyFile(source, dest);
-      library.push({
-        label: seed.label,
-        url: `/uploads/${fileName}`,
-        slug: seed.slug,
-        triggers: seed.triggers ?? ""
-      });
-    } catch (error) {
-      console.error(`[seed-audios] falha ao copiar ${seed.file}:`, error);
-    }
+    library.push({
+      label: seed.label,
+      url: `/seed-audios/${seed.file}`,
+      slug: seed.slug,
+      triggers: seed.triggers ?? ""
+    });
   }
 
   return library;
