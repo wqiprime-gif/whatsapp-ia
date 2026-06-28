@@ -1147,6 +1147,13 @@ function scheduleSaveConversations() {
 const hasSentInformacoes = {};
 const hasSentAmostra = {};
 const hasSentNaoSouFake = {};
+const previewFailedAt = {}; // jid -> timestamp da última falha de prévia (evita loop)
+
+const PREVIEW_FAIL_COOLDOWN_MS = 2 * 60 * 1000;
+function previewRecentlyFailed(jid) {
+  const at = previewFailedAt[jid] || 0;
+  return at > 0 && Date.now() - at < PREVIEW_FAIL_COOLDOWN_MS;
+}
 const sentAudios = {}; // jid -> [slug] dos áudios já enviados (evita repetir)
 hydratePreviewSentFromDisk();
 const arrayImport = require('./arrayImport');
@@ -1418,6 +1425,7 @@ function sortPromptActions(actions) {
 
 function shouldAutoSendPreview(userNumber, combinedMessage, aiClean, actions) {
   if (hasPreviewBeenSent(userNumber) || !hasPreviewMedia()) return false;
+  if (previewRecentlyFailed(userNumber)) return false;
   if (actions.includes('send_amostra_gratis')) return true;
   if (wantsPreviewIntent(combinedMessage)) return true;
   if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(combinedMessage || '').trim()) && conversationWantsPreview(userNumber)) return true;
@@ -1480,7 +1488,7 @@ async function runCompletion(userNumber, message) {
   conversation.push({ role: "user", content: message });
   scheduleSaveConversations();
 
-  if (!hasPreviewBeenSent(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber) || /^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(message || '').trim()))) {
+  if (!hasPreviewBeenSent(userNumber) && !previewRecentlyFailed(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber) || /^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(message || '').trim()))) {
     conversation.push({
       role: 'system',
       content: 'O lead quer prévia/amostra. OBRIGATÓRIO: chame send_amostra_gratis agora. Proibido dizer "aqui está" ou "mandei" sem enviar a mídia pela função.'
@@ -1580,15 +1588,23 @@ async function runCompletion(userNumber, message) {
         return '';
       }
       if (fnName === 'send_amostra_gratis' && !hasPreviewBeenSent(userNumber)) {
-        const ok = await functionCalls[fnName](client, userNumber, conversation);
-        if (ok) markPreviewSent(userNumber);
-        else {
-          await sendTextHuman(
-            client,
+        // Prévia falhou há pouco (arquivo ausente) — não tenta de novo em loop,
+        // segue a conversa normalmente sem prometer foto.
+        if (previewRecentlyFailed(userNumber)) {
+          return await generatePersonaReply(
             userNumber,
-            'amor, minha prévia não carregou aqui 😅 sobe de novo no painel ou me manda em um minuto?'
+            'A prévia não está disponível agora. Continue a conversa com carinho, sem prometer foto de novo, e puxe pro fechamento da venda.'
           );
-          return '';
+        }
+        const ok = await functionCalls[fnName](client, userNumber, conversation);
+        if (ok) {
+          markPreviewSent(userNumber);
+        } else {
+          previewFailedAt[userNumber] = Date.now();
+          return await generatePersonaReply(
+            userNumber,
+            'A prévia não carregou agora. Diga em 1 frase, no seu tom, que vai mandar daqui a pouco e siga conversando pro fechamento — NÃO repita isso nas próximas mensagens.'
+          );
         }
         return '';
       }
@@ -2437,6 +2453,7 @@ client.on("message", async (message) => {
             const conv = getUserConversation(from);
             const ok = await functionCalls.send_amostra_gratis(client, from, conv);
             if (ok) markPreviewSent(from);
+            else previewFailedAt[from] = Date.now();
           }
 
           const pixAlreadySent =
