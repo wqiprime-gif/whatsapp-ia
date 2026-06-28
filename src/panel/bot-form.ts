@@ -122,16 +122,22 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
   const library = bot?.audioLibrary ?? [];
 
   const seedList = isNew
-    ? `<ul class="preview-url-list audio-seed-list">
+    ? `<div class="audio-grid audio-grid-form">
       ${SEED_AUDIO_CATALOG.map(
-        (a) => `<li class="preview-url-item">
-          <span class="preview-url-link">${escapeHtml(a.label)}</span>
-          <code class="audio-slug-tag">[[audio:${escapeHtml(a.slug)}]]</code>
-          ${a.triggers ? `<span class="form-hint">${escapeHtml(a.triggers)}</span>` : ""}
-        </li>`
+        (a) => `
+        <article class="audio-card">
+          <div class="audio-card-head">
+            <span class="audio-badge">${icons.audio}</span>
+            <div>
+              <h4>${escapeHtml(a.label)}</h4>
+              <p class="audio-triggers"><code>[[audio:${escapeHtml(a.slug)}]]</code> · ${escapeHtml(a.triggers || "só pela IA no prompt")}</p>
+            </div>
+          </div>
+          <audio controls preload="none" src="${escapeHtml(a.previewUrl)}" class="audio-player"></audio>
+        </article>`
       ).join("")}
-    </ul>
-    <p class="form-hint">Esses 5 áudios entram automaticamente ao criar a instância. Você pode remover ou trocar depois de salvar.</p>`
+    </div>
+    <p class="form-hint">Esses 5 áudios entram automaticamente ao criar a instância. Depois de salvar, abra a instância para <strong>ouvir, remover ou trocar</strong> cada um.</p>`
     : "";
 
   const list =

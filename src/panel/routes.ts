@@ -40,7 +40,7 @@ import {
 } from "../bots.js";
 import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { followUpStepsFromForm } from "../lib/follow-up.js";
-import { buildDefaultAudioLibrary } from "../lib/seed-audios.js";
+import { buildDefaultAudioLibrary, seedAudioPath } from "../lib/seed-audios.js";
 import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
@@ -1725,6 +1725,13 @@ export async function registerPanelRoutes(
     } catch {
       return reply.code(404).send("Arquivo nao encontrado.");
     }
+    return reply.type(mimeTypeFromPath(filePath)).send(fsSync.createReadStream(filePath));
+  });
+
+  app.get("/seed-audios/:file", async (request, reply) => {
+    const params = z.object({ file: z.string().min(1) }).parse(request.params);
+    const filePath = seedAudioPath(params.file);
+    if (!filePath) return reply.code(404).send("Audio nao encontrado.");
     return reply.type(mimeTypeFromPath(filePath)).send(fsSync.createReadStream(filePath));
   });
 

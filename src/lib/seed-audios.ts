@@ -30,14 +30,25 @@ const SEED_AUDIOS: SeedAudio[] = [
   }
 ];
 
-/** Catálogo dos áudios padrão (sem arquivo) — usado no formulário da instância. */
-export const SEED_AUDIO_CATALOG = SEED_AUDIOS.map(({ label, slug, triggers }) => ({
+/** Catálogo dos áudios padrão — usado no formulário da instância (com player). */
+export const SEED_AUDIO_CATALOG = SEED_AUDIOS.map(({ file, label, slug, triggers }) => ({
+  file,
   label,
   slug,
-  triggers: triggers ?? ""
+  triggers: triggers ?? "",
+  previewUrl: `/seed-audios/${file}`
 }));
 
 const seedDir = path.join(rootDir, "assets", "seed-audios");
+
+/** Caminho absoluto de um áudio padrão pelo nome do arquivo (para servir no painel). */
+export function seedAudioPath(file: string): string | null {
+  const safe = path.basename(file);
+  const allowed = SEED_AUDIOS.some((s) => s.file === safe);
+  if (!allowed) return null;
+  const full = path.join(seedDir, safe);
+  return fsSync.existsSync(full) ? full : null;
+}
 
 /**
  * Copia os áudios padrão para a pasta de uploads e devolve a biblioteca pronta
