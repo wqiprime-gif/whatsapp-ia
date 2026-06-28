@@ -117,6 +117,25 @@ export function priceTableConfigBlock(bot: BotConfig | undefined, formId = "bot-
     </div>`;
 }
 
+/** Cartões somente-leitura (player) dos áudios padrão, usados como pré-visualização. */
+function seedListReadOnly() {
+  return `<div class="audio-grid audio-grid-form">
+    ${SEED_AUDIO_CATALOG.map(
+      (a) => `
+      <article class="audio-card">
+        <div class="audio-card-head">
+          <span class="audio-badge">${icons.audio}</span>
+          <div>
+            <h4>${escapeHtml(a.label)}</h4>
+            <p class="audio-triggers"><code>[[audio:${escapeHtml(a.slug)}]]</code> · ${escapeHtml(a.triggers || "só pela IA no prompt")}</p>
+          </div>
+        </div>
+        <audio controls preload="none" src="${escapeHtml(a.previewUrl)}" class="audio-player"></audio>
+      </article>`
+    ).join("")}
+  </div>`;
+}
+
 /** Notas de voz do funil — cadastradas junto com a instância. */
 export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form", isNew = false) {
   const library = bot?.audioLibrary ?? [];
@@ -142,7 +161,7 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
 
   const list =
     library.length === 0 && !isNew
-      ? `<p class="form-hint">Nenhum áudio cadastrado. Adicione abaixo ou salve a instância para receber os áudios padrão.</p>`
+      ? `${seedListReadOnly()}<p class="form-hint">Áudios padrão ativos (a IA já usa). Recarregue a página para gerenciá-los individualmente, ou adicione os seus abaixo.</p>`
       : library.length > 0
         ? `<div class="audio-grid audio-grid-form">
       ${library

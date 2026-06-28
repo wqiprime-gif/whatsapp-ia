@@ -540,12 +540,15 @@ async function resolveMediaLocalPath(url) {
   if (!clean) return null;
   if (fs.existsSync(clean)) return clean;
 
-  // Áudios padrão (seed): versionados no repo, sempre presentes mesmo após redeploy.
+  // Áudios padrão (seed): os arquivos vêm versionados em hotbot/*.mp3 (confirmados
+  // no container, /app/hotbot/*.mp3) e também em assets/seed-audios/. Tenta ambos.
   if (clean.includes('/seed-audios/')) {
     const seedName = path.basename(clean.split('?')[0]);
     const seedCandidates = [
+      path.join(__dirname, seedName),
       path.join(__dirname, '..', 'assets', 'seed-audios', seedName),
-      path.join(process.cwd(), 'assets', 'seed-audios', seedName)
+      path.join(process.cwd(), 'assets', 'seed-audios', seedName),
+      path.join(process.cwd(), seedName)
     ];
     for (const candidate of seedCandidates) {
       if (candidate && fs.existsSync(candidate)) {

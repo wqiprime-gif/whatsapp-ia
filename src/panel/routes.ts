@@ -1589,6 +1589,18 @@ export async function registerPanelRoutes(
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
     const bot = await getBotById(params.id, user.id);
     if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+
+    // Backfill: instâncias antigas ficaram sem biblioteca de áudios. Popula com os
+    // áudios padrão (URLs estáveis /seed-audios/) para aparecerem e serem editáveis.
+    if (!bot.audioLibrary || bot.audioLibrary.length === 0) {
+      const seeded = await buildDefaultAudioLibrary();
+      if (seeded.length > 0) {
+        bot.audioLibrary = seeded;
+        await upsertBot(bot);
+        hooks.syncBots();
+      }
+    }
+
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     return reply
       .type("text/html")
