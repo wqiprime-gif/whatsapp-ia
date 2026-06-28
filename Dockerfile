@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     ca-certificates \
     chromium \
+    ffmpeg \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -34,6 +35,7 @@ RUN npm ci --include=dev
 COPY src ./src
 COPY hotbot ./hotbot
 COPY public ./public
+COPY assets ./assets
 
 RUN npm run build
 

@@ -10,7 +10,7 @@ const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
@@ -2551,6 +2551,61 @@ function markAudioSent(from, slug) {
   scheduleSaveConversations();
 }
 
+let ffmpegAvailable = null;
+function hasFfmpeg() {
+  if (ffmpegAvailable !== null) return ffmpegAvailable;
+  try {
+    require('child_process').execSync('ffmpeg -version', { stdio: 'ignore' });
+    ffmpegAvailable = true;
+  } catch (_) {
+    ffmpegAvailable = false;
+    console.warn('⚠️ ffmpeg não encontrado — áudios serão enviados sem conversão (pode falhar como nota de voz).');
+  }
+  return ffmpegAvailable;
+}
+
+/**
+ * Converte um áudio (mp3/m4a/wav...) para OGG/Opus mono 48kHz, formato que o
+ * WhatsApp aceita como NOTA DE VOZ (PTT). Sem isso, MP3 enviado como voz dá
+ * "arquivo de áudio com problema". Retorna o caminho do .ogg (cacheado) ou null.
+ */
+function toVoiceOgg(localPath) {
+  return new Promise((resolve) => {
+    try {
+      const ext = path.extname(localPath).toLowerCase();
+      if (ext === '.ogg' || ext === '.opus') return resolve(localPath);
+      if (!hasFfmpeg()) return resolve(null);
+
+      const cacheDir = path.join(instancesDataDir, 'voice-cache');
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const base = path.basename(localPath).replace(/[^a-zA-Z0-9._-]/g, '-');
+      const outPath = path.join(cacheDir, `${base}.ogg`);
+
+      if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) return resolve(outPath);
+
+      execFile(
+        'ffmpeg',
+        ['-y', '-i', localPath, '-vn', '-c:a', 'libopus', '-b:a', '64k', '-ar', '48000', '-ac', '1', outPath],
+        { timeout: 30000 },
+        (err) => {
+          if (err) {
+            console.error(`❌ ffmpeg falhou ao converter ${localPath}: ${err.message}`);
+            return resolve(null);
+          }
+          if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) {
+            console.log(`✅ Áudio convertido p/ voz (ogg/opus): ${outPath}`);
+            return resolve(outPath);
+          }
+          resolve(null);
+        }
+      );
+    } catch (error) {
+      console.error(`❌ Erro em toVoiceOgg: ${error.message}`);
+      resolve(null);
+    }
+  });
+}
+
 /** Envia um áudio da biblioteca como NOTA DE VOZ (uma vez por lead). */
 async function sendNamedAudioVoiceOnce(client, messageFrom, item) {
   if (!item || !item.url) return false;
@@ -2566,7 +2621,15 @@ async function sendNamedAudioVoiceOnce(client, messageFrom, item) {
     return false;
   }
 
-  const media = MessageMedia.fromFilePath(localPath);
+  // Converte para OGG/Opus (formato de nota de voz). Se falhar, usa o arquivo cru.
+  const oggPath = await toVoiceOgg(localPath);
+  let media;
+  if (oggPath) {
+    const data = fs.readFileSync(oggPath).toString('base64');
+    media = new MessageMedia('audio/ogg; codecs=opus', data, 'voice.ogg');
+  } else {
+    media = MessageMedia.fromFilePath(localPath);
+  }
   if (!media) {
     console.error(`❌ Falha ao carregar áudio: ${localPath}`);
     return false;
