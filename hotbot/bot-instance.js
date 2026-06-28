@@ -1583,7 +1583,11 @@ async function runCompletion(userNumber, message) {
         const ok = await functionCalls[fnName](client, userNumber, conversation);
         if (ok) markPreviewSent(userNumber);
         else {
-          await sendTextHuman(client, userNumber, 'amor, travou aqui um segundo — manda de novo?');
+          await sendTextHuman(
+            client,
+            userNumber,
+            'amor, minha prévia não carregou aqui 😅 sobe de novo no painel ou me manda em um minuto?'
+          );
           return '';
         }
         return '';
@@ -2091,9 +2095,27 @@ async function sendAmostraGratis(client, messageFrom, conversation) {
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
+    // Fallback: prévia cadastrada sumiu do disco (redeploy Railway) — usa amostra.jpg do hotbot.
+    if (sentCount === 0) {
+      const fallbackPreview = audioFiles.amostra;
+      if (fallbackPreview && fs.existsSync(fallbackPreview)) {
+        try {
+          const media = MessageMedia.fromFilePath(fallbackPreview);
+          if (media) {
+            const sent = await sendMediaWithTyping(client, messageFrom, media);
+            if (sent) {
+              sentCount++;
+              console.log(`✅ Prévia fallback (hotbot/amostra.jpg) para ${messageFrom}`);
+            }
+          }
+        } catch (fallbackErr) {
+          console.error(`❌ Fallback amostra.jpg falhou: ${fallbackErr.message}`);
+        }
+      }
+    }
+
     if (sentCount === 0) {
       console.error('❌ Nenhuma mídia de prévia pôde ser enviada.');
-      await sendTextHuman(client, messageFrom, 'amor, travou aqui um segundo — manda de novo?');
       isProcessing[messageFrom] = false;
       return false;
     }
@@ -2342,6 +2364,18 @@ client.on("message", async (message) => {
           onBotOutbound(from);
           return;
         }
+
+        // Lead desconfia (fake/golpe) → manda áudio/texto de "não sou fake" direto,
+        // sem deixar a IA escolher tool errada (ex: send_amostra_gratis).
+        if (isAudioDistrustMessage(combinedMessage) && !hasSentNaoSouFake[from]) {
+          const conv = getUserConversation(from);
+          conv.push({ role: 'user', content: combinedMessage });
+          await naosouFake(client, from, conv);
+          scheduleSaveConversations();
+          onBotOutbound(from);
+          return;
+        }
+
         const result = await runCompletion(from, combinedMessage);
 
         if (result === '') {
