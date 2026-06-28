@@ -8,7 +8,7 @@ import { uploadsDir, type NamedAudio } from "../bots.js";
 /**
  * Áudios padrão (notas de voz) entregues junto com a instância nova, para o
  * cliente testar o funil mesmo sem ter gravado os próprios. Ele pode remover,
- * trocar ou adicionar quantos quiser depois em /audios.
+ * trocar ou adicionar quantos quiser depois no formulário da instância.
  */
 type SeedAudio = {
   file: string;
@@ -29,6 +29,13 @@ const SEED_AUDIOS: SeedAudio[] = [
     triggers: "fake, golpe, voce e real, e bot"
   }
 ];
+
+/** Catálogo dos áudios padrão (sem arquivo) — usado no formulário da instância. */
+export const SEED_AUDIO_CATALOG = SEED_AUDIOS.map(({ label, slug, triggers }) => ({
+  label,
+  slug,
+  triggers: triggers ?? ""
+}));
 
 const seedDir = path.join(rootDir, "assets", "seed-audios");
 

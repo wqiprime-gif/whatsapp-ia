@@ -40,7 +40,7 @@ export function promptTagsSidebar(bot?: BotConfig) {
           <span class="prompt-tags-panel-icon">🎙️</span>
           <div>
             <h4>Tags de áudio</h4>
-            <p>Notas de voz enviadas no funil. Cadastre/edite em <a href="/audios">Áudios</a>.</p>
+            <p>Notas de voz enviadas no funil. Cadastre na seção <a href="#audios-funil">Áudios do funil</a> abaixo.</p>
           </div>
         </div>
         <div class="prompt-tag-doc-list">${audioItems}</div>

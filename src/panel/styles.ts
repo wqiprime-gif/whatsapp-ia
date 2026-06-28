@@ -203,6 +203,8 @@ body {
 }
 .dropzone-neon { border-color: rgba(10, 92, 255, 0.45) !important; background: var(--primary-dim) !important; }
 .audio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.audio-grid-form { margin-bottom: 12px; }
+.audio-seed-list .audio-slug-tag { font-size: 0.72rem; margin-left: 8px; }
 .audio-card {
   padding: 16px; border-radius: var(--radius);
   background: rgba(255,255,255,0.03);

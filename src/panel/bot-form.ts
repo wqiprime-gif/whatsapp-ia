@@ -1,6 +1,7 @@
 import type { BotConfig } from "../bots.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
 import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
+import { SEED_AUDIO_CATALOG } from "../lib/seed-audios.js";
 import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, sanitizeAIModel } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
 import { decryptSecret, maskApiKey } from "../lib/crypto.js";
@@ -113,6 +114,85 @@ export function priceTableConfigBlock(bot: BotConfig | undefined, formId = "bot-
         </div>
       </label>
       <p class="form-hint">Para a IA entender o que vende, escreva os pacotes no prompt em linhas como <code>- GRUPINHO VIP - R$ 19,80</code>. A imagem é só o visual enviado ao lead.</p>
+    </div>`;
+}
+
+/** Notas de voz do funil — cadastradas junto com a instância. */
+export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form", isNew = false) {
+  const library = bot?.audioLibrary ?? [];
+
+  const seedList = isNew
+    ? `<ul class="preview-url-list audio-seed-list">
+      ${SEED_AUDIO_CATALOG.map(
+        (a) => `<li class="preview-url-item">
+          <span class="preview-url-link">${escapeHtml(a.label)}</span>
+          <code class="audio-slug-tag">[[audio:${escapeHtml(a.slug)}]]</code>
+          ${a.triggers ? `<span class="form-hint">${escapeHtml(a.triggers)}</span>` : ""}
+        </li>`
+      ).join("")}
+    </ul>
+    <p class="form-hint">Esses 5 áudios entram automaticamente ao criar a instância. Você pode remover ou trocar depois de salvar.</p>`
+    : "";
+
+  const list =
+    library.length === 0 && !isNew
+      ? `<p class="form-hint">Nenhum áudio cadastrado. Adicione abaixo ou salve a instância para receber os áudios padrão.</p>`
+      : library.length > 0
+        ? `<div class="audio-grid audio-grid-form">
+      ${library
+        .map(
+          (item, i) => `
+        <article class="audio-card">
+          <div class="audio-card-head">
+            <span class="audio-badge">${icons.audio}</span>
+            <div>
+              <h4>${escapeHtml(item.label)}</h4>
+              <p class="audio-triggers"><code>[[audio:${escapeHtml(item.slug || item.label.toLowerCase().replace(/\s+/g, "_"))}]]</code> · ${escapeHtml(item.triggers || item.keywords || "só pela IA no prompt")}</p>
+            </div>
+          </div>
+          <audio controls preload="none" src="${escapeHtml(item.url)}" class="audio-player"></audio>
+          <div class="audio-card-actions">
+            <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Abrir</a>
+            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removeAudioIndexes" value="${i}" /> Remover</label>
+          </div>
+        </article>`
+        )
+        .join("")}
+    </div>`
+        : "";
+
+  return `
+    <div class="form-section form-section-preview span-2" id="audios-funil">
+      <div class="form-section-head">
+        <span class="form-section-icon form-section-icon-cyan">${icons.audio}</span>
+        <div>
+          <h4>Áudios do funil (notas de voz)</h4>
+          <p>Gravações enviadas no WhatsApp quando a IA usa <code>[[audio:slug]]</code> ou quando o lead dispara um gatilho.</p>
+        </div>
+      </div>
+      ${isNew ? `<p class="form-hint"><strong>Áudios padrão incluídos na criação:</strong></p>${seedList}` : list}
+      <div class="audio-add-grid audio-add-grid-3" style="margin-top:12px">
+        <label class="field">
+          O que o áudio <strong>fala</strong>
+          <input form="${formId}" name="newAudioLabel" placeholder="eu nao sou fake" />
+        </label>
+        <label class="field">
+          <strong>ID no prompt</strong>
+          <input form="${formId}" name="newAudioSlug" placeholder="nao_sou_fake" />
+        </label>
+        <label class="field">
+          Gatilhos do lead <small>(opcional)</small>
+          <input form="${formId}" name="newAudioTriggers" placeholder="fake, golpe, voce e real" />
+        </label>
+      </div>
+      <label class="field">
+        <span>Arquivo de áudio (MP3, M4A, OGG)</span>
+        <div class="dropzone dropzone-neon">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Nota de voz ou áudio gravado</p>
+          <input form="${formId}" name="newAudioFile" type="file" accept="audio/*,.ogg,.opus" />
+        </div>
+      </label>
+      <p class="form-hint">Preencha nome + ID + arquivo para adicionar um áudio. Salve o formulário da instância para aplicar. Use as tags <code>[[audio:slug]]</code> no prompt.</p>
     </div>`;
 }
 
@@ -422,6 +502,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         ${previewConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
         ${priceTableConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
         ${deliveryConfigBlock(isEdit ? bot : undefined, "bot-preview-form")}
+        ${audioConfigBlock(isEdit ? bot : undefined, "bot-preview-form", !isEdit)}
 
         ${promptGeneratorBlock()}
 

@@ -1019,8 +1019,16 @@ export async function registerPanelRoutes(
     return reply.send(data);
   });
 
-  app.get("/audios", async (_request, reply) => {
-    return reply.redirect("/instances");
+  app.get("/audios", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const bots = await loadBots(user.id);
+    const query = z.object({ botId: z.string().optional() }).parse(request.query);
+    const botId = query.botId || bots[0]?.id;
+    if (botId) {
+      return reply.redirect(`/instances/${botId}/edit#audios-funil`);
+    }
+    return reply.redirect("/instances/new#audios-funil");
   });
 
   app.post("/audios", async (request, reply) => {
@@ -1038,12 +1046,13 @@ export async function registerPanelRoutes(
       await upsertBot({ ...bot, audioLibrary: library });
       hooks.syncBots();
       return reply.redirect(
-        flashRedirect(`/audios?botId=${botId}`, "Biblioteca de áudios atualizada!")
+        flashRedirect(`/instances/${botId}/edit#audios-funil`, "Biblioteca de áudios atualizada!")
       );
     } catch (error) {
       request.log.error(error);
+      const target = botId ? `/instances/${botId}/edit#audios-funil` : "/instances/new#audios-funil";
       return reply.redirect(
-        flashRedirect(`/audios?botId=${botId}`, `Erro: ${errorMessage(error)}`, "err")
+        flashRedirect(target, `Erro: ${errorMessage(error)}`, "err")
       );
     }
   });

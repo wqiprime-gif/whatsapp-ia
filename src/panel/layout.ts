@@ -16,7 +16,6 @@ export type NavId =
   | "payments"
   | "products"
   | "media"
-  | "audios"
   | "gifts"
   | "remarketing"
   | "links"
@@ -194,7 +193,6 @@ export function appLayout(
       ${mobileMenuLink("/payments", "Pagamentos", icons.card, is("payments"))}
       ${mobileMenuLink("/products", "Produtos", icons.box, is("products"))}
       ${mobileMenuLink("/media", "Mídias", icons.image, is("media"))}
-      ${mobileMenuLink("/audios", "Áudios", icons.audio, is("audios"))}
       <div class="mobile-menu-section">CONTA</div>
       ${mobileMenuLink("/perfil", "Minha conta", icons.users, is("profile"))}
       <a href="${SUPPORT_WHATSAPP_URL}" class="mobile-menu-link" target="_blank" rel="noopener">${icons.help}<span>Suporte WhatsApp</span></a>
@@ -225,7 +223,6 @@ export function appLayout(
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
-          ${navItem("/audios", "Áudios", icons.audio, is("audios"))}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
           <a href="${SUPPORT_WHATSAPP_URL}" class="nav-support" target="_blank" rel="noopener">${icons.help}<span class="nav-text"> Suporte WhatsApp</span></a>
         </div>
