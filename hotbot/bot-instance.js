@@ -648,17 +648,12 @@ function buildDiscountAppendix() {
   const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
   if (products.length === 0) return '';
   let block = '\n\n--- NEGOCIACAO (OBRIGATORIO) ---\n';
+  block += 'NUNCA ofereca desconto por iniciativa propria — so se o lead pedir desconto, disser que esta caro ou nao tiver dinheiro.\n';
   block += 'So negocie desconto DEPOIS que o lead viu a tabela E escolheu um pacote especifico.\n';
   block += 'Se pedir desconto sem escolher pacote, pergunte qual pacote quer (basico, chamada, completo).\n';
+  block += 'Quando o lead pedir desconto, o sistema aplica automaticamente — NAO calcule nem anuncie valores com desconto antes disso.\n';
   block += 'Pergunte quanto ele tem e respeite os minimos do seu prompt.\n';
-  block += 'Pacotes com desconto disponivel (so apos escolha):\n';
-  for (const p of products) {
-    const pct = p.halfPricePercent ?? 50;
-    const halfCents = Math.round((p.priceCents || 0) * (pct / 100));
-    const half = (halfCents / 100).toFixed(2).replace('.', ',');
-    const full = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
-    block += `- ${p.name}: de R$ ${full} por R$ ${half} (${pct}% off) — UMA vez por lead\n`;
-  }
+  block += `Pacotes negociaveis (so apos pedido explicito de desconto): ${products.map((p) => p.name).join(', ')}.\n`;
   return block;
 }
 
@@ -1089,8 +1084,9 @@ async function generatePersonaReply(userNumber, instruction) {
     });
     const text = String(completion.choices[0]?.message?.content || '').trim();
     if (!text) return '';
-    conversation.push({ role: 'assistant', content: text });
-    return text;
+    const sanitized = sanitizeAssistantText(text, '');
+    conversation.push({ role: 'assistant', content: sanitized });
+    return sanitized;
   } catch (error) {
     console.error('generatePersonaReply:', error.message);
     return '';
@@ -1223,8 +1219,26 @@ function audioItemTriggers(item) {
 
 function getAudioLibrary() {
   const configured = (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
-  if (configured.length > 0) return configured;
-  return SEED_AUDIO_FALLBACK.slice();
+  if (configured.length === 0) return SEED_AUDIO_FALLBACK.slice();
+  const merged = [...configured];
+  const slugs = new Set(merged.map((a) => audioItemSlug(a)));
+  for (const seed of SEED_AUDIO_FALLBACK) {
+    const slug = audioItemSlug(seed);
+    if (!slugs.has(slug)) {
+      merged.push(seed);
+      slugs.add(slug);
+    }
+  }
+  return merged;
+}
+
+function resolveSaudacaoAudio() {
+  const library = getAudioLibrary();
+  let item = resolveAudioBySlug('saudacao', library);
+  if (!item && audioFiles.saudacao && fs.existsSync(audioFiles.saudacao)) {
+    item = { label: 'Saudação (oi, tudo bem?)', url: '/seed-audios/saudacao.mp3', slug: 'saudacao', triggers: '' };
+  }
+  return item;
 }
 
 function resolveAudioBySlug(slug, library) {
@@ -1267,10 +1281,92 @@ function isGreetingText(text) {
   );
 }
 
-/** Primeiro contato = a IA ainda não respondeu nada para esse lead. */
-function isFirstContact(userNumber) {
+/** Primeiro contato = lead ainda não enviou nenhuma mensagem nesta conversa. */
+function isFirstUserMessage(userNumber) {
   const conv = userConversations[userNumber] || [];
-  return !conv.some((m) => m.role === 'assistant');
+  return countUserMessages(conv) === 0;
+}
+
+const SHORT_AFFIRMATIVE_RE = /^(quero sim|sim|quero|bora|pode|fechado|vamos|manda|ok)$/i;
+const PROACTIVE_DISCOUNT_RE = /posso fazer por|consigo fazer por|dessa vez consigo|por metade|pela metade|50\s*%|metade do|fazer por r\$/i;
+const EMOJI_ONLY_RE = /^[\p{Emoji}\p{Emoji_Component}\s]+$/u;
+
+const ROBOTIC_PHRASE_REPLACEMENTS = [
+  [/quer\s+seguir\s+(com\s+a\s+)?compra\??/gi, 'fechado amor?'],
+  [/deseja\s+continuar\??/gi, 'bora bb?'],
+  [/posso\s+ajudar[^.?!]*/gi, ''],
+  [/como\s+posso\s+ajudar[^.?!]*/gi, ''],
+  [/quer\s+ouvir\s+minha\s+voz[^.?!]*/gi, ''],
+  [/vou\s+te\s+mandar\s+um\s+[áa]udio[^.?!]*/gi, '']
+];
+
+function isEmojiOnlyPart(part) {
+  const t = String(part || '').trim();
+  if (!t) return true;
+  return EMOJI_ONLY_RE.test(t);
+}
+
+function normalizeMessageParts(parts) {
+  const merged = [];
+  for (const part of parts) {
+    const trimmed = String(part || '').trim();
+    if (!trimmed) continue;
+    if (isEmojiOnlyPart(trimmed)) {
+      if (merged.length > 0) merged[merged.length - 1] = `${merged[merged.length - 1].trimEnd()} ${trimmed}`;
+      continue;
+    }
+    merged.push(trimmed);
+  }
+  return merged;
+}
+
+function sanitizeAssistantText(text, userMessage) {
+  let out = String(text || '').trim();
+  if (!out) return out;
+  for (const [re, repl] of ROBOTIC_PHRASE_REPLACEMENTS) {
+    out = out.replace(re, repl).trim();
+  }
+  out = out.replace(/\s{2,}/g, ' ').replace(/^[,.\s]+|[,.\s]+$/g, '').trim();
+  if (!wantsDiscount(userMessage) && PROACTIVE_DISCOUNT_RE.test(out)) {
+    out = 'fechado amor, manda o pix? 😘';
+  }
+  return out.trim();
+}
+
+function leadSelectedPackageRecently(jid) {
+  const conv = userConversations[jid] || [];
+  const recentUser = conv
+    .filter((m) => m.role === 'user')
+    .slice(-3)
+    .map((m) => m.content)
+    .join(' ');
+  return /pacote|pack|r\$\s*\d|\d\s*reais|basico|básico|completo|chamada|9[,.]90|20[,.]00|15[,.]00/i.test(recentUser);
+}
+
+function assistantInPurchaseContext(jid) {
+  const conv = userConversations[jid] || [];
+  const lastAssistant = [...conv].reverse().find((m) => m.role === 'assistant');
+  if (!lastAssistant) return false;
+  return /comprar|pix|pagamento|valor|pacote|r\$\s*\d|reais|fech/i.test(String(lastAssistant.content || ''));
+}
+
+function recentPreviewRequest(jid) {
+  const conv = userConversations[jid] || [];
+  const recentUser = conv
+    .filter((m) => m.role === 'user')
+    .slice(-2)
+    .map((m) => m.content)
+    .join(' ');
+  return wantsPreviewIntent(recentUser);
+}
+
+function wantsPurchaseConfirmation(jid, text) {
+  const t = String(text || '').trim();
+  if (!SHORT_AFFIRMATIVE_RE.test(t)) return false;
+  if (wantsPreviewIntent(t)) return false;
+  if (!hasSentInformacoes[jid]) return false;
+  if (recentPreviewRequest(jid)) return false;
+  return leadSelectedPackageRecently(jid) || assistantInPurchaseContext(jid);
 }
 
 function findContextualLeadAudio(text, library) {
@@ -1426,10 +1522,10 @@ function sortPromptActions(actions) {
 function shouldAutoSendPreview(userNumber, combinedMessage, aiClean, actions) {
   if (hasPreviewBeenSent(userNumber) || !hasPreviewMedia()) return false;
   if (previewRecentlyFailed(userNumber)) return false;
+  if (wantsPurchaseConfirmation(userNumber, combinedMessage)) return false;
   if (actions.includes('send_amostra_gratis')) return true;
   if (wantsPreviewIntent(combinedMessage)) return true;
-  if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(combinedMessage || '').trim()) && conversationWantsPreview(userNumber)) return true;
-  if (conversationWantsPreview(userNumber)) return true;
+  if (/^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(combinedMessage || '').trim()) && recentPreviewRequest(userNumber)) return true;
   if (aiFakesPreviewSend(aiClean)) return true;
   return false;
 }
@@ -1488,7 +1584,13 @@ async function runCompletion(userNumber, message) {
   conversation.push({ role: "user", content: message });
   scheduleSaveConversations();
 
-  if (!hasPreviewBeenSent(userNumber) && !previewRecentlyFailed(userNumber) && hasPreviewMedia() && (wantsPreviewIntent(message) || conversationWantsPreview(userNumber) || /^(sim|s|quero|quero sim|pode|manda|bora|ok)$/i.test(String(message || '').trim()))) {
+  if (
+    !hasPreviewBeenSent(userNumber) &&
+    !previewRecentlyFailed(userNumber) &&
+    hasPreviewMedia() &&
+    wantsPreviewIntent(message) &&
+    !wantsPurchaseConfirmation(userNumber, message)
+  ) {
     conversation.push({
       role: 'system',
       content: 'O lead quer prévia/amostra. OBRIGATÓRIO: chame send_amostra_gratis agora. Proibido dizer "aqui está" ou "mandei" sem enviar a mídia pela função.'
@@ -1699,6 +1801,10 @@ Qual pacote te interessa, amor? 💕
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
+      const infoLib = getAudioLibrary();
+      const infoAudio = resolveAudioBySlug('informacoes', infoLib);
+      if (infoAudio) await sendNamedAudioVoiceOnce(client, messageFrom, infoAudio);
+
       let sentImage = false;
       if (priceImageUrl) {
         const localPath = await resolveMediaLocalPath(priceImageUrl);
@@ -1706,7 +1812,7 @@ Qual pacote te interessa, amor? 💕
           const media = MessageMedia.fromFilePath(localPath);
           if (media) {
             sentImage = await sendMediaWithTyping(client, messageFrom, media, {
-              caption: 'esses são meus pacotes amor 😈 qual te interessa?'
+              caption: 'meus pacotes amor 😈'
             });
           }
         }
@@ -1718,14 +1824,10 @@ Qual pacote te interessa, amor? 💕
       }
       console.log(`✅ Tabela de preços enviada para ${messageFrom} (${sentImage ? 'imagem' : 'texto'})`);
 
-      // Áudios do funil amarrados à ação: explica os pacotes e pergunta qual pacote.
-      const infoLib = getAudioLibrary();
-      const infoAudio = resolveAudioBySlug('informacoes', infoLib);
-      if (infoAudio) await sendNamedAudioVoiceOnce(client, messageFrom, infoAudio);
       const qualPackAudio = resolveAudioBySlug('qual_pack', infoLib);
       if (qualPackAudio) await sendNamedAudioVoiceOnce(client, messageFrom, qualPackAudio);
 
-      const descSistema = pacotesConfig?.descricao_sistema || 'Tabela de pacotes enviada ao lead. Use os nomes e valores dos pacotes do prompt para vender e negociar.';
+      const descSistema = pacotesConfig?.descricao_sistema || 'Tabela de pacotes enviada ao lead (áudio explicativo + tabela + áudio qual pacote). Use os nomes e valores do prompt para vender e negociar.';
       conversation.push({ role: "system", content: descSistema });
       conversation.push({ role: "assistant", content: 'Qual pacote te interessa, amor? 💕' });
     } catch (sendError) {
@@ -2366,29 +2468,43 @@ client.on("message", async (message) => {
       console.log('─'.repeat(60) + '\n');
       try {
         // Saudação em ÁUDIO no primeiro contato (substitui o "oi tudo bem" em texto)
-        const greetLibrary = getAudioLibrary();
-        const saudacaoAudio = resolveAudioBySlug('saudacao', greetLibrary);
-        if (
-          saudacaoAudio &&
-          isGreetingText(combinedMessage) &&
-          isFirstContact(from) &&
-          !audioAlreadySent(from, audioItemSlug(saudacaoAudio))
-        ) {
-          const sentGreeting = await sendNamedAudioVoiceOnce(client, from, saudacaoAudio);
-          if (sentGreeting) {
-            const conv = getUserConversation(from);
-            conv.push({ role: 'user', content: combinedMessage });
-            conv.push({ role: 'system', content: 'Você já enviou o áudio de saudação inicial. Não repita a saudação; siga o funil normalmente na próxima mensagem.' });
-            scheduleSaveConversations();
-            onBotOutbound(from);
-            return;
+        if (isGreetingText(combinedMessage) && isFirstUserMessage(from)) {
+          const saudacaoAudio = resolveSaudacaoAudio();
+          const saudacaoSlug = saudacaoAudio ? audioItemSlug(saudacaoAudio) : 'saudacao';
+          const conv = getUserConversation(from);
+          conv.push({ role: 'user', content: combinedMessage });
+
+          if (saudacaoAudio && !audioAlreadySent(from, saudacaoSlug)) {
+            const sentGreeting = await sendNamedAudioVoiceOnce(client, from, saudacaoAudio);
+            if (sentGreeting) {
+              conv.push({ role: 'system', content: 'Você já enviou o áudio de saudação inicial. Não repita a saudação; siga o funil normalmente na próxima mensagem.' });
+            } else {
+              console.warn(`⚠️ Áudio de saudação falhou para ${from} — não enviando texto de saudação.`);
+              conv.push({ role: 'system', content: 'Áudio de saudação indisponível. Não mande texto de "oi tudo bem" — aguarde a próxima mensagem do lead.' });
+            }
+          } else {
+            console.warn(`⚠️ Saudação bloqueada para ${from}: audio=${Boolean(saudacaoAudio)} alreadySent=${audioAlreadySent(from, saudacaoSlug)}`);
           }
+
+          scheduleSaveConversations();
+          onBotOutbound(from);
+          return;
         }
 
         const halfReply = tryHalfPriceOffer(from, combinedMessage);
         if (halfReply) {
           await sendTextHuman(client, from, halfReply);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: halfReply });
+          onBotOutbound(from);
+          return;
+        }
+
+        // Lead confirma compra ("quero sim") → Pix + áudio, nunca prévia.
+        if (wantsPurchaseConfirmation(from, combinedMessage)) {
+          const conv = getUserConversation(from);
+          conv.push({ role: 'user', content: combinedMessage });
+          await enviarChavePix(from, conv);
+          scheduleSaveConversations();
           onBotOutbound(from);
           return;
         }
@@ -2414,7 +2530,7 @@ client.on("message", async (message) => {
 
         if (result) {
           let { clean, actions, giftSlug, audioSlugs } = parsePromptActions(result);
-          clean = sanitizePixPlaceholders(clean);
+          clean = sanitizePixPlaceholders(sanitizeAssistantText(clean, combinedMessage));
           console.log('✅ RESPOSTA GERADA:');
           console.log('─'.repeat(60));
           console.log(clean || '(somente acoes)');
@@ -2438,7 +2554,7 @@ client.on("message", async (message) => {
           }
 
           // Se um áudio foi enviado neste turno, suprime o texto da IA (só o áudio fala).
-          const messageParts = anyAudioSent ? [] : splitMessages(clean);
+          const messageParts = anyAudioSent ? [] : normalizeMessageParts(splitMessages(clean));
           if (messageParts.length > 0) {
             isProcessing[from] = true;
             try {
