@@ -44,7 +44,8 @@ import { buildDefaultAudioLibrary, seedAudioPath } from "../lib/seed-audios.js";
 import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
-import { authenticateUser, createUser, getUserById, updateUserProfile } from "../db/users.js";
+import { authenticateUser, createUser, deletePlatformUser, getUserById, listPlatformUsers, updateUserProfile } from "../db/users.js";
+import { isPlatformOwner } from "../lib/settings.js";
 import { getNotificationPrefs, saveNotificationPrefs } from "../db/notification-prefs.js";
 import { encryptSecret } from "../lib/crypto.js";
 import {
@@ -85,6 +86,7 @@ import {
   topPlayersRankingHtml
 } from "./ui.js";
 import { waLinksPage } from "./links-page.js";
+import { adminUsersPage } from "./admin-users-page.js";
 import {
   createWaRedirectLink,
   deleteWaRedirectLink,
@@ -363,6 +365,19 @@ function errorMessage(error: unknown) {
 
 function isPartial(request: FastifyRequest) {
   return request.headers["x-panel-partial"] === "1";
+}
+
+function requirePlatformOwner(
+  request: FastifyRequest,
+  reply: import("fastify").FastifyReply
+) {
+  const user = requireUser(request, reply);
+  if (!user) return null;
+  if (!isPlatformOwner(user.email)) {
+    reply.redirect(flashRedirect("/", "Acesso restrito ao administrador da plataforma.", "err"));
+    return null;
+  }
+  return user;
 }
 
 export async function registerPanelRoutes(
@@ -797,7 +812,8 @@ export async function registerPanelRoutes(
       email: full?.email ?? user.email,
       label,
       avatarUrl: full?.avatarUrl ?? "",
-      notificationPrefs
+      notificationPrefs,
+      isPlatformOwner: isPlatformOwner(full?.email ?? user.email)
     });
   });
 
@@ -1674,6 +1690,44 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     return reply.redirect("/instances");
+  });
+
+  app.get("/admin/usuarios", async (request, reply) => {
+    const user = requirePlatformOwner(request, reply);
+    if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const meta = await panelUserMeta(user.id, user.email);
+    const users = await listPlatformUsers();
+    return reply
+      .type("text/html")
+      .send(
+        adminUsersPage(
+          users,
+          query.msg,
+          query.t === "err",
+          isPartial(request),
+          meta.label,
+          meta.avatarUrl
+        )
+      );
+  });
+
+  app.post("/admin/usuarios/:id/delete", async (request, reply) => {
+    const user = requirePlatformOwner(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      const botIds = await deletePlatformUser(params.id, user);
+      for (const botId of botIds) {
+        await purgeWaInstanceData(botId);
+        await pruneRedirectLinksForBot(params.id, botId);
+        hooks.restartBot(botId);
+      }
+      hooks.syncBots();
+      return reply.redirect(flashRedirect("/admin/usuarios", "Conta excluída com sucesso."));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/admin/usuarios", `Erro: ${errorMessage(error)}`, "err"));
+    }
   });
 
   app.post("/settings/previews", async (request, reply) => {

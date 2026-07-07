@@ -19,7 +19,8 @@ export type NavId =
   | "gifts"
   | "remarketing"
   | "links"
-  | "profile";
+  | "profile"
+  | "admin";
 
 export function panelUserLabel(input: { name: string; email: string }) {
   const email = input.email?.trim();
@@ -131,7 +132,8 @@ export function appLayout(
   subtitle = "",
   userAvatar = "",
   topbarLeftHtml = "",
-  topbarCenterHtml = ""
+  topbarCenterHtml = "",
+  showAdminNav = false
 ) {
   if (partial) return body;
 
@@ -194,6 +196,7 @@ export function appLayout(
       ${mobileMenuLink("/products", "Produtos", icons.box, is("products"))}
       ${mobileMenuLink("/media", "Mídias", icons.image, is("media"))}
       <div class="mobile-menu-section">CONTA</div>
+      ${showAdminNav ? mobileMenuLink("/admin/usuarios", "Admin", icons.crown, is("admin")) : ""}
       ${mobileMenuLink("/perfil", "Minha conta", icons.users, is("profile"))}
       <a href="${SUPPORT_WHATSAPP_URL}" class="mobile-menu-link" target="_blank" rel="noopener">${icons.help}<span>Suporte WhatsApp</span></a>
       <a href="/instances/new" class="mobile-menu-link mobile-menu-link--cta" data-nav>${icons.plus}<span>Nova Instância</span></a>
@@ -223,6 +226,7 @@ export function appLayout(
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
+          ${showAdminNav ? navItem("/admin/usuarios", "Admin", icons.crown, is("admin")) : ""}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
           <a href="${SUPPORT_WHATSAPP_URL}" class="nav-support" target="_blank" rel="noopener">${icons.help}<span class="nav-text"> Suporte WhatsApp</span></a>
         </div>

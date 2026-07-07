@@ -15,6 +15,7 @@ export const panelClientScript = `
     ["/payments", "Pagamentos"],
     ["/products", "Produtos"],
     ["/media", "Mídias"],
+    ["/admin/usuarios", "Admin"],
     ["/perfil", "Minha conta"],
     ["/instances/new", "Nova Instância"]
   ];
@@ -1011,6 +1012,43 @@ export const panelClientScript = `
 
   ensureServiceWorker();
   bindTestNotify(document);
+
+  function injectAdminNav() {
+    if (document.querySelector('[data-nav-admin-injected]')) return;
+    fetch("/api/panel/me", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (me) {
+        if (!me || !me.isPlatformOwner) return;
+        var crown = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"></path><path d="M5 21h14"></path></svg>';
+        var sidebar = document.querySelector(".sidebar .nav-section");
+        if (sidebar && !sidebar.querySelector('[href="/admin/usuarios"]')) {
+          var a = document.createElement("a");
+          a.href = "/admin/usuarios";
+          a.className = location.pathname.startsWith("/admin") ? "active" : "";
+          a.setAttribute("data-nav", "");
+          a.setAttribute("data-nav-admin-injected", "1");
+          a.title = "Admin";
+          a.innerHTML = crown + '<span class="nav-text"> Admin</span>';
+          var profile = sidebar.querySelector('a[href="/perfil"]');
+          if (profile) sidebar.insertBefore(a, profile);
+          else sidebar.appendChild(a);
+        }
+        var mobileNav = document.querySelector(".mobile-menu-nav");
+        if (mobileNav && !mobileNav.querySelector('[href="/admin/usuarios"]')) {
+          var ma = document.createElement("a");
+          ma.href = "/admin/usuarios";
+          ma.className = "mobile-menu-link" + (location.pathname.startsWith("/admin") ? " active" : "");
+          ma.setAttribute("data-nav", "");
+          ma.setAttribute("data-nav-admin-injected", "1");
+          ma.innerHTML = crown + "<span>Admin</span>";
+          var mProfile = mobileNav.querySelector('a[href="/perfil"]');
+          if (mProfile) mobileNav.insertBefore(ma, mProfile);
+          else mobileNav.appendChild(ma);
+        }
+      })
+      .catch(function () {});
+  }
+  injectAdminNav();
   if (location.pathname === "/") {
     bindPeriodTabs(document);
     bindSharkCharts(document);

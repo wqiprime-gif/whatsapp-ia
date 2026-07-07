@@ -3,6 +3,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { env } from "../config.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import { isPlatformOwner } from "../lib/settings.js";
+import { loadBots, botsFile } from "../bots.js";
 import { getPool, useDatabase } from "./index.js";
 
 export type PanelUser = {
@@ -234,6 +236,100 @@ export async function getUserById(id: string): Promise<PanelUser | null> {
   return hit
     ? { id: hit.id, email: hit.email, name: hit.name, createdAt: hit.createdAt, avatarUrl: hit.avatarUrl ?? "" }
     : null;
+}
+
+export type PlatformUserSummary = PanelUser & {
+  botCount: number;
+  isOwner: boolean;
+};
+
+export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
+  if (useDatabase()) {
+    const { rows } = await getPool().query<{
+      id: string;
+      email: string;
+      name: string;
+      created_at: string;
+      avatar_url?: string;
+      bot_count: string;
+    }>(`
+      SELECT u.id, u.email, u.name, u.created_at, u.avatar_url,
+             COUNT(b.id)::text AS bot_count
+      FROM panel_users u
+      LEFT JOIN bots b ON b.user_id = u.id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      createdAt: new Date(row.created_at).toISOString(),
+      avatarUrl: row.avatar_url ?? "",
+      botCount: Number(row.bot_count || 0),
+      isOwner: isPlatformOwner(row.email)
+    }));
+  }
+
+  const users = await loadFileUsers();
+  const bots = await loadBots();
+  return users
+    .map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      createdAt: u.createdAt,
+      avatarUrl: u.avatarUrl ?? "",
+      botCount: bots.filter((b) => b.userId === u.id).length,
+      isOwner: isPlatformOwner(u.email)
+    }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** Remove conta + instâncias. Retorna IDs dos bots removidos (para parar processos WA). */
+export async function deletePlatformUser(
+  targetUserId: string,
+  actor: { id: string; email: string }
+): Promise<string[]> {
+  if (targetUserId === actor.id) {
+    throw new Error("Você não pode excluir sua própria conta por aqui.");
+  }
+
+  const target = await getUserById(targetUserId);
+  if (!target) throw new Error("Usuário não encontrado.");
+  if (isPlatformOwner(target.email)) {
+    throw new Error("Não é possível excluir a conta do administrador da plataforma.");
+  }
+
+  const bots = await loadBots(targetUserId);
+  const botIds = bots.map((b) => b.id);
+
+  if (useDatabase()) {
+    await getPool().query(`DELETE FROM panel_users WHERE id = $1`, [targetUserId]);
+    return botIds;
+  }
+
+  const users = await loadFileUsers();
+  await saveFileUsers(users.filter((u) => u.id !== targetUserId));
+
+  const allBots = await loadBots();
+  await fs.writeFile(
+    botsFile,
+    JSON.stringify(
+      allBots.filter((b) => b.userId !== targetUserId),
+      null,
+      2
+    )
+  );
+
+  const settingsPath = path.join(env.DATA_DIR, `settings-${targetUserId}.json`);
+  try {
+    await fs.unlink(settingsPath);
+  } catch {
+    // ignora se não existir
+  }
+
+  return botIds;
 }
 
 export async function updateUserProfile(

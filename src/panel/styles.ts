@@ -2121,4 +2121,20 @@ button, input, textarea, select { font-family: inherit; }
   border-bottom-right-radius: 4px;
   box-shadow: 0 8px 28px rgba(10, 92, 255, 0.25);
 }
+
+.admin-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-user-cell .user-avatar-slot,
+.admin-user-cell .user-avatar,
+.admin-user-cell .user-avatar-img {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.admin-user-actions { text-align: right; white-space: nowrap; }
+.admin-delete-form { display: inline; margin: 0; }
+.admin-users-table code { color: var(--text-2); }
 `;

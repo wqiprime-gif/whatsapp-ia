@@ -6,7 +6,7 @@ import { decryptSecret, encryptSecret } from "./crypto.js";
 import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./ai-providers.js";
 import type { BotConfig } from "../bots.js";
 
-function isPlatformOwner(email?: string) {
+export function isPlatformOwner(email?: string) {
   const admin = env.ADMIN_EMAIL?.trim().toLowerCase();
   if (!admin || !email) return false;
   return email.trim().toLowerCase() === admin;
