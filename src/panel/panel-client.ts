@@ -202,15 +202,14 @@ export const panelClientScript = `
           deferredPwaPrompt = null;
           return;
         }
-        showToast("Instalar app", "No Chrome: menu ⋮ → Adicionar à tela inicial / Instalar app.", "daily", true);
+        showToast("Instalar app", "Chrome: menu ⋮ → Instalar app / Adicionar à tela inicial.", "daily", true);
       });
     }
   }
   window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault();
     deferredPwaPrompt = e;
     const btn = document.getElementById("btn-pwa-install-profile");
-    if (btn) btn.textContent = "Instalar app agora (atalho disponível)";
+    if (btn) btn.textContent = "Instalar app agora";
   });
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
@@ -342,10 +341,42 @@ export const panelClientScript = `
     if (progress) progress.classList.remove("active");
   }
 
+  function syncDashboardTopbar(root) {
+    const scope = root || document;
+    const sync = scope.querySelector("#dash-topbar-sync");
+    const topbar = document.querySelector(".topbar");
+    if (!topbar) return;
+    const left = topbar.querySelector(".topbar-left");
+    let center = topbar.querySelector(".topbar-center");
+    if (!sync) {
+      topbar.classList.remove("topbar--dash");
+      if (left) left.innerHTML = "";
+      if (center) center.innerHTML = "";
+      return;
+    }
+    topbar.classList.add("topbar--dash");
+    const leftSrc = sync.querySelector("[data-topbar-left]");
+    const centerSrc = sync.querySelector("[data-topbar-center]");
+    if (left && leftSrc) left.innerHTML = leftSrc.innerHTML;
+    if (centerSrc) {
+      const html = centerSrc.innerHTML;
+      if (!center) {
+        const right = topbar.querySelector(".topbar-right");
+        const block = '<div class="topbar-center">' + html + "</div>";
+        if (right) right.insertAdjacentHTML("beforebegin", block);
+        else topbar.insertAdjacentHTML("beforeend", block);
+      } else {
+        center.innerHTML = html;
+      }
+    }
+    sync.remove();
+  }
+
   function applyContent(html, path) {
     main.innerHTML = html;
     document.title = "OnlyChat";
     setActiveNav(path);
+    syncDashboardTopbar(main);
     bindForms(main);
     if (path === "/perfil" || path.startsWith("/perfil")) {
       pageCache.delete("/perfil");
@@ -592,7 +623,7 @@ export const panelClientScript = `
       if (me.notificationPrefs) saveNotifyPrefs(me.notificationPrefs);
       const preview = sessionStorage.getItem(LS_AVATAR_PREVIEW) || "";
       const cached = localStorage.getItem(LS_AVATAR) || "";
-      const avatarSrc = resolveAvatarSrc(preview, cached, next, true);
+      const avatarSrc = resolveAvatarSrc(preview, cached, next, Boolean(next && next.trim()));
       if (next.indexOf("data:") === 0) localStorage.setItem(LS_AVATAR, next);
       let slot = pill.querySelector(".user-avatar-slot");
       if (!slot) {
@@ -700,6 +731,10 @@ export const panelClientScript = `
   });
 
   bindForms(document);
+  if (location.pathname === "/") {
+    const syncOnly = document.querySelector("#dash-topbar-sync");
+    if (syncOnly) syncOnly.remove();
+  }
   document.querySelectorAll(".user-avatar-slot").forEach((slot) => {
     const pill = slot.closest(".user-pill");
     const img = slot.querySelector(".user-avatar-img");
@@ -711,7 +746,7 @@ export const panelClientScript = `
       (img && img.getAttribute("src")) ||
       (pill && pill.dataset.avatar) ||
       "";
-    const src = resolveAvatarSrc(preview, cached, serverSrc, slot.getAttribute("data-avatar-api") === "1");
+    const src = resolveAvatarSrc(preview, cached, serverSrc, Boolean(serverSrc && serverSrc.trim()) || slot.getAttribute("data-avatar-api") === "1");
     hydrateAvatarSlot(slot, src, label.slice(0, 2).toUpperCase());
   });
   refreshUserPill().then(() => syncTopbarFromProfilePreview());

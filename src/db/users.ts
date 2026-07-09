@@ -185,13 +185,8 @@ async function syncPlatformOwnerAccount() {
       [adminUsername, adminUsername, row.id]
     );
 
-    await db.query(`UPDATE panel_users SET username = $1, password_hash = $2, name = $3 WHERE id = $4`, [
-      adminUsername,
-      passwordHash,
-      adminName,
-      row.id
-    ]);
-    console.log(`[db] Admin sincronizado: usuario="${adminUsername}" (senha = PANEL_PASSWORD)`);
+    await db.query(`UPDATE panel_users SET password_hash = $1 WHERE id = $2`, [passwordHash, row.id]);
+    console.log(`[db] Admin sincronizado: senha = PANEL_PASSWORD (perfil preservado)`);
     return;
   }
 
@@ -210,15 +205,13 @@ async function syncPlatformOwnerAccount() {
 
   for (const user of users) {
     if (user.id === row.id) {
-      user.username = adminUsername;
       user.passwordHash = passwordHash;
-      user.name = adminName;
     } else if (normalizeUsername(user.username) === adminUsername) {
       user.username = `${adminUsername}_${user.id.slice(0, 4)}`;
     }
   }
   await saveFileUsers(users);
-  console.log(`[db] Admin local sincronizado: usuario="${adminUsername}" (senha = PANEL_PASSWORD)`);
+  console.log(`[db] Admin local sincronizado: senha = PANEL_PASSWORD (perfil preservado)`);
 }
 
 export async function initUsersSchema() {
@@ -593,7 +586,7 @@ export async function deletePlatformUser(targetUserId: string, actor: { id: stri
 
 export async function updateUserProfile(
   id: string,
-  input: { name?: string; avatarUrl?: string; password?: string }
+  input: { name?: string; username?: string; avatarUrl?: string; password?: string }
 ) {
   if (useDatabase()) {
     const sets: string[] = [];
@@ -602,6 +595,14 @@ export async function updateUserProfile(
     if (input.name?.trim()) {
       sets.push(`name = $${i++}`);
       vals.push(input.name.trim());
+    }
+    if (input.username?.trim()) {
+      const username = normalizeUsername(input.username);
+      if (username.length < 3) throw new Error("Usuário inválido (mínimo 3 caracteres).");
+      const existing = await findUserByUsername(username);
+      if (existing && existing.id !== id) throw new Error("Este usuário já está em uso.");
+      sets.push(`username = $${i++}`);
+      vals.push(username);
     }
     if (input.avatarUrl !== undefined) {
       sets.push(`avatar_url = $${i++}`);
@@ -621,6 +622,14 @@ export async function updateUserProfile(
   const hit = users.find((u) => u.id === id);
   if (!hit) return;
   if (input.name?.trim()) hit.name = input.name.trim();
+  if (input.username?.trim()) {
+    const username = normalizeUsername(input.username);
+    if (username.length < 3) throw new Error("Usuário inválido (mínimo 3 caracteres).");
+    if (users.some((u) => u.id !== id && normalizeUsername(u.username) === username)) {
+      throw new Error("Este usuário já está em uso.");
+    }
+    hit.username = username;
+  }
   if (input.avatarUrl !== undefined) hit.avatarUrl = input.avatarUrl;
   if (input.password) hit.passwordHash = hashPassword(input.password);
   await saveFileUsers(users);

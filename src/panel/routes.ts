@@ -1457,8 +1457,9 @@ export async function registerPanelRoutes(
     try {
       const { fields, avatarUrl } = await parseProfileMultipart(request);
       const full = await getUserById(user.id);
-      const patch: { name?: string; avatarUrl?: string } = {};
+      const patch: { name?: string; username?: string; avatarUrl?: string } = {};
       if (fields.name?.trim()) patch.name = fields.name.trim();
+      if (fields.username?.trim()) patch.username = fields.username.trim();
       const avatarData = fields.avatarData?.trim() ?? "";
       const nextAvatar = avatarUrl || (avatarData.startsWith("data:") ? avatarData : "");
       if (nextAvatar) patch.avatarUrl = nextAvatar;

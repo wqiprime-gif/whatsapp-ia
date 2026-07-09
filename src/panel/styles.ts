@@ -596,41 +596,6 @@ button, input, textarea, select { font-family: inherit; }
   line-height: 1.15;
 }
 .topbar--minimal { min-height: 60px; padding: 14px 20px; border-bottom: none; }
-.dash-hero-row {
-  display: grid;
-  grid-template-columns: 1fr minmax(280px, 380px);
-  gap: 20px;
-  align-items: center;
-  margin: 4px 0 16px;
-}
-.dash-hero-greeting .shark-greeting-title {
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0;
-  line-height: 1.1;
-}
-.dash-hero-greeting .shark-greeting-name {
-  color: var(--primary);
-  text-shadow: 0 0 24px rgba(10, 92, 255, 0.35);
-}
-.dash-hero-greeting .shark-greeting-date {
-  margin: 6px 0 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-  text-transform: uppercase;
-  font-weight: 600;
-}
-.dash-hero-fatpill .shark-fat-pill--topbar {
-  width: 100%;
-  margin: 0;
-}
-@media (max-width: 900px) {
-  .dash-hero-row { grid-template-columns: 1fr; gap: 12px; }
-  .dash-hero-greeting .shark-greeting-title { font-size: 1.3rem; }
-}
 .topbar-subtitle {
   font-size: 0.82rem;
   color: var(--muted);
