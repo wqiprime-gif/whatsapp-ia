@@ -13,6 +13,7 @@ import { panelSceneScript } from "./panel-scene.js";
 import { loginLightningScript } from "./panel-lightning.js";
 import { loginParticlesScript } from "./panel-auth-particles.js";
 import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, type AIProviderId } from "../lib/ai-providers.js";
+import { APP_VERSION } from "../version.js";
 
 export type DashboardData = {
   stats: {
@@ -250,7 +251,7 @@ export function loginPage(message = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>Login · OnlyChat</title>
+  <title>Login · OnlyChat v${APP_VERSION}</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
