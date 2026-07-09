@@ -2235,6 +2235,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       const delivered = await sendDeliveryMedia(client, messageFrom);
       const productLink = String(config.productDeliveryLink || '').trim();
+      const videoCallLink = String(config.videoCallLink || process.env.LINK_CHAMADA || '').trim();
       const pacote = await detectarPacote(messageFrom);
 
       if (delivered > 0) {
@@ -2249,7 +2250,9 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       if (productLink) {
         if (pacote === 'chamada') {
-          await deliverVideoCallLinkWithDelay(messageFrom, productLink);
+          if (videoCallLink) {
+            await deliverVideoCallLinkWithDelay(messageFrom, videoCallLink);
+          }
         } else {
           const linkIntro =
             (await generatePersonaReply(
@@ -2262,7 +2265,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
-        const linkChamada = process.env.LINK_CHAMADA || '';
+        const linkChamada = videoCallLink;
         const linkCompleto = process.env.LINK_COMPLETO || '';
 
         console.log(`   Pacote detectado: ${pacote.toUpperCase()} (fallback links)`);

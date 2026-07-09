@@ -228,6 +228,7 @@ function platformConnectionBlock(_isEdit: boolean, _bot?: BotConfig) {
 /** Entrega automática após comprovante aprovado (link e/ou mídias). */
 export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
   const link = bot?.deliveryLink ?? "";
+  const videoCallLink = bot?.videoCallLink ?? "";
   const urls = bot?.deliveryMediaUrls ?? [];
   const list =
     urls.length === 0
@@ -256,7 +257,11 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
       </div>
       <label class="field span-2">Link de entrega do produto
         <input name="deliveryLink" value="${escapeHtml(link)}" placeholder="https://drive.google.com/... ou link do canal/página VIP" />
-        <span class="form-hint">Ex: link do Google Drive, pasta, canal VIP ou página de acesso.</span>
+        <span class="form-hint">Pack/fotos — enviado após pagamento de pacote básico ou completo.</span>
+      </label>
+      <label class="field span-2">Link da chamada de vídeo
+        <input name="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="https://meet.google.com/... ou link da sala da chamada" />
+        <span class="form-hint">Usado quando o lead comprar <strong>chamada de vídeo</strong> — o bot avisa que manda em ~10 min e depois envia este link.</span>
       </label>
       ${list}
       <label class="field">

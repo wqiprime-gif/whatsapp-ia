@@ -14,6 +14,16 @@ export function isPlatformOwner(user?: { email?: string; username?: string }) {
   return false;
 }
 
+/** Dono da plataforma (menu Admin) — inclui deploy single-tenant com um único usuário. */
+export async function resolvePlatformOwnerAccess(userId: string): Promise<boolean> {
+  const { getUserById, listPlatformUsers } = await import("../db/users.js");
+  const full = await getUserById(userId);
+  if (!full) return false;
+  if (isPlatformOwner({ username: full.username, email: full.email })) return true;
+  const all = await listPlatformUsers();
+  return all.length === 1 && all[0]?.id === userId;
+}
+
 const settingsFile = path.join(env.DATA_DIR, "settings.json");
 
 export type AppSettings = {

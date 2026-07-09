@@ -110,7 +110,8 @@ export function waLinksPage(
   partial = false,
   userName = "Usuario",
   flash?: { message: string; ok: boolean },
-  waBots: WaBotForLinks[] = []
+  waBots: WaBotForLinks[] = [],
+  showAdminNav = false
 ) {
   const totalNumbers = links.reduce((n, l) => n + l.targets.length, 0);
   const totalClicks = links.reduce(
@@ -293,5 +294,5 @@ export function waLinksPage(
     })();
     </script>`;
 
-  return appLayout("Gerador de links", "links", body, partial, userName);
+  return appLayout("Gerador de links", "links", body, partial, userName, "", "", "", "", showAdminNav);
 }

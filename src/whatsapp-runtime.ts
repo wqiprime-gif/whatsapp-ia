@@ -276,6 +276,7 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         productName: bot.productName,
         productPriceCents: bot.productPriceCents,
         productDeliveryLink: bot.deliveryLink || "",
+        videoCallLink: bot.videoCallLink || "",
         paymentMethod: bot.paymentMethod,
         messageDelayMs: bot.messageDelayMs ?? 4000,
         followUpEnabled: bot.followUpEnabled !== false,

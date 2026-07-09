@@ -45,7 +45,7 @@ import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
 import { authenticateUser, createUser, deletePlatformUser, getUserById, listPlatformUsers, updateUserProfile } from "../db/users.js";
-import { isPlatformOwner } from "../lib/settings.js";
+import { isPlatformOwner, resolvePlatformOwnerAccess } from "../lib/settings.js";
 import { getNotificationPrefs, saveNotificationPrefs } from "../db/notification-prefs.js";
 import { encryptSecret } from "../lib/crypto.js";
 import {
@@ -109,13 +109,15 @@ async function rowsForUser<T extends Record<string, unknown>>(rows: T[], userId:
 
 async function panelUserMeta(userId: string) {
   const full = await getUserById(userId);
+  const showAdminNav = await resolvePlatformOwnerAccess(userId);
   return {
     label: panelUserLabel({
       name: full?.name ?? "",
       username: full?.username,
       email: full?.email
     }),
-    avatarUrl: full?.avatarUrl ?? ""
+    avatarUrl: full?.avatarUrl ?? "",
+    showAdminNav
   };
 }
 
@@ -296,6 +298,7 @@ const botFormFieldsSchema = z.object({
   productName: z.string().default("VIP"),
   productPrice: z.coerce.number().default(97),
   deliveryLink: z.string().default(""),
+  videoCallLink: z.string().default(""),
   waApiProvider: z.enum(["whatsapp_web", "meta_cloud"]).default("whatsapp_web"),
   proxyEnabled: z.enum(["true", "false"]).default("false"),
   proxyType: z.enum(["http", "https", "socks5", "socks5h"]).default("http"),
@@ -764,7 +767,8 @@ export async function registerPanelRoutes(
       user.id,
       meta.avatarUrl,
       user.email,
-      full?.name ?? ""
+      full?.name ?? "",
+      meta.showAdminNav
     );
     return reply.type("text/html").send(html);
   });
@@ -824,10 +828,7 @@ export async function registerPanelRoutes(
       label,
       avatarUrl: full?.avatarUrl ?? "",
       notificationPrefs,
-      isPlatformOwner: isPlatformOwner({
-        username: full?.username,
-        email: full?.email ?? user.email
-      })
+      isPlatformOwner: await resolvePlatformOwnerAccess(user.id)
     });
   });
 
@@ -970,7 +971,11 @@ export async function registerPanelRoutes(
   app.get("/leads", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const html = leadsPage(await rowsForUser(await listLeads(200), user.id), isPartial(request));
+    const html = leadsPage(
+      await rowsForUser(await listLeads(200), user.id),
+      isPartial(request),
+      await resolvePlatformOwnerAccess(user.id)
+    );
     return reply.type("text/html").send(html);
   });
 
@@ -1095,7 +1100,8 @@ export async function registerPanelRoutes(
       .parse(request.query);
     const bots = await loadBots(user.id);
     const botId = query.botId || bots[0]?.id || "";
-    const html = giftsPage(bots, botId, query.msg, query.t === "err", isPartial(request));
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
+    const html = giftsPage(bots, botId, query.msg, query.t === "err", isPartial(request), showAdminNav);
     return reply.type("text/html").send(html);
   });
 
@@ -1162,6 +1168,7 @@ export async function registerPanelRoutes(
     const leadCountNoPurchase =
       selectedBotIds.length > 0 ? (await listLeadsWithoutPurchase(selectedBotIds)).length : 0;
     const scheduled = await listScheduledCampaigns(user.id);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     const html = remarketingPage(
       bots,
       selectedBotIds,
@@ -1172,7 +1179,8 @@ export async function registerPanelRoutes(
       isPartial(request),
       audience,
       leadCountAll,
-      leadCountNoPurchase
+      leadCountNoPurchase,
+      showAdminNav
     );
     return reply.type("text/html").send(html);
   });
@@ -1312,7 +1320,11 @@ export async function registerPanelRoutes(
   app.get("/payments", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const html = paymentsPage(await rowsForUser(await listReceipts(80), user.id), isPartial(request));
+    const html = paymentsPage(
+      await rowsForUser(await listReceipts(80), user.id),
+      isPartial(request),
+      await resolvePlatformOwnerAccess(user.id)
+    );
     return reply.type("text/html").send(html);
   });
 
@@ -1338,7 +1350,8 @@ export async function registerPanelRoutes(
       query.msg,
       query.t === "err",
       isPartial(request),
-      meta.label
+      meta.label,
+      meta.showAdminNav
     );
     return reply.type("text/html").send(html);
   });
@@ -1414,11 +1427,13 @@ export async function registerPanelRoutes(
       await syncAllProductsFromBots(bots.map((b) => ({ id: b.id, prompt: b.prompt })));
       hooks.syncBots();
     }
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     const html = productsPage(
       bots,
       await rowsForUser(await listProducts(), user.id),
       query.msg,
-      isPartial(request)
+      isPartial(request),
+      showAdminNav
     );
     return reply.type("text/html").send(html);
   });
@@ -1470,7 +1485,11 @@ export async function registerPanelRoutes(
   app.get("/media", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
-    const html = mediaPage(await loadBots(user.id), isPartial(request));
+    const html = mediaPage(
+      await loadBots(user.id),
+      isPartial(request),
+      await resolvePlatformOwnerAccess(user.id)
+    );
     return reply.type("text/html").send(html);
   });
 
@@ -1484,9 +1503,10 @@ export async function registerPanelRoutes(
       .map((b) => ({ id: b.id, name: b.name, waPhoneNumber: b.waPhoneNumber?.trim() || "" }));
     const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
     const flash = query.msg ? { message: query.msg, ok: query.t !== "err" } : undefined;
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     return reply
       .type("text/html")
-      .send(waLinksPage(links, base, isPartial(request), panelUserLabel(user), flash, waBots));
+      .send(waLinksPage(links, base, isPartial(request), panelUserLabel(user), flash, waBots, showAdminNav));
   });
 
   app.post("/links", async (request, reply) => {
@@ -1597,10 +1617,11 @@ export async function registerPanelRoutes(
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     const bots = await loadBots(user.id);
     const statuses = await getWaLiveStatuses(bots);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     return reply
       .type("text/html")
       .send(
-        instancesPage(bots, query.msg, query.t === "err", isPartial(request), panelUserLabel(user), statuses)
+        instancesPage(bots, query.msg, query.t === "err", isPartial(request), panelUserLabel(user), statuses, showAdminNav)
       );
   });
 
@@ -1608,9 +1629,10 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     return reply
       .type("text/html")
-      .send(newInstancePage(query.msg, query.t === "err", isPartial(request), panelUserLabel(user)));
+      .send(newInstancePage(query.msg, query.t === "err", isPartial(request), panelUserLabel(user), showAdminNav));
   });
 
   app.get("/instances/:id/edit", async (request, reply) => {
@@ -1632,9 +1654,10 @@ export async function registerPanelRoutes(
     }
 
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
     return reply
       .type("text/html")
-      .send(editInstancePage(bot, query.msg, query.t === "err", isPartial(request), panelUserLabel(user)));
+      .send(editInstancePage(bot, query.msg, query.t === "err", isPartial(request), panelUserLabel(user), showAdminNav));
   });
 
   app.post("/instances/:id", async (request, reply) => {
@@ -1673,6 +1696,7 @@ export async function registerPanelRoutes(
           productName: body.productName,
           productPriceCents: Math.round(body.productPrice * 100),
           deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
+          videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
           backupToken: body.backupToken?.trim() || existing.backupToken,
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
@@ -1860,6 +1884,7 @@ export async function registerPanelRoutes(
               productName: body.productName,
               productPriceCents: Math.round(body.productPrice * 100),
               deliveryLink: body.deliveryLink?.trim() || "",
+              videoCallLink: body.videoCallLink?.trim() || "",
               backupToken: body.backupToken?.trim() || undefined,
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,

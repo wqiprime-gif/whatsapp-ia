@@ -41,7 +41,8 @@ export function giftsPage(
   selectedBotId: string,
   message = "",
   isError = false,
-  partial?: boolean
+  partial?: boolean,
+  showAdminNav = false
 ) {
   const bot = bots.find((b) => b.id === selectedBotId) ?? bots[0];
   const items = bot?.giftItems ?? [];
@@ -154,7 +155,7 @@ export function giftsPage(
     </div>
     <script>${giftBlocksScript(canSave)}</script>`;
 
-  return appLayout("Pedir presentes", "gifts", body, partial);
+  return appLayout("Pedir presentes", "gifts", body, partial, "Usuario", "", "", "", "", showAdminNav);
 }
 
 function giftBlocksScript(canSave: boolean) {

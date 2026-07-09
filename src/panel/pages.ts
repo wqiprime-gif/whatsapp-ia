@@ -4,10 +4,10 @@ import { sourceEmoji, sourceLabel } from "../lib/lead-source.js";
 import { alertHtml, appLayout, escapeHtml, type NavId } from "./layout.js";
 import { icons } from "./icons.js";
 
-function wrap(title: string, nav: NavId, body: string, partial?: boolean, subtitle = "") {
+function wrap(title: string, nav: NavId, body: string, partial?: boolean, subtitle = "", showAdminNav = false) {
   if (partial) return `${body}`;
   const shell = `<div class="page-shell">${body}</div>`;
-  return appLayout(title, nav, shell, false, "Usuario", subtitle);
+  return appLayout(title, nav, shell, false, "Usuario", subtitle, "", "", "", showAdminNav);
 }
 
 function formatMoney(cents: number) {
@@ -19,7 +19,7 @@ function formatDate(value: string | Date) {
   return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export function leadsPage(rows: Record<string, unknown>[], partial?: boolean) {
+export function leadsPage(rows: Record<string, unknown>[], partial?: boolean, showAdminNav = false) {
   const list =
     rows.length === 0
       ? `<div class="empty">Nenhum lead ainda. Quando alguem falar com o bot, aparece aqui.</div>`
@@ -41,10 +41,10 @@ export function leadsPage(rows: Record<string, unknown>[], partial?: boolean) {
       </tbody></table>`;
 
   const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.users} Leads (${rows.length})</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
-  return wrap("Leads", "leads", body, partial, "Todos os contatos do funil");
+  return wrap("Leads", "leads", body, partial, "Todos os contatos do funil", showAdminNav);
 }
 
-export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean) {
+export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean, showAdminNav = false) {
   const list =
     rows.length === 0
       ? `<div class="empty">Nenhum comprovante enviado ainda.</div>`
@@ -64,14 +64,15 @@ export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean)
       </tbody></table>`;
 
   const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.card} Comprovantes / Pagamentos</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
-  return wrap("Pagamentos", "payments", body, partial, "Comprovantes e aprovações");
+  return wrap("Pagamentos", "payments", body, partial, "Comprovantes e aprovações", showAdminNav);
 }
 
 export function productsPage(
   bots: BotConfig[],
   products: import("../db/events.js").Product[],
   message?: string,
-  partial?: boolean
+  partial?: boolean,
+  showAdminNav = false
 ) {
   const halfPriceCount = products.filter((p) => p.allowHalfPrice).length;
   const body = `
@@ -131,7 +132,7 @@ export function productsPage(
       </div>
     </div>`;
 
-  return wrap("Produtos", "products", body, partial, "Catálogo sincronizado com o prompt");
+  return wrap("Produtos", "products", body, partial, "Catálogo sincronizado com o prompt", showAdminNav);
 }
 
 function remarketingBlocksScript() {
@@ -304,7 +305,8 @@ export function remarketingPage(
   partial?: boolean,
   audience: "all" | "no_purchase" = "no_purchase",
   leadCountAll = 0,
-  leadCountNoPurchase = 0
+  leadCountNoPurchase = 0,
+  showAdminNav = false
 ) {
   const botNameById = new Map(bots.map((b) => [b.id, b.name]));
   const botChecks =
@@ -472,10 +474,10 @@ export function remarketingPage(
     </div>
     <script>${remarketingBlocksScript()}</script>`;
 
-  return wrap("Remarketing", "remarketing", body, partial, "Calendário e leads sem compra");
+  return wrap("Remarketing", "remarketing", body, partial, "Calendário e leads sem compra", showAdminNav);
 }
 
-export function mediaPage(bots: BotConfig[], partial?: boolean) {
+export function mediaPage(bots: BotConfig[], partial?: boolean, showAdminNav = false) {
   const items: { bot: string; type: string; url: string }[] = [];
   for (const bot of bots) {
     for (const url of bot.previewMediaUrls) {
@@ -502,7 +504,7 @@ export function mediaPage(bots: BotConfig[], partial?: boolean) {
       </tbody></table>`;
 
   const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.image} Midias (upload)</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
-  return wrap("Mídias", "media", body, partial, "Arquivos enviados pelo painel");
+  return wrap("Mídias", "media", body, partial, "Arquivos enviados pelo painel", showAdminNav);
 }
 
 export { salesChartSvgFromData, messagesChartSvgFromData, leadSourcesBarSvg } from "./charts.js";

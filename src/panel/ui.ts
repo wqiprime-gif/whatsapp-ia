@@ -351,7 +351,8 @@ export function dashboardPage(
   currentUserId = "",
   userAvatar = "",
   userEmail = "",
-  userDisplayName = ""
+  userDisplayName = "",
+  showAdminNav = false
 ) {
   const salesReais = (data.stats.salesTotalCents / 100).toFixed(2).replace(".", ",");
   const convRate =
@@ -557,7 +558,7 @@ export function dashboardPage(
     </script>
     <script>${sharkChartBootScript()}</script>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill, topbarGreeting);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill, topbarGreeting, showAdminNav);
 }
 
 export function profilePage(
@@ -567,7 +568,8 @@ export function profilePage(
   message = "",
   isError = false,
   partial = false,
-  userLabel = ""
+  userLabel = "",
+  showAdminNav = false
 ) {
   const memberSince = new Date(user.createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
   const rankLabel = stats.rank ? `#${stats.rank}` : "—";
@@ -740,7 +742,7 @@ export function profilePage(
     })();
     </script>`;
 
-  return appLayout("Minha conta", "profile", body, partial, userLabel || user.email, "Perfil e preferências", user.avatarUrl ?? "");
+  return appLayout("Minha conta", "profile", body, partial, userLabel || user.email, "Perfil e preferências", user.avatarUrl ?? "", "", "", showAdminNav);
 }
 
 export function instancesPage(
@@ -749,7 +751,8 @@ export function instancesPage(
   isError = false,
   partial = false,
   userName = "Usuario",
-  statuses: Record<string, WaLiveStatus> = {}
+  statuses: Record<string, WaLiveStatus> = {},
+  showAdminNav = false
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
@@ -760,14 +763,15 @@ export function instancesPage(
       <div class="card-body card-body--flush">${instancesTableHtml(bots, statuses)}</div>
     </div>`;
 
-  return appLayout("Instâncias", "instances", body, partial, userName);
+  return appLayout("Instâncias", "instances", body, partial, userName, "", "", "", "", showAdminNav);
 }
 
 export function newInstancePage(
   message = "",
   isError = false,
   partial = false,
-  userName = "Usuario"
+  userName = "Usuario",
+  showAdminNav = false
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
@@ -783,7 +787,7 @@ export function newInstancePage(
       ${botInstanceForm("new")}
     </div>`;
 
-  return appLayout("Nova Instância", "new", body, partial, userName, "Crie e configure um bot de vendas");
+  return appLayout("Nova Instância", "new", body, partial, userName, "Crie e configure um bot de vendas", "", "", "", showAdminNav);
 }
 
 export function editInstancePage(
@@ -791,7 +795,8 @@ export function editInstancePage(
   message = "",
   isError = false,
   partial = false,
-  userName = "Usuario"
+  userName = "Usuario",
+  showAdminNav = false
 ) {
   const body = `
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
@@ -807,7 +812,7 @@ export function editInstancePage(
       ${botInstanceForm("edit", bot)}
     </div>`;
 
-  return appLayout(`Editar ${bot.name}`, "instances", body, partial, userName, "Ajuste persona, vendas e integrações");
+  return appLayout(`Editar ${bot.name}`, "instances", body, partial, userName, "Ajuste persona, vendas e integrações", "", "", "", showAdminNav);
 }
 
 export function registerPage(message = "") {
