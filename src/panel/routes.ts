@@ -2101,6 +2101,40 @@ export async function registerPanelRoutes(
       );
   });
 
+  app.post("/admin/broadcast", async (request, reply) => {
+    const user = await requirePlatformOwner(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          title: z.string().min(2).max(80),
+          body: z.string().min(2).max(240)
+        })
+        .parse(request.body ?? {});
+      const { notifyAllUsersPush, isWebPushConfigured } = await import("../lib/web-push.js");
+      if (!isWebPushConfigured()) {
+        return reply.redirect(
+          flashRedirect("/admin/usuarios", "Configure VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY no Railway.", "err")
+        );
+      }
+      const result = await notifyAllUsersPush({
+        title: body.title.trim(),
+        body: body.body.trim(),
+        url: "/",
+        tag: `admin-broadcast-${Date.now()}`
+      });
+      return reply.redirect(
+        flashRedirect(
+          "/admin/usuarios",
+          `Aviso enviado: ${result.sent} dispositivo(s) · ${result.users} conta(s) com push.`
+        )
+      );
+    } catch (error) {
+      request.log.error(error);
+      return reply.redirect(flashRedirect("/admin/usuarios", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
   app.post("/admin/usuarios/:id/delete", async (request, reply) => {
     const user = await requirePlatformOwner(request, reply);
     if (!user) return;
@@ -2398,7 +2432,13 @@ export async function registerPanelRoutes(
     } catch {
       return reply.code(404).send("Arquivo nao encontrado.");
     }
-    return reply.type(mimeTypeFromPath(filePath)).send(fsSync.createReadStream(filePath));
+    const mime = mimeTypeFromPath(filePath);
+    reply.header("Accept-Ranges", "bytes");
+    reply.header("Cache-Control", "public, max-age=3600");
+    if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+      reply.header("Content-Disposition", "inline");
+    }
+    return reply.type(mime).send(fsSync.createReadStream(filePath));
   });
 
   app.get("/seed-audios/:file", async (request, reply) => {

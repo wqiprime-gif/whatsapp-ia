@@ -16,7 +16,9 @@ const COPY = {
     accept: "Atender",
     ended: "Chamada encerrada",
     invalid: "Este link de chamada não está mais disponível.",
-    videoEnded: "Chamada finalizada"
+    videoEnded: "Chamada finalizada",
+    videoError: "Não foi possível carregar o vídeo. Tente de novo.",
+    loading: "Conectando..."
   },
   "en-US": {
     ringing: (name: string) => `${name} is calling you...`,
@@ -24,7 +26,9 @@ const COPY = {
     accept: "Accept",
     ended: "Call ended",
     invalid: "This call link is no longer available.",
-    videoEnded: "Call finished"
+    videoEnded: "Call finished",
+    videoError: "Could not load the video. Please try again.",
+    loading: "Connecting..."
   }
 } as const;
 
@@ -75,7 +79,7 @@ export function renderCallPage(session: CallPageSession) {
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
     .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 24px max(32px,env(safe-area-inset-bottom))}
-    .screen--hidden{display:none}
+    .screen--hidden{display:none !important}
     .avatar{width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.15);box-shadow:0 0 40px rgba(10,92,255,.35)}
     .name{margin-top:20px;font-size:1.35rem;font-weight:600}
     .status{margin-top:8px;font-size:1rem;opacity:.75}
@@ -86,9 +90,10 @@ export function renderCallPage(session: CallPageSession) {
     .btn--accept{background:#34c759;box-shadow:0 8px 24px rgba(52,199,89,.35)}
     .pulse{animation:pulse 1.2s ease-in-out infinite}
     @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
-    #video-screen{background:#000}
-    #call-video{width:100%;height:100%;object-fit:cover;background:#000}
-    .video-ended{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);font-size:1.1rem}
+    #video-screen{background:#000;padding:0}
+    #call-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+    .video-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);font-size:1.1rem;text-align:center;padding:24px;z-index:2}
+    .video-overlay.hidden{display:none !important}
   </style>
 </head>
 <body>
@@ -102,8 +107,10 @@ export function renderCallPage(session: CallPageSession) {
     </div>
   </div>
   <div id="video-screen" class="screen screen--hidden">
-    <video id="call-video" playsinline webkit-playsinline preload="auto" src="${videoUrl}"></video>
-    <div id="video-ended" class="video-ended screen--hidden">${escapeHtml(copy.videoEnded)}</div>
+    <video id="call-video" playsinline webkit-playsinline preload="auto" controlsList="nodownload"></video>
+    <div id="video-loading" class="video-overlay">${escapeHtml(copy.loading)}</div>
+    <div id="video-ended" class="video-overlay hidden">${escapeHtml(copy.videoEnded)}</div>
+    <div id="video-error" class="video-overlay hidden">${escapeHtml(copy.videoError)}</div>
   </div>
   <audio id="ringtone" loop preload="auto">
     <source src="/call-assets/ringtone.mp3" type="audio/mpeg" />
@@ -111,11 +118,15 @@ export function renderCallPage(session: CallPageSession) {
   <script>
   (function(){
     var token = ${JSON.stringify(token)};
+    var videoSrc = ${JSON.stringify(session.videoUrl || "")};
     var ringing = document.getElementById("ringing-screen");
     var videoScreen = document.getElementById("video-screen");
     var video = document.getElementById("call-video");
     var ringtone = document.getElementById("ringtone");
     var ended = document.getElementById("video-ended");
+    var loading = document.getElementById("video-loading");
+    var errEl = document.getElementById("video-error");
+    var started = false;
 
     function vibrate(){ try{ if(navigator.vibrate) navigator.vibrate([400,200,400,200,400]); }catch(_){} }
     function playRing(){
@@ -123,30 +134,58 @@ export function renderCallPage(session: CallPageSession) {
       if(ringtone){ ringtone.volume = 0.85; ringtone.play().catch(function(){}); }
     }
     function stopRing(){ if(ringtone){ ringtone.pause(); ringtone.currentTime = 0; } }
+    function hide(el){ if(el) el.classList.add("hidden"); }
+    function show(el){ if(el) el.classList.remove("hidden"); }
 
     playRing();
 
     document.getElementById("btn-decline").addEventListener("click", function(){
       stopRing();
-      fetch("/call/" + token + "/decline", { method: "POST" }).catch(function(){});
+      fetch("/call/" + encodeURIComponent(token) + "/decline", { method: "POST" }).catch(function(){});
       ringing.innerHTML = "<p style=\\"opacity:.8;padding:24px\\">${escapeHtml(copy.ended)}</p>";
     });
 
     document.getElementById("btn-accept").addEventListener("click", function(){
       stopRing();
-      fetch("/call/" + token + "/accept", { method: "POST" }).catch(function(){});
+      fetch("/call/" + encodeURIComponent(token) + "/accept", { method: "POST" }).catch(function(){});
       ringing.classList.add("screen--hidden");
       videoScreen.classList.remove("screen--hidden");
-      video.muted = false;
-      video.play().catch(function(){
-        video.muted = true;
-        video.play().catch(function(){});
-      });
+      hide(ended);
+      hide(errEl);
+      show(loading);
+      if(!videoSrc){
+        hide(loading);
+        show(errEl);
+        return;
+      }
+      video.src = videoSrc;
+      video.load();
+      var tryPlay = function(){
+        video.muted = false;
+        var p = video.play();
+        if(p && p.then){
+          p.then(function(){ hide(loading); started = true; }).catch(function(){
+            video.muted = true;
+            video.play().then(function(){ hide(loading); started = true; }).catch(function(){
+              hide(loading);
+              show(errEl);
+            });
+          });
+        }
+      };
+      if(video.readyState >= 2) tryPlay();
+      else video.addEventListener("loadeddata", tryPlay, { once: true });
     });
 
     if(video){
+      video.addEventListener("playing", function(){ hide(loading); started = true; });
       video.addEventListener("ended", function(){
-        ended.classList.remove("screen--hidden");
+        if(!started) return;
+        show(ended);
+      });
+      video.addEventListener("error", function(){
+        hide(loading);
+        show(errEl);
       });
     }
   })();

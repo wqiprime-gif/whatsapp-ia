@@ -91,6 +91,25 @@ export function adminUsersPage(
           <div class="shark-kpi-value">${warmingTotal}</div>
         </div>
       </div>
+      <div class="card card-premium" style="margin-bottom:16px">
+        <div class="card-head">
+          <h3>${icons.bell} Aviso para todos os clientes</h3>
+          <p class="form-hint" style="margin:0">Envia notificação push no celular/PWA de quem instalou o app e aceitou notificações.</p>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/admin/broadcast" class="form-grid" style="gap:12px">
+            <label class="field span-2">Título
+              <input name="title" required maxlength="80" placeholder="Ex: Atualização do OnlyChat" />
+            </label>
+            <label class="field span-2">Mensagem
+              <textarea name="body" required maxlength="240" rows="3" placeholder="Ex: Vamos atualizar o sistema hoje às 22h. Pode ficar offline por alguns minutos."></textarea>
+            </label>
+            <div class="form-actions-bar" style="margin:0">
+              <button type="submit" class="btn btn-primary">Enviar notificação para todos</button>
+            </div>
+          </form>
+        </div>
+      </div>
       <div class="card card-premium">
         <div class="card-head">
           <h3>${icons.crown} Usuários da plataforma</h3>

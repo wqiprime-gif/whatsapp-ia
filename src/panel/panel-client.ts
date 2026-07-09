@@ -283,12 +283,18 @@ export const panelClientScript = `
     genBtn.addEventListener("click", async function () {
       genBtn.disabled = true;
       const prev = genBtn.textContent;
-      genBtn.textContent = "Gerando...";
+      let elapsed = 0;
+      genBtn.textContent = "Gerando... 0s";
+      const timer = setInterval(function () {
+        elapsed += 1;
+        genBtn.textContent = "Gerando... " + elapsed + "s";
+      }, 1000);
       try {
         const botId = box.getAttribute("data-bot-id") || "";
         const caller = (document.querySelector('input[name="videoCallCallerName"]') || {}).value || "";
         const locale = (document.querySelector('select[name="locale"]') || {}).value || "pt-BR";
         let videoUrl = "";
+        showToast("Gerando link", "Enviando vídeo e montando a chamada...", "daily", true);
         try {
           videoUrl = await uploadSelectedVideo();
         } catch (err) {
@@ -316,10 +322,11 @@ export const panelClientScript = `
           return;
         }
         setLink(data.url);
-        showToast("Link pronto!", "Copie e abra no celular para testar a chamada.", "sale", true);
+        showToast("Link pronto! (" + elapsed + "s)", "Copie e abra no celular para testar a chamada.", "sale", true);
       } catch (_) {
         showToast("Erro", "Falha ao gerar o link da chamada.", "daily", true);
       } finally {
+        clearInterval(timer);
         genBtn.disabled = false;
         genBtn.textContent = prev;
       }
@@ -1031,15 +1038,48 @@ export const panelClientScript = `
   }
 
   if (bellBtn && bellMenu) {
+    updateBellMenu(loadExtraBell());
     bellBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      const opening = !bellMenu.classList.contains("open");
       bellMenu.classList.toggle("open");
+      if (opening) {
+        const current = filterBellItems(loadExtraBell().concat(lastBellItems));
+        if (current.length === 0) {
+          updateBellMenu([]);
+          fetchBellFeed();
+        } else {
+          updateBellMenu(current);
+        }
+      }
     });
     document.addEventListener("click", (e) => {
       if (bellMenu.contains(e.target) || bellBtn.contains(e.target)) return;
       bellMenu.classList.remove("open");
     });
   }
+
+  async function fetchBellFeed() {
+    try {
+      const res = await fetch("/api/panel/live?period=hoje", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.bellItems && data.bellItems.length) {
+        lastBellItems = data.bellItems;
+        updateBellMenu(loadExtraBell().concat(lastBellItems).slice(0, 12));
+      } else if (data.bellSales && data.bellSales.length) {
+        lastBellItems = data.bellSales.map(function (s) { return Object.assign({ kind: "sale" }, s); });
+        updateBellMenu(loadExtraBell().concat(lastBellItems).slice(0, 12));
+      } else {
+        updateBellMenu(loadExtraBell());
+      }
+    } catch (_) {
+      updateBellMenu(loadExtraBell());
+    }
+  }
+
+  // Carrega sino em qualquer página (não só na dashboard)
+  fetchBellFeed();
 
   if (Notification && Notification.permission === "default" && canDesktopNotify()) {
     ensureServiceWorker().then(() =>

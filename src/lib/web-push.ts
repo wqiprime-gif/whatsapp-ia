@@ -161,6 +161,33 @@ export async function notifyUserPush(
   return { sent, failed };
 }
 
+export async function notifyAllUsersPush(payload: {
+  title: string;
+  body: string;
+  url?: string;
+  tag?: string;
+}) {
+  if (!ensureVapid()) return { users: 0, sent: 0, failed: 0 };
+  let userIds: string[] = [];
+  if (useDatabase()) {
+    const { rows } = await getPool().query<{ user_id: string }>(
+      `SELECT DISTINCT user_id FROM push_subscriptions`
+    );
+    userIds = rows.map((r) => String(r.user_id));
+  } else {
+    const store = await loadFile();
+    userIds = [...new Set(store.subscriptions.map((s) => s.userId))];
+  }
+  let sent = 0;
+  let failed = 0;
+  for (const userId of userIds) {
+    const result = await notifyUserPush(userId, payload);
+    sent += result.sent;
+    failed += result.failed;
+  }
+  return { users: userIds.length, sent, failed };
+}
+
 export async function sendTestPush(userId: string) {
   return notifyUserPush(userId, {
     title: "OnlyChat — teste OK",

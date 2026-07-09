@@ -1824,7 +1824,8 @@ button, input, textarea, select { font-family: inherit; }
 }
 .bell-menu {
   display: none; position: absolute; top: calc(100% + 8px); right: 0;
-  width: min(320px, 90vw); max-height: 360px; overflow-y: auto;
+  width: min(340px, 92vw); max-height: 420px; overflow-y: auto;
+  min-height: 120px;
   background: var(--card-solid);
   border: 1px solid var(--border-hi);
   border-radius: var(--radius);
@@ -1834,11 +1835,11 @@ button, input, textarea, select { font-family: inherit; }
 .bell-menu.open { display: block; }
 .bell-menu-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; background: var(--card-solid); z-index: 1;
 }
 .bell-menu-head strong { font-size: 0.85rem; color: var(--text); }
-.bell-empty { padding: 16px 14px; color: var(--muted); font-size: 0.82rem; }
+.bell-empty { padding: 20px 14px; color: var(--muted); font-size: 0.82rem; line-height: 1.4; }
 .bell-item {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px; border-bottom: 1px solid var(--border);
