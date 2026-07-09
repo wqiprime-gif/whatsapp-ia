@@ -115,6 +115,112 @@ async function backfillUsernames() {
   if (changed) await saveFileUsers(users);
 }
 
+async function syncPlatformOwnerAccount() {
+  const adminUsername = normalizeUsername(env.ADMIN_USERNAME || "admin");
+  const adminEmail = (env.ADMIN_EMAIL || "admin@botmanager.local").trim().toLowerCase();
+  const passwordHash = hashPassword(env.PANEL_PASSWORD);
+  const adminName = env.ADMIN_NAME || "Administrador";
+
+  const resolveOwnerRow = async (): Promise<UserRow | null> => {
+    let row = await findUserByUsername(adminUsername);
+    if (row) return row;
+
+    row = await findUserByEmail(adminEmail);
+    if (row) return row;
+
+    if (useDatabase()) {
+      const { rows } = await getPool().query<UserRow>(
+        `SELECT id, username, email, password_hash, name, created_at FROM panel_users ORDER BY created_at ASC`
+      );
+      const owner = rows.find((r) => isPlatformOwner({ username: r.username, email: r.email }));
+      if (owner) return owner;
+      if (rows.length === 1) return rows[0];
+      return null;
+    }
+
+    const users = await loadFileUsers();
+    const owner = users.find((u) => isPlatformOwner({ username: u.username, email: u.email }));
+    if (owner) {
+      return {
+        id: owner.id,
+        username: owner.username,
+        email: owner.email,
+        password_hash: owner.passwordHash,
+        name: owner.name,
+        created_at: owner.createdAt
+      };
+    }
+    if (users.length === 1) {
+      const only = users[0];
+      return {
+        id: only.id,
+        username: only.username,
+        email: only.email,
+        password_hash: only.passwordHash,
+        name: only.name,
+        created_at: only.createdAt
+      };
+    }
+    return null;
+  };
+
+  if (useDatabase()) {
+    const db = getPool();
+    const row = await resolveOwnerRow();
+    if (!row) {
+      await createUser({
+        username: adminUsername,
+        email: adminEmail,
+        password: env.PANEL_PASSWORD,
+        name: adminName
+      });
+      console.log(`[db] Conta admin criada: ${adminUsername}`);
+      return;
+    }
+
+    await db.query(
+      `UPDATE panel_users
+       SET username = $1 || '_' || LEFT(REPLACE(id::text, '-', ''), 4)
+       WHERE LOWER(username) = LOWER($2) AND id <> $3`,
+      [adminUsername, adminUsername, row.id]
+    );
+
+    await db.query(`UPDATE panel_users SET username = $1, password_hash = $2, name = $3 WHERE id = $4`, [
+      adminUsername,
+      passwordHash,
+      adminName,
+      row.id
+    ]);
+    console.log(`[db] Admin sincronizado: usuario="${adminUsername}" (senha = PANEL_PASSWORD)`);
+    return;
+  }
+
+  const users = await loadFileUsers();
+  const row = await resolveOwnerRow();
+  if (!row) {
+    await createUser({
+      username: adminUsername,
+      email: adminEmail,
+      password: env.PANEL_PASSWORD,
+      name: adminName
+    });
+    console.log(`[db] Conta admin local criada: ${adminUsername}`);
+    return;
+  }
+
+  for (const user of users) {
+    if (user.id === row.id) {
+      user.username = adminUsername;
+      user.passwordHash = passwordHash;
+      user.name = adminName;
+    } else if (normalizeUsername(user.username) === adminUsername) {
+      user.username = `${adminUsername}_${user.id.slice(0, 4)}`;
+    }
+  }
+  await saveFileUsers(users);
+  console.log(`[db] Admin local sincronizado: usuario="${adminUsername}" (senha = PANEL_PASSWORD)`);
+}
+
 export async function initUsersSchema() {
   if (useDatabase()) {
     const db = getPool();
@@ -159,6 +265,7 @@ export async function initUsersSchema() {
     }
 
     await backfillUsernames();
+    await syncPlatformOwnerAccount();
 
     await db.query(`
       UPDATE bots SET user_id = (SELECT id FROM panel_users ORDER BY created_at ASC LIMIT 1)
@@ -185,6 +292,7 @@ export async function initUsersSchema() {
   } else {
     await backfillUsernames();
   }
+  await syncPlatformOwnerAccount();
 }
 
 /** Contas criadas em modo arquivo (users.json no volume) antes do Postgres. */

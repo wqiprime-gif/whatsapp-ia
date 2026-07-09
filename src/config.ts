@@ -40,8 +40,27 @@ const envSchema = z.object({
   PUBLIC_BASE_URL: z.string().default("")
 });
 
+function stripEnvQuotes(value: string) {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function cleanProcessEnv() {
+  const cleaned: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === "string") cleaned[key] = stripEnvQuotes(value);
+  }
+  return cleaned;
+}
+
 function loadEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse(cleanProcessEnv());
   if (parsed.success) {
     const data = parsed.data;
     const databaseUrl = (data.DATABASE_URL || data.DATABASE_PUBLIC_URL || "").trim();
