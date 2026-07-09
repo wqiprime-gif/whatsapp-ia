@@ -82,6 +82,18 @@ if (!fs.existsSync(instancesDataDir)) fs.mkdirSync(instancesDataDir, { recursive
 const qrFilePath = path.join(instancesDataDir, 'qr.json');
 const statusFilePath = path.join(instancesDataDir, 'status.json');
 const errorFilePath = path.join(instancesDataDir, 'error.txt');
+const warmingFilePath = path.join(instancesDataDir, 'warming.json');
+let chipWarmingMode = false;
+
+function loadChipWarmingMode() {
+  try {
+    const data = JSON.parse(fs.readFileSync(warmingFilePath, 'utf8'));
+    chipWarmingMode = Boolean(data.active);
+  } catch (_) {
+    chipWarmingMode = false;
+  }
+}
+loadChipWarmingMode();
 let connectionState = 'starting';
 let lastErrorMessage = '';
 
@@ -2494,6 +2506,10 @@ client.on("message", async (message) => {
     return;
   }
 
+  if (chipWarmingMode) {
+    return;
+  }
+
   const chat = await message.getChat();
   if (message.from.includes('@g.us') || message.from.includes('@broadcast') || chat.archived) {
     return;
@@ -3339,6 +3355,15 @@ app.get('/api/groups', async (_req, res) => {
   }
 });
 
+app.post('/api/warming-mode', (req, res) => {
+  chipWarmingMode = Boolean(req.body?.active);
+  try {
+    fs.writeFileSync(warmingFilePath, JSON.stringify({ active: chipWarmingMode, at: Date.now() }));
+  } catch (_) {}
+  console.log(chipWarmingMode ? '🔥 Modo maturação ATIVO — IA pausada' : '✅ Modo maturação OFF — IA liberada');
+  return res.json({ ok: true, active: chipWarmingMode });
+});
+
 app.post('/api/warm/send', async (req, res) => {
   const connected = connectionState === 'ready' || connectionState === 'authenticated';
   if (!connected) {
@@ -3420,8 +3445,8 @@ server.listen(port, function() {
   console.log(`🌐 URL: http://localhost:${port}`);
   console.log('⏳ Conectando ao WhatsApp...\n');
 
-  // Carregar prompt customizado
   loadCustomPrompt();
+  loadChipWarmingMode();
 });
 
 const clientSockets = {};

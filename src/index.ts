@@ -146,6 +146,9 @@ console.log("[startup] Painel:", `${localBase}/login`);
 console.log("[startup] Health:", `${localBase}/health`);
 
 void ensureBots().catch((error) => console.error("Erro ao iniciar instâncias WhatsApp:", error));
+void import("./lib/maturation-sync.js")
+  .then((m) => m.syncAllMaturationModes())
+  .catch((error) => console.error("[maturador] sync inicial:", error));
 
 const { processDueScheduledCampaigns } = await import("./lib/scheduled-campaigns.js");
 setInterval(() => {

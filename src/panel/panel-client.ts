@@ -8,7 +8,7 @@ export const panelClientScript = `
   const NAV_PATHS = [
     ["/", "Dashboard"],
     ["/instances", "Instâncias"],
-    ["/aquecimento", "Aquecimento"],
+    ["/maturador", "Maturador"],
     ["/links", "Gerar links"],
     ["/leads", "Leads"],
     ["/remarketing", "Remarketing"],
@@ -22,6 +22,7 @@ export const panelClientScript = `
   ];
 
   const LS_LAST_SALE = "panelLastSaleId";
+  const LS_SALE_INIT = "panelSaleInitDone";
   const LS_BELL_SEEN = "panelBellSeenAt";
   const LS_AVATAR = "panelAvatarUrl";
   const LS_AVATAR_PREVIEW = "panelAvatarPreview";
@@ -80,22 +81,26 @@ export const panelClientScript = `
 
   async function pushSystemNotify(title, body, tag, url) {
     try {
-      await ensureServiceWorker();
-      const reg = await navigator.serviceWorker.ready;
-      if (reg && reg.active) {
-        reg.active.postMessage({
-          type: "SHOW_NOTIFICATION",
-          title: title,
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      const reg = await ensureServiceWorker();
+      if (reg && Notification.permission === "granted") {
+        await reg.showNotification(title, {
           body: body,
-          tag: tag || "zapmanager",
-          url: url || "/"
+          tag: tag || "onlychat",
+          icon: "/brand/onlychat.png",
+          badge: "/brand/onlychat.png",
+          vibrate: [200, 100, 200],
+          renotify: true,
+          data: { url: url || "/" }
         });
         return true;
       }
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/onlychat.svg" });
+        new Notification(title, { body: body, icon: "/brand/onlychat.png" });
         return true;
       } catch (_) {}
     }
@@ -740,14 +745,15 @@ export const panelClientScript = `
   function handleLatestSale(latest) {
     if (!latest || !latest.id) return;
     const prev = localStorage.getItem(LS_LAST_SALE);
+    const initDone = sessionStorage.getItem(LS_SALE_INIT);
+    if (!initDone) {
+      sessionStorage.setItem(LS_SALE_INIT, "1");
+      localStorage.setItem(LS_LAST_SALE, latest.id);
+      return;
+    }
     if (prev !== latest.id) {
-      if (prev) {
-        showSalePopup(latest);
-        if (bellBadge) {
-          bellBadge.style.display = "flex";
-          bellBadge.textContent = "!";
-        }
-      }
+      showSalePopup(latest);
+      pushBellBadge();
       localStorage.setItem(LS_LAST_SALE, latest.id);
     }
   }
@@ -779,6 +785,11 @@ export const panelClientScript = `
   if (Notification && Notification.permission === "default" && canDesktopNotify()) {
     ensureServiceWorker().then(() => Notification.requestPermission().catch(() => {}));
   }
+  setTimeout(function () {
+    if (canDesktopNotify() && typeof Notification !== "undefined" && Notification.permission === "default") {
+      ensureServiceWorker().then(() => Notification.requestPermission().catch(() => {}));
+    }
+  }, 2500);
 
   function updateBellMenu(items) {
     if (!bellMenu) return;
@@ -821,6 +832,15 @@ export const panelClientScript = `
         if (liveNotificationsReady && item.kind === "lead" && canNotify("lead")) {
           showToast("Nova conversa", item.subtitle, "lead");
           desktopNotify("Nova conversa", item.subtitle, "lead");
+        }
+        if (liveNotificationsReady && item.kind === "sale" && canNotify("sale")) {
+          showToast("Venda confirmada!", item.subtitle, "sale");
+          desktopNotify("Venda confirmada!", item.subtitle, "sale");
+          pushBellBadge();
+        }
+        if (liveNotificationsReady && item.kind === "receipt" && canNotify("sale")) {
+          showToast("Pagamento confirmado", item.subtitle, "receipt");
+          desktopNotify("Pagamento confirmado", item.subtitle, "receipt");
         }
       }
       lastBellItems = data.bellItems;
@@ -1062,9 +1082,9 @@ export const panelClientScript = `
     });
   }
   checkNewSales();
+  setInterval(checkNewSales, 3000);
   setInterval(() => {
     if (document.hidden) return;
-    checkNewSales();
     if (location.pathname !== "/") return;
     refreshLive(true);
   }, 1500);

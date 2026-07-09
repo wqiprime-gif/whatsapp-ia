@@ -434,6 +434,13 @@ async function spawnWebBot(bot: BotConfig, port: number) {
   });
 
   processes.set(bot.id, { child, port, botId: bot.id });
+  try {
+    const { getActiveMaturationBotIds } = await import("./lib/maturation-sync.js");
+    const warming = await getActiveMaturationBotIds();
+    await setBotChipWarmingMode(bot.id, warming.has(bot.id));
+  } catch {
+    // ignore
+  }
   const proxyNote = bot.proxyEnabled ? " · proxy isolado" : "";
   const clientId = waClientIdForBot(bot.id);
   const sessionDir = path.join(authDir, `session-${clientId}`);
@@ -898,6 +905,28 @@ export async function sendWarmAction(input: WarmActionInput) {
       detail = await response.text().catch(() => "");
     }
     throw new Error(detail || `Falha no aquecimento (HTTP ${response.status})`);
+  }
+}
+
+export async function setBotChipWarmingMode(botId: string, active: boolean) {
+  const instDir = instanceDataDir(botId);
+  await fs.mkdir(instDir, { recursive: true });
+  await fs.writeFile(
+    path.join(instDir, "warming.json"),
+    JSON.stringify({ active, at: Date.now() }),
+    "utf8"
+  );
+  const proc = processes.get(botId);
+  if (!proc) return;
+  try {
+    await fetch(`http://127.0.0.1:${proc.port}/api/warming-mode`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ active }),
+      signal: AbortSignal.timeout(8000)
+    });
+  } catch {
+    // processo pode estar subindo
   }
 }
 

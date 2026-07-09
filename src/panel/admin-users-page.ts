@@ -35,7 +35,7 @@ export function adminUsersPage(
             <th>Usuário</th>
             <th>Login</th>
             <th>Instâncias</th>
-            <th>Aquecendo</th>
+            <th>Maturando</th>
             <th>Cadastro</th>
             <th></th>
           </tr>
@@ -87,14 +87,14 @@ export function adminUsersPage(
           <div class="shark-kpi-value">${withBots}</div>
         </div>
         <div class="shark-kpi-card shark-card dash-glow-card">
-          <div class="shark-kpi-head"><span class="shark-kpi-label">Chips aquecendo</span>${icons.zap}</div>
+          <div class="shark-kpi-head"><span class="shark-kpi-label">Chips maturando</span>${icons.flame}</div>
           <div class="shark-kpi-value">${warmingTotal}</div>
         </div>
       </div>
       <div class="card card-premium">
         <div class="card-head">
           <h3>${icons.crown} Usuários da plataforma</h3>
-          <p class="form-hint" style="margin:0">Gerencie contas cadastradas. Excluir remove instâncias, bots e dados do usuário. <a href="/admin/aquecimento">Ver aquecimento global</a></p>
+          <p class="form-hint" style="margin:0">Gerencie contas cadastradas. Excluir remove instâncias, bots e dados do usuário. <a href="/admin/maturador">Ver maturador global</a></p>
         </div>
         <div class="card-body card-body--flush">${rows}</div>
       </div>

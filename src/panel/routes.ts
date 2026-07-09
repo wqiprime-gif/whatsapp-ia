@@ -1785,7 +1785,8 @@ export async function registerPanelRoutes(
     }
   });
 
-  app.get("/admin/aquecimento", async (request, reply) => {
+  app.get("/admin/aquecimento", async (request, reply) => reply.redirect("/admin/maturador"));
+  app.get("/admin/maturador", async (request, reply) => {
     const user = await requirePlatformOwner(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
@@ -1813,7 +1814,14 @@ export async function registerPanelRoutes(
     );
   });
 
-  app.get("/aquecimento", async (request, reply) => {
+  app.get("/aquecimento", async (_request, reply) => reply.redirect("/maturador"));
+  app.get("/aquecimento/novo", async (_request, reply) => reply.redirect("/maturador/novo"));
+  app.get("/aquecimento/sessao/:id", async (request, reply) => {
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    return reply.redirect(`/maturador/sessao/${params.id}`);
+  });
+
+  app.get("/maturador", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
@@ -1840,7 +1848,7 @@ export async function registerPanelRoutes(
     );
   });
 
-  app.get("/aquecimento/novo", async (request, reply) => {
+  app.get("/maturador/novo", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
@@ -1867,13 +1875,13 @@ export async function registerPanelRoutes(
     );
   });
 
-  app.get("/aquecimento/sessao/:id", async (request, reply) => {
+  app.get("/maturador/sessao/:id", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
     const session = await getWarmSession(params.id, user.id);
-    if (!session) return reply.redirect(flashRedirect("/aquecimento", "Sessão não encontrada.", "err"));
+    if (!session) return reply.redirect(flashRedirect("/maturador", "Sessão não encontrada.", "err"));
     const meta = await panelUserMeta(user.id);
     const bots = await loadBots(user.id);
     const scores = await getBotWarmScores(user.id, session.botIds);
@@ -1893,7 +1901,7 @@ export async function registerPanelRoutes(
     );
   });
 
-  app.post("/aquecimento/sessao/criar", async (request, reply) => {
+  app.post("/maturador/sessao/criar", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
@@ -1903,7 +1911,10 @@ export async function registerPanelRoutes(
           mode: z.enum(["groups", "p2p"]).default("groups"),
           botIds: z.union([z.string(), z.array(z.string())]),
           groupIds: z.string().optional(),
-          groupsMeta: z.string().optional()
+          groupsMeta: z.string().optional(),
+          totalDays: z.coerce.number().optional(),
+          activeHourStart: z.coerce.number().optional(),
+          activeHourEnd: z.coerce.number().optional()
         })
         .parse(request.body ?? {});
       const botIds = Array.isArray(body.botIds) ? body.botIds : [body.botIds];
@@ -1923,47 +1934,56 @@ export async function registerPanelRoutes(
         mode: body.mode,
         botIds,
         groupIds,
-        groupsMeta
+        groupsMeta,
+        totalDays: body.totalDays,
+        activeHourStart: body.activeHourStart,
+        activeHourEnd: body.activeHourEnd
       });
-      return reply.redirect(flashRedirect(`/aquecimento/sessao/${session.id}`, "Aquecimento ativado!"));
+      hooks.syncBots();
+      return reply.redirect(
+        flashRedirect(`/maturador/sessao/${session.id}`, "Maturador ativado! IA pausada — ative manualmente ao encerrar.")
+      );
     } catch (error) {
-      return reply.redirect(flashRedirect("/aquecimento/novo", `Erro: ${errorMessage(error)}`, "err"));
+      return reply.redirect(flashRedirect("/maturador/novo", `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 
-  app.post("/aquecimento/sessao/:id/pausar", async (request, reply) => {
+  app.post("/aquecimento/sessao/criar", async (_request, reply) => reply.redirect("/maturador/novo"));
+
+  app.post("/maturador/sessao/:id/pausar", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);
       await setWarmSessionStatus(params.id, user.id, "paused");
-      return reply.redirect(flashRedirect(`/aquecimento/sessao/${params.id}`, "Sessão pausada."));
+      return reply.redirect(flashRedirect(`/maturador/sessao/${params.id}`, "Sessão pausada."));
     } catch (error) {
-      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+      return reply.redirect(flashRedirect("/maturador", `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 
-  app.post("/aquecimento/sessao/:id/retomar", async (request, reply) => {
+  app.post("/maturador/sessao/:id/retomar", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);
       await setWarmSessionStatus(params.id, user.id, "active");
-      return reply.redirect(flashRedirect(`/aquecimento/sessao/${params.id}`, "Sessão retomada."));
+      return reply.redirect(flashRedirect(`/maturador/sessao/${params.id}`, "Sessão retomada."));
     } catch (error) {
-      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+      return reply.redirect(flashRedirect("/maturador", `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 
-  app.post("/aquecimento/sessao/:id/encerrar", async (request, reply) => {
+  app.post("/maturador/sessao/:id/encerrar", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);
       await setWarmSessionStatus(params.id, user.id, "completed");
-      return reply.redirect(flashRedirect("/aquecimento", "Sessão encerrada."));
+      hooks.syncBots();
+      return reply.redirect(flashRedirect("/maturador", "Maturação encerrada. Ative a IA na instância para vender."));
     } catch (error) {
-      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+      return reply.redirect(flashRedirect("/maturador", `Erro: ${errorMessage(error)}`, "err"));
     }
   });
 

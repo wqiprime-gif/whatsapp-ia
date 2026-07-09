@@ -32,6 +32,9 @@ export type WarmSession = {
   status: WarmSessionStatus;
   mode: WarmMode;
   dayIndex: number;
+  totalDays: number;
+  activeHourStart: number;
+  activeHourEnd: number;
   startedAt: string;
   botIds: string[];
   groupIds: string[];
@@ -82,14 +85,24 @@ async function loadFile(): Promise<FileStore> {
   try {
     const raw = await fs.readFile(storeFile, "utf8");
     const data = JSON.parse(raw) as Partial<FileStore>;
+    const sessions = (data.sessions ?? []).map((s) => normalizeSession(s as WarmSession));
     return {
-      sessions: data.sessions ?? [],
+      sessions,
       scores: data.scores ?? [],
       groupCache: data.groupCache ?? []
     };
   } catch {
     return { sessions: [], scores: [], groupCache: [] };
   }
+}
+
+function normalizeSession(s: WarmSession): WarmSession {
+  return {
+    ...s,
+    totalDays: s.totalDays ?? 10,
+    activeHourStart: s.activeHourStart ?? 10,
+    activeHourEnd: s.activeHourEnd ?? 22
+  };
 }
 
 async function saveFile(store: FileStore) {
@@ -105,6 +118,9 @@ function rowToSession(row: Record<string, unknown>): WarmSession {
     status: row.status as WarmSessionStatus,
     mode: (row.mode as WarmMode) || "groups",
     dayIndex: Number(row.day_index || 1),
+    totalDays: Number(row.total_days || 10),
+    activeHourStart: Number(row.active_hour_start ?? 10),
+    activeHourEnd: Number(row.active_hour_end ?? 22),
     startedAt: new Date(String(row.started_at)).toISOString(),
     botIds: (row.bot_ids as string[]) ?? [],
     groupIds: (row.group_ids as string[]) ?? [],
@@ -161,6 +177,10 @@ export async function initChipWarmerSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_chip_warm_sessions_user ON chip_warm_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_chip_warm_sessions_status ON chip_warm_sessions(status);
+
+    ALTER TABLE chip_warm_sessions ADD COLUMN IF NOT EXISTS total_days INTEGER NOT NULL DEFAULT 10;
+    ALTER TABLE chip_warm_sessions ADD COLUMN IF NOT EXISTS active_hour_start INTEGER NOT NULL DEFAULT 10;
+    ALTER TABLE chip_warm_sessions ADD COLUMN IF NOT EXISTS active_hour_end INTEGER NOT NULL DEFAULT 22;
   `);
 }
 
@@ -197,7 +217,7 @@ export async function getWarmSession(id: string, userId?: string): Promise<WarmS
   }
   const store = await loadFile();
   const hit = store.sessions.find((s) => s.id === id && (!userId || s.userId === userId));
-  return hit ?? null;
+  return hit ? normalizeSession(hit) : null;
 }
 
 export async function createWarmSession(input: {
@@ -208,24 +228,42 @@ export async function createWarmSession(input: {
   groupIds: string[];
   groupsMeta: WarmGroupMeta[];
   dailyMessageGoal?: number;
+  totalDays?: number;
+  activeHourStart?: number;
+  activeHourEnd?: number;
 }): Promise<WarmSession> {
   if (input.botIds.length < 2) throw new Error("Selecione pelo menos 2 instâncias.");
   if (input.mode === "groups" && input.groupIds.length < 1) {
     throw new Error("Selecione pelo menos 1 grupo em comum.");
   }
 
+  const totalDays = Math.max(1, Math.min(60, input.totalDays ?? 10));
+  const activeHourStart = Math.max(0, Math.min(23, input.activeHourStart ?? 10));
+  let activeHourEnd = Math.max(1, Math.min(24, input.activeHourEnd ?? 22));
+  if (activeHourEnd <= activeHourStart) activeHourEnd = Math.min(24, activeHourStart + 8);
+
   const bots = await loadBots(input.userId);
   for (const id of input.botIds) {
     if (!bots.some((b) => b.id === id)) throw new Error("Instância inválida.");
   }
 
+  const activeSessions = (await listWarmSessions(input.userId)).filter((s) => s.status === "active");
+  for (const id of input.botIds) {
+    if (activeSessions.some((s) => s.botIds.includes(id))) {
+      throw new Error("Uma das instâncias já está em maturação ativa.");
+    }
+  }
+
   const session: WarmSession = {
     id: randomUUID(),
     userId: input.userId,
-    name: input.name.trim() || `Aquecimento ${new Date().toLocaleDateString("pt-BR")}`,
+    name: input.name.trim() || `Maturação ${new Date().toLocaleDateString("pt-BR")}`,
     status: "active",
     mode: input.mode,
     dayIndex: 1,
+    totalDays,
+    activeHourStart,
+    activeHourEnd,
     startedAt: new Date().toISOString(),
     botIds: input.botIds,
     groupIds: input.groupIds,
@@ -240,9 +278,9 @@ export async function createWarmSession(input: {
   if (useDatabase()) {
     await getPool().query(
       `INSERT INTO chip_warm_sessions
-       (id, user_id, name, status, mode, day_index, started_at, bot_ids, group_ids, groups_meta,
-        daily_message_goal, messages_today, messages_total, stats, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13,$14::jsonb,$15)`,
+       (id, user_id, name, status, mode, day_index, total_days, active_hour_start, active_hour_end,
+        started_at, bot_ids, group_ids, groups_meta, daily_message_goal, messages_today, messages_total, stats, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::jsonb,$14,$15,$16,$17::jsonb,$18)`,
       [
         session.id,
         session.userId,
@@ -250,6 +288,9 @@ export async function createWarmSession(input: {
         session.status,
         session.mode,
         session.dayIndex,
+        session.totalDays,
+        session.activeHourStart,
+        session.activeHourEnd,
         session.startedAt,
         JSON.stringify(session.botIds),
         JSON.stringify(session.groupIds),
@@ -261,12 +302,14 @@ export async function createWarmSession(input: {
         session.createdAt
       ]
     );
-    return session;
+  } else {
+    const store = await loadFile();
+    store.sessions.push(session);
+    await saveFile(store);
   }
 
-  const store = await loadFile();
-  store.sessions.push(session);
-  await saveFile(store);
+  const { syncMaturationModeForBots } = await import("./maturation-sync.js");
+  await syncMaturationModeForBots(session.botIds, true);
   return session;
 }
 
@@ -274,10 +317,11 @@ export async function updateWarmSession(session: WarmSession) {
   if (useDatabase()) {
     await getPool().query(
       `UPDATE chip_warm_sessions SET
-         name = $2, status = $3, mode = $4, day_index = $5, bot_ids = $6::jsonb,
-         group_ids = $7::jsonb, groups_meta = $8::jsonb, daily_message_goal = $9,
-         messages_today = $10, messages_total = $11, stats = $12::jsonb,
-         last_tick_at = $13, last_log = $14
+         name = $2, status = $3, mode = $4, day_index = $5, total_days = $6,
+         active_hour_start = $7, active_hour_end = $8, bot_ids = $9::jsonb,
+         group_ids = $10::jsonb, groups_meta = $11::jsonb, daily_message_goal = $12,
+         messages_today = $13, messages_total = $14, stats = $15::jsonb,
+         last_tick_at = $16, last_log = $17
        WHERE id = $1`,
       [
         session.id,
@@ -285,6 +329,9 @@ export async function updateWarmSession(session: WarmSession) {
         session.status,
         session.mode,
         session.dayIndex,
+        session.totalDays,
+        session.activeHourStart,
+        session.activeHourEnd,
         JSON.stringify(session.botIds),
         JSON.stringify(session.groupIds),
         JSON.stringify(session.groupsMeta),
@@ -309,6 +356,13 @@ export async function setWarmSessionStatus(id: string, userId: string, status: W
   if (!session) throw new Error("Sessão não encontrada.");
   session.status = status;
   await updateWarmSession(session);
+
+  const { syncMaturationModeForBots } = await import("./maturation-sync.js");
+  if (status === "completed") {
+    await syncMaturationModeForBots(session.botIds, false);
+  } else {
+    await syncMaturationModeForBots(session.botIds, true);
+  }
 }
 
 export async function cacheBotGroups(botId: string, userId: string, groups: WarmGroupMeta[]) {
@@ -359,11 +413,13 @@ export function findCommonGroups(maps: Map<string, WarmGroupMeta[]>): WarmGroupM
 
 export function computeHealthScore(input: {
   dayIndex: number;
+  totalDays: number;
   messagesToday: number;
   dailyGoal: number;
   sessionAgeDays: number;
 }): number {
-  const maturation = Math.min(40, (input.dayIndex / 10) * 40);
+  const total = Math.max(1, input.totalDays);
+  const maturation = Math.min(40, (input.dayIndex / total) * 40);
   const ageBonus = Math.min(20, input.sessionAgeDays * 2);
   const volumeRatio = input.dailyGoal > 0 ? input.messagesToday / input.dailyGoal : 0;
   const volumePenalty = volumeRatio > 1 ? Math.min(25, (volumeRatio - 1) * 30) : 0;
@@ -372,8 +428,12 @@ export function computeHealthScore(input: {
 }
 
 export function effectiveDailyGoal(session: WarmSession): number {
-  const ramp = Math.max(0.3, session.dayIndex / 10);
+  const ramp = Math.max(0.3, session.dayIndex / Math.max(1, session.totalDays));
   return Math.round(session.dailyMessageGoal * ramp);
+}
+
+export function isWithinMaturationHours(session: WarmSession, hour: number): boolean {
+  return hour >= session.activeHourStart && hour < session.activeHourEnd;
 }
 
 export async function upsertBotWarmScore(input: {

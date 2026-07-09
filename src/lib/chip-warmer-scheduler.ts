@@ -7,23 +7,24 @@ import {
   computeHealthScore,
   effectiveDailyGoal,
   getBotWarmScores,
+  isWithinMaturationHours,
   listActiveWarmSessions,
   pickBestBotForSession,
   updateWarmSession,
   upsertBotWarmScore,
   WARM_BR_LOCATIONS,
-  WARM_CASUAL_TEXTS,
   WARM_REACTIONS,
   type WarmSession
 } from "./chip-warmer.js";
+import {
+  pickHumanMessage,
+  randomMaturationDelayMs,
+  shouldSkipMaturationRound
+} from "./warm-messages.js";
 import { fetchBotGroups, sendWarmAction, getWaPhoneForBot } from "../whatsapp-runtime.js";
 
-const MIN_TICK_GAP_MS = 8 * 60 * 1000;
 const lastDayKey = new Map<string, string>();
-
-function isRiskyHour(hour: number) {
-  return hour < 7 || hour >= 22;
-}
+const nextTickAfter = new Map<string, number>();
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -42,12 +43,14 @@ async function maybeAdvanceDay(session: WarmSession) {
   lastDayKey.set(session.id, key);
 
   if (session.messagesToday > 0 || prev) {
-    if (session.dayIndex >= 10) {
+    if (session.dayIndex >= session.totalDays) {
       session.status = "completed";
-      session.lastLog = "Ciclo de 10 dias concluído.";
+      session.lastLog = `Ciclo de ${session.totalDays} dias concluído. Ative a IA na instância quando quiser vender.`;
+      const { syncMaturationModeForBots } = await import("./maturation-sync.js");
+      await syncMaturationModeForBots(session.botIds, false);
     } else {
       session.dayIndex += 1;
-      session.lastLog = `Novo dia do ciclo: ${session.dayIndex}/10`;
+      session.lastLog = `Novo dia: ${session.dayIndex}/${session.totalDays}`;
     }
     session.messagesToday = 0;
     await updateWarmSession(session);
@@ -111,7 +114,13 @@ async function processSession(session: WarmSession) {
   if (session.status !== "active") return;
 
   const { hour } = saoPauloNowParts();
-  if (isRiskyHour(hour)) return;
+  if (!isWithinMaturationHours(session, hour)) {
+    if (!session.lastLog?.includes("dormindo")) {
+      session.lastLog = `Fora do horário (${session.activeHourStart}h–${session.activeHourEnd}h) — chip dormindo`;
+      await updateWarmSession(session);
+    }
+    return;
+  }
 
   const goal = effectiveDailyGoal(session);
   if (session.messagesToday >= goal) {
@@ -120,9 +129,20 @@ async function processSession(session: WarmSession) {
     return;
   }
 
+  const waitUntil = nextTickAfter.get(session.id) ?? 0;
+  if (Date.now() < waitUntil) return;
+
   if (session.lastTickAt) {
+    const minGap = randomMaturationDelayMs();
     const gap = Date.now() - new Date(session.lastTickAt).getTime();
-    if (gap < MIN_TICK_GAP_MS) return;
+    if (gap < minGap) return;
+  }
+
+  if (shouldSkipMaturationRound()) {
+    nextTickAfter.set(session.id, Date.now() + 20 * 60 * 1000);
+    session.lastLog = "Pausa humana — aguardando próxima janela";
+    await updateWarmSession(session);
+    return;
   }
 
   const bots = await loadBots(session.userId);
@@ -149,31 +169,27 @@ async function processSession(session: WarmSession) {
   }
   if (!chatId) return;
 
+  const humanText = pickHumanMessage();
   const roll = Math.random();
   let action: Parameters<typeof sendWarmAction>[0]["action"];
-  if (roll < 0.5) action = "text";
-  else if (roll < 0.65) action = "reaction";
-  else if (roll < 0.78) action = "audio";
-  else if (roll < 0.9) action = "image";
-  else if (roll < 0.96) action = "location";
+  if (roll < 0.52) action = "text";
+  else if (roll < 0.68) action = "reaction";
+  else if (roll < 0.8) action = "audio";
+  else if (roll < 0.91) action = "image";
+  else if (roll < 0.97) action = "location";
   else action = "quote";
 
   try {
     if (action === "text") {
-      await sendWarmAction({ botId, chatId, action: "text", text: pickRandom(WARM_CASUAL_TEXTS) });
+      await sendWarmAction({ botId, chatId, action: "text", text: humanText });
       session.stats.texts += 1;
     } else if (action === "reaction") {
-      await sendWarmAction({
-        botId,
-        chatId,
-        action: "reaction",
-        emoji: pickRandom(WARM_REACTIONS)
-      });
+      await sendWarmAction({ botId, chatId, action: "reaction", emoji: pickRandom(WARM_REACTIONS) });
       session.stats.reactions += 1;
     } else if (action === "audio") {
       const mediaPath = await pickWarmAudioPath(botId);
       if (!mediaPath) {
-        await sendWarmAction({ botId, chatId, action: "text", text: pickRandom(WARM_CASUAL_TEXTS) });
+        await sendWarmAction({ botId, chatId, action: "text", text: humanText });
         session.stats.texts += 1;
       } else {
         await sendWarmAction({ botId, chatId, action: "audio", mediaPath });
@@ -182,7 +198,7 @@ async function processSession(session: WarmSession) {
     } else if (action === "image") {
       const mediaPath = await pickWarmImagePath(botId);
       if (!mediaPath) {
-        await sendWarmAction({ botId, chatId, action: "text", text: pickRandom(WARM_CASUAL_TEXTS) });
+        await sendWarmAction({ botId, chatId, action: "text", text: humanText });
         session.stats.texts += 1;
       } else {
         await sendWarmAction({ botId, chatId, action: "image", mediaPath });
@@ -200,22 +216,18 @@ async function processSession(session: WarmSession) {
       });
       session.stats.locations += 1;
     } else {
-      await sendWarmAction({
-        botId,
-        chatId,
-        action: "quote",
-        text: pickRandom(WARM_CASUAL_TEXTS)
-      });
+      await sendWarmAction({ botId, chatId, action: "quote", text: humanText });
       session.stats.quotes += 1;
     }
 
     session.messagesToday += 1;
     session.messagesTotal += 1;
     session.lastTickAt = new Date().toISOString();
-    session.lastLog = `[OK] ${action} via ${botId.slice(0, 8)}…`;
+    session.lastLog = `[OK] ${action} humanizado`;
 
     const health = computeHealthScore({
       dayIndex: session.dayIndex,
+      totalDays: session.totalDays,
       messagesToday: session.messagesToday,
       dailyGoal: goal,
       sessionAgeDays: sessionAgeDays(session)
@@ -225,15 +237,17 @@ async function processSession(session: WarmSession) {
       botId,
       userId: session.userId,
       healthScore: health,
-      warmLevel: Math.min(100, session.dayIndex * 10),
+      warmLevel: Math.min(100, Math.round((session.dayIndex / session.totalDays) * 100)),
       messagesSent: 1
     });
 
+    nextTickAfter.set(session.id, Date.now() + randomMaturationDelayMs());
     await updateWarmSession(session);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     session.lastLog = `[ERRO] ${msg}`;
     session.lastTickAt = new Date().toISOString();
+    nextTickAfter.set(session.id, Date.now() + 15 * 60 * 1000);
     await updateWarmSession(session);
   }
 }
