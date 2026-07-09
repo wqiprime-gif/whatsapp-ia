@@ -18,6 +18,7 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().default(""),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   PANEL_PASSWORD: z.string().min(6).default("troque-essa-senha"),
+  ADMIN_USERNAME: z.string().min(3).default("admin"),
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_NAME: z.string().default("Administrador"),
   INVITE_CODE: z.string().default("BOT2026"),

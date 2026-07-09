@@ -14,6 +14,12 @@ export const PROMPT_ACTION_TAGS: PromptTagDoc[] = [
     example: 'Lead: "quero ver" → você: "peraí amor 😘" + tag'
   },
   {
+    tag: "[[send_chamada_video]]",
+    label: "Áudio + tabela de chamada",
+    when: "Quando o lead perguntar se você faz chamada de vídeo, videochamada ou ligação. Envia áudio + tabela só de chamadas.",
+    example: 'Lead: "faz chamada?" → "faço sim amor 😘" + tag'
+  },
+  {
     tag: "[[send_amostra_gratis]]",
     label: "Prévia gratuita",
     when: "Uma vez por lead. Envia as mídias cadastradas em Prévia gratuita no painel.",
@@ -63,6 +69,11 @@ export const DEFAULT_AUDIO_TAGS: PromptTagDoc[] = [
     tag: "[[audio:chave_pix]]",
     label: "Áudio do Pix",
     when: "Na hora de passar o pagamento. Mande junto com [[send_chave_pix]]."
+  },
+  {
+    tag: "[[audio:chamada_video]]",
+    label: "Áudio: chamada de vídeo",
+    when: "Explica a chamada em voz. Mande junto com [[send_chamada_video]]."
   },
   {
     tag: "[[audio:nao_sou_fake]]",

@@ -21,6 +21,12 @@ const SEED_AUDIOS: SeedAudio[] = [
   { file: "qualpack.mp3", label: "Qual pacote você quer?", slug: "qual_pack" },
   { file: "chavepix.mp3", label: "Chave Pix / pagamento", slug: "chave_pix" },
   {
+    file: "chamadavideo.mp3",
+    label: "Chamada de vídeo",
+    slug: "chamada_video",
+    triggers: "chamada, videochamada, liga, faz chamada, vende chamada"
+  },
+  {
     file: "naosoufake.mp3",
     label: "Não sou fake",
     slug: "nao_sou_fake",

@@ -32,7 +32,7 @@ export function adminUsersPage(
         <thead>
           <tr>
             <th>Usuário</th>
-            <th>E-mail</th>
+            <th>Login</th>
             <th>Instâncias</th>
             <th>Cadastro</th>
             <th></th>
@@ -41,7 +41,7 @@ export function adminUsersPage(
         <tbody>
           ${users
             .map((u) => {
-              const label = u.name?.trim() || u.email.split("@")[0] || "User";
+              const label = u.name?.trim() || u.username || "User";
               const ownerBadge = u.isOwner
                 ? `<span class="badge badge-online" style="margin-left:8px">Admin</span>`
                 : "";
@@ -60,7 +60,7 @@ export function adminUsersPage(
                 </div>
               </div>
             </td>
-            <td><code style="font-size:0.82rem">${escapeHtml(u.email)}</code></td>
+            <td><code style="font-size:0.82rem">@${escapeHtml(u.username || u.email.split("@")[0] || "user")}</code></td>
             <td>${u.botCount}</td>
             <td style="font-size:0.85rem;color:var(--text-2)">${formatDate(u.createdAt)}</td>
             <td class="admin-user-actions">${deleteBtn}</td>

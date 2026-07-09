@@ -15,6 +15,39 @@ export function minimumCentsForProduct(product: Product): number {
   return Math.max(500, Math.round(product.priceCents * 0.5));
 }
 
+export function videoCallPriceTableFromProducts(products: Product[]) {
+  const callProducts = [...products]
+    .filter((p) => p.active !== false && /chamada|v[ií]deo|video/i.test(p.name))
+    .sort((a, b) => a.priceCents - b.priceCents);
+
+  if (callProducts.length === 0) {
+    return videoCallPriceTableFallback();
+  }
+
+  const callHint = "5 min no zap";
+  const lines = callProducts.map((p, i) => {
+    const emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"][i] ?? "•";
+    const price = formatPriceBrl(p.priceCents);
+    let extra = "";
+    if (/chamada|v[ií]deo/i.test(p.name)) extra = ` (${callHint})`;
+    return `${emoji} *${p.name.toUpperCase()}* - R$ ${price}${extra}`;
+  });
+
+  return ["📹 *CHAMADA DE VÍDEO* 📹", "", ...lines, "", "Qual você quer, amor? 💕"].join("\n");
+}
+
+function videoCallPriceTableFallback() {
+  const callHint = "5 min no zap";
+  return [
+    "📹 *CHAMADA DE VÍDEO* 📹",
+    "",
+    `1️⃣ *CHAMADA VÍDEO* - R$ 15,00`,
+    `   📹 ${callHint}`,
+    "",
+    "Qual você quer, amor? 💕"
+  ].join("\n");
+}
+
 export function priceTableFromProducts(products: Product[]) {
   const sorted = [...products].filter((p) => p.active !== false).sort((a, b) => a.priceCents - b.priceCents);
   if (sorted.length === 0) {

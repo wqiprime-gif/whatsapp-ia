@@ -1,10 +1,11 @@
 import { parseAudioTags } from "./named-audio.js";
 
 import type { Product } from "../db/events.js";
-import { priceTableFromProducts } from "./product-catalog.js";
+import { priceTableFromProducts, videoCallPriceTableFromProducts } from "./product-catalog.js";
 
 export type PromptAction =
   | "send_informacoes"
+  | "send_chamada_video"
   | "send_amostra_gratis"
   | "send_chave_pix"
   | "naosou_fake"
@@ -12,7 +13,7 @@ export type PromptAction =
   | "pedir_presente";
 
 const ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_chamada_video|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
@@ -39,6 +40,10 @@ export function priceTableMessage(products: Product[] = []) {
   return priceTableFromProducts(products);
 }
 
+export function videoCallPriceTableMessage(products: Product[] = []) {
+  return videoCallPriceTableFromProducts(products);
+}
+
 export function naosouFakeMessage() {
   return "relaxa amor, sou real sim 😘 mando tudo certinho depois do pix, sem golpe";
 }
@@ -46,6 +51,7 @@ export function naosouFakeMessage() {
 export const PROMPT_ACTION_HINT = `
 ACOES (tag na ultima linha quando precisar):
 [[send_informacoes]] = tabela de precos (lead confirmou que quer ver)
+[[send_chamada_video]] = audio da chamada + tabela so de videochamada (quando perguntar se faz chamada)
 [[send_amostra_gratis]] = previa gratis (UMA vez por lead)
 [[naosou_fake]] = mesmo que [[audio:nao_sou_fake]] se existir no cadastro
 [[ignorar_lead]] = parar de responder lead enrolado

@@ -30,7 +30,7 @@ Regras do prompt gerado:
 - Engajar antes de mandar preços
 - Prévia só uma vez com [[send_amostra_gratis]]
 - Pix com [[send_chave_pix]] nunca escrever chave manual
-- Chamada de vídeo: explicar com [[chamada_video]]; após pagamento o sistema manda link automaticamente
+- Chamada de vídeo: use [[send_chamada_video]] quando perguntarem; após pagamento o sistema avisa que o link sai em 10 min (não na hora)
 - Comprovante: não dizer "recebi seu comprovante"
 - Follow-up se lead sumir
 - Sem menção a áudio ou [[audio:...]]`

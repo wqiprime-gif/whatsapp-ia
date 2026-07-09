@@ -263,6 +263,7 @@ const SEED_AUDIO_FALLBACK = [
   { label: 'Explicando os pacotes', url: '/seed-audios/informacoes.mp3', slug: 'informacoes', triggers: '' },
   { label: 'Qual pacote você quer?', url: '/seed-audios/qualpack.mp3', slug: 'qual_pack', triggers: '' },
   { label: 'Chave Pix / pagamento', url: '/seed-audios/chavepix.mp3', slug: 'chave_pix', triggers: '' },
+  { label: 'Chamada de vídeo', url: '/seed-audios/chamadavideo.mp3', slug: 'chamada_video', triggers: 'chamada, videochamada, liga' },
   { label: 'Não sou fake', url: '/seed-audios/naosoufake.mp3', slug: 'nao_sou_fake', triggers: 'fake, golpe, voce e real, e bot' }
 ];
 
@@ -1141,6 +1142,7 @@ function scheduleSaveConversations() {
 }
 
 const hasSentInformacoes = {};
+const hasSentChamadaVideo = {};
 const hasSentAmostra = {};
 const hasSentNaoSouFake = {};
 const previewFailedAt = {}; // jid -> timestamp da última falha de prévia (evita loop)
@@ -1180,7 +1182,7 @@ function getUserConversation(userNumber) {
 }
 
 const PROMPT_ACTION_RE =
-  /\[\[(send_informacoes|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
+  /\[\[(send_informacoes|send_chamada_video|send_amostra_gratis|send_chave_pix|naosou_fake|ignorar_lead|pedir_presente)\]\]/gi;
 
 const GIFT_TAG_RE = /\[\[pedir_presente(?::([a-z0-9_]+))?\]\]/gi;
 
@@ -1453,6 +1455,31 @@ function buildPriceTableFromProducts(products) {
   return ['💎 *MEUS PACOTES* 💎', ...lines, '', 'Qual pacote te interessa, amor? 💕'].join('\n');
 }
 
+function buildVideoCallPriceTableFromProducts(products) {
+  const callProducts = [...(products || [])]
+    .filter((p) => p.active !== false && /chamada|v[ií]deo|video/i.test(String(p.name || '')))
+    .sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+
+  if (!callProducts.length) {
+    return [
+      '📹 *CHAMADA DE VÍDEO* 📹',
+      '',
+      '1️⃣ *CHAMADA VÍDEO* - R$ 15,00',
+      '   📹 5 min no zap',
+      '',
+      'Qual você quer, amor? 💕'
+    ].join('\n');
+  }
+
+  const lines = callProducts.map((p, i) => {
+    const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'][i] || '•';
+    const price = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
+    return `${emoji} *${String(p.name).toUpperCase()}* - R$ ${price} (5 min no zap)`;
+  });
+
+  return ['📹 *CHAMADA DE VÍDEO* 📹', '', ...lines, '', 'Qual você quer, amor? 💕'].join('\n');
+}
+
 function wantsPreviewIntent(text) {
   const t = String(text || '').toLowerCase();
   return /pr[eé]via|amostra|teste gr[aá]tis|manda(r)?\s+(uma\s+)?foto|tem foto|me manda|manda\s+manda|manda\s+a[ií]|cad[eê]\s+(a\s+)?(previa|prévia|foto|amostra)|quer(o)?\s+ver|uma\s+foto\s+sua|foto\s+sua|previa\s+sua|prévia\s+sua|manda\s+pra\s+mim|tem\s+como\s+mandar/i.test(
@@ -1506,6 +1533,7 @@ function countUserMessages(conversation) {
 function sortPromptActions(actions) {
   const order = [
     'send_informacoes',
+    'send_chamada_video',
     'send_amostra_gratis',
     'send_chave_pix',
     'naosou_fake',
@@ -1561,6 +1589,9 @@ async function executePromptActions(client, messageFrom, actions, giftSlug) {
     } else if (action === 'send_informacoes' && !hasSentInformacoes[messageFrom]) {
       hasSentInformacoes[messageFrom] = true;
       await functionCalls.send_informacoes(client, messageFrom, conversation);
+    } else if (action === 'send_chamada_video' && !hasSentChamadaVideo[messageFrom]) {
+      hasSentChamadaVideo[messageFrom] = true;
+      await functionCalls.send_chamada_video(client, messageFrom, conversation);
     } else if (action === 'naosou_fake' && !hasSentNaoSouFake[messageFrom]) {
       hasSentNaoSouFake[messageFrom] = true;
       await functionCalls.naosou_fake(client, messageFrom, conversation);
@@ -1604,6 +1635,14 @@ async function runCompletion(userNumber, message) {
         function: {
           name: 'send_informacoes',
           description: 'Envia a tabela de preços com os 3 pacotes disponíveis. Use quando o lead perguntar sobre valores, preços, pacotes ou o que você tem.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'send_chamada_video',
+          description: 'Envia áudio explicando chamada de vídeo + tabela só de chamadas. Use quando o lead perguntar se você faz chamada de vídeo, videochamada, ligação ou similar.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -1682,10 +1721,19 @@ async function runCompletion(userNumber, message) {
       return await generatePersonaReply(userNumber, 'O lead pediu os pacotes de novo. Diga que já mandou e pergunte qual ele quer.');
     }
 
+    if (hasSentChamadaVideo[userNumber] && fnName === 'send_chamada_video') {
+      return await generatePersonaReply(userNumber, 'O lead perguntou de chamada de novo. Diga que já mandou os valores e pergunte qual ele quer.');
+    }
+
     // Executa a tool chamada
     if (fnName && functionCalls[fnName]) {
       if (fnName === 'send_informacoes' && !hasSentInformacoes[userNumber]) {
         hasSentInformacoes[userNumber] = true;
+        await functionCalls[fnName](client, userNumber, conversation);
+        return '';
+      }
+      if (fnName === 'send_chamada_video' && !hasSentChamadaVideo[userNumber]) {
+        hasSentChamadaVideo[userNumber] = true;
         await functionCalls[fnName](client, userNumber, conversation);
         return '';
       }
@@ -1757,6 +1805,7 @@ const functionCalls = {
     }
     await sendInformacoes(client, messageFrom, conversation);
   },
+  send_chamada_video: async (client, messageFrom, conversation) => sendChamadaVideo(client, messageFrom, conversation),
   send_amostra_gratis: async (client, messageFrom, conversation) => sendAmostraGratis(client, messageFrom, conversation),
   send_chave_pix: async (client, messageFrom, conversation) => enviarChavePix(messageFrom, conversation),
   naosou_fake: async (client, messageFrom, conversation) => { await naosouFake(client, messageFrom, conversation); },
@@ -1841,6 +1890,57 @@ Qual pacote te interessa, amor? 💕
     isProcessing[messageFrom] = false;
   }
 }
+
+async function sendChamadaVideo(client, messageFrom, conversation) {
+  try {
+    isProcessing[messageFrom] = true;
+    console.log('Iniciando send_chamada_video para ', messageFrom);
+
+    const config = loadBotConfig();
+    const tabelaChamada = buildVideoCallPriceTableFromProducts(config.products);
+
+    const chat = await client.getChatById(messageFrom);
+    if (!chat) {
+      console.error('❌ Erro ao obter chat para send_chamada_video');
+      isProcessing[messageFrom] = false;
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const infoLib = getAudioLibrary();
+    let chamadaAudio = resolveAudioBySlug('chamada_video', infoLib);
+    if (!chamadaAudio && audioFiles.chamadavideo && fs.existsSync(audioFiles.chamadavideo)) {
+      chamadaAudio = {
+        label: 'Chamada de vídeo',
+        url: '/seed-audios/chamadavideo.mp3',
+        slug: 'chamada_video',
+        triggers: 'chamada, videochamada, liga'
+      };
+    }
+
+    if (chamadaAudio) {
+      await sendNamedAudioVoiceOnce(client, messageFrom, chamadaAudio);
+    } else if (audioFiles.chamadavideo && fs.existsSync(audioFiles.chamadavideo)) {
+      const media = MessageMedia.fromFilePath(audioFiles.chamadavideo);
+      await client.sendMessage(messageFrom, media, { sendAudioAsVoice: true });
+    }
+
+    await sendTextHuman(client, messageFrom, tabelaChamada);
+    console.log(`✅ Tabela de chamada enviada para ${messageFrom}`);
+
+    conversation.push({
+      role: 'system',
+      content: 'Áudio e tabela de chamada de vídeo enviados. Venda a chamada com carinho; após pagamento o link sai em ~10 minutos (não na hora).'
+    });
+    conversation.push({ role: 'assistant', content: 'Qual você quer, amor? 💕' });
+    isProcessing[messageFrom] = false;
+  } catch (error) {
+    console.error('Error sending send_chamada_video:', error.message);
+    isProcessing[messageFrom] = false;
+  }
+}
+
   async function enviarChavePix(messageFrom, conversation) {
     const { pixKey, pixRecipientName } = getPixConfig();
     if (!pixKey) {
@@ -2069,6 +2169,33 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
     }
   }
 
+  const VIDEO_CALL_LINK_DELAY_MS = 10 * 60 * 1000;
+
+  async function deliverVideoCallLinkWithDelay(messageFrom, link) {
+    if (!link) return;
+    const notice =
+      (await generatePersonaReply(
+        messageFrom,
+        'Pagamento da chamada de vídeo confirmado. Avise com carinho que daqui 10 minutinhos você manda o link para ele entrar na chamada. NÃO mande o link agora.'
+      )) || 'prontinho amor 😘 daqui 10 minutinhos eu te mando o link pra entrar na chamada, tá?';
+    await sendTextHuman(client, messageFrom, notice);
+    console.log(`   ⏱️ Link da chamada agendado para ${messageFrom} em 10 min`);
+
+    setTimeout(async () => {
+      try {
+        const msg =
+          (await generatePersonaReply(
+            messageFrom,
+            'Mande o link da chamada de vídeo com carinho, em uma frase curta.'
+          )) || 'prontinho amor, é só entrar na chamada 😘';
+        await sendTextHuman(client, messageFrom, `${msg}\n${link}`);
+        console.log(`   ✅ Link da chamada enviado (agendado) para ${messageFrom}`);
+      } catch (err) {
+        console.error(`❌ Erro ao enviar link agendado da chamada: ${err.message}`);
+      }
+    }, VIDEO_CALL_LINK_DELAY_MS);
+  }
+
   // Função para confirmar comprovante, entregar conteúdo e silenciar bot
   async function confirmarComprovante(messageFrom, approvedMessage) {
     paidUsers[messageFrom] = true;
@@ -2108,6 +2235,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       const delivered = await sendDeliveryMedia(client, messageFrom);
       const productLink = String(config.productDeliveryLink || '').trim();
+      const pacote = await detectarPacote(messageFrom);
 
       if (delivered > 0) {
         console.log(`   📦 ${delivered} arquivo(s) de entrega enviado(s)`);
@@ -2120,15 +2248,18 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       }
 
       if (productLink) {
-        const linkIntro =
-          (await generatePersonaReply(
-            messageFrom,
-            'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
-          )) || 'Aqui está seu acesso amor, aproveite 😘';
-        await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
+        if (pacote === 'chamada') {
+          await deliverVideoCallLinkWithDelay(messageFrom, productLink);
+        } else {
+          const linkIntro =
+            (await generatePersonaReply(
+              messageFrom,
+              'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
+            )) || 'Aqui está seu acesso amor, aproveite 😘';
+          await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
+        }
       }
 
-      const pacote = await detectarPacote(messageFrom);
       if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
         const linkChamada = process.env.LINK_CHAMADA || '';
@@ -2139,20 +2270,19 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
         if (pacote === 'completo') {
           const completoSingle = process.env.COMPLETO_SINGLE === 'true' || pacotesConfig?.completo_single === true;
           if (completoSingle && linkCompleto) {
-            const desc = pacotesConfig?.completo_descricao || 'chamada de vídeo';
-            await client.sendMessage(messageFrom, `Aqui está o link pra ${desc} amor, é só acessar 😘\n${linkCompleto}`);
+            await deliverVideoCallLinkWithDelay(messageFrom, linkCompleto);
           } else {
             if (linkBasico) {
               await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
               await sleep(1500);
             }
             if (linkChamada) {
-              await client.sendMessage(messageFrom, `E aqui está o link pra chamada de vídeo, é só acessar 💕\n${linkChamada}`);
+              await deliverVideoCallLinkWithDelay(messageFrom, linkChamada);
             }
           }
         } else if (pacote === 'chamada') {
           if (linkChamada) {
-            await client.sendMessage(messageFrom, `Aqui está o link pra chamada amor, é só acessar 😘\n${linkChamada}`);
+            await deliverVideoCallLinkWithDelay(messageFrom, linkChamada);
           }
         } else if (linkBasico) {
           await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);

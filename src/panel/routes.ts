@@ -107,10 +107,14 @@ async function rowsForUser<T extends Record<string, unknown>>(rows: T[], userId:
   return rows.filter((r) => ids.has(String(r.bot_id ?? r.botId ?? "")));
 }
 
-async function panelUserMeta(userId: string, fallbackEmail: string) {
+async function panelUserMeta(userId: string) {
   const full = await getUserById(userId);
   return {
-    label: panelUserLabel({ name: full?.name ?? "", email: full?.email ?? fallbackEmail }),
+    label: panelUserLabel({
+      name: full?.name ?? "",
+      username: full?.username,
+      email: full?.email
+    }),
     avatarUrl: full?.avatarUrl ?? ""
   };
 }
@@ -367,13 +371,14 @@ function isPartial(request: FastifyRequest) {
   return request.headers["x-panel-partial"] === "1";
 }
 
-function requirePlatformOwner(
+async function requirePlatformOwner(
   request: FastifyRequest,
   reply: import("fastify").FastifyReply
 ) {
   const user = requireUser(request, reply);
   if (!user) return null;
-  if (!isPlatformOwner(user.email)) {
+  const full = await getUserById(user.id);
+  if (!isPlatformOwner({ email: full?.email ?? user.email, username: full?.username })) {
     reply.redirect(flashRedirect("/", "Acesso restrito ao administrador da plataforma.", "err"));
     return null;
   }
@@ -405,7 +410,7 @@ export async function registerPanelRoutes(
         if (!dbUser) {
           clearSessionCookie(reply);
           return reply.redirect(
-            "/login?msg=Sua+sessao+expirou.+Entre+novamente+com+seu+e-mail+e+senha."
+            "/login?msg=Sua+sessao+expirou.+Entre+novamente+com+seu+usuario+e+senha."
           );
         }
       }
@@ -691,6 +696,7 @@ export async function registerPanelRoutes(
       const body = z
         .object({
           name: z.string().min(2),
+          username: z.string().min(3).max(32),
           email: z.string().email(),
           password: z.string().min(6),
           inviteCode: z.string().optional()
@@ -713,13 +719,13 @@ export async function registerPanelRoutes(
   app.post("/login", async (request, reply) => {
     const body = z
       .object({
-        email: z.string().email(),
+        username: z.string().min(3).max(32),
         password: z.string().min(1)
       })
       .parse(request.body);
-    const user = await authenticateUser(body.email, body.password);
+    const user = await authenticateUser(body.username, body.password);
     if (!user) {
-      return reply.code(401).type("text/html").send(loginPage("E-mail ou senha incorretos."));
+      return reply.code(401).type("text/html").send(loginPage("Usuário ou senha incorretos."));
     }
     setSessionCookie(reply, user);
     return reply.redirect("/");
@@ -737,7 +743,7 @@ export async function registerPanelRoutes(
     const bots = await loadBots(user.id);
     const statuses = await getWaLiveStatuses(bots);
     const partial = isPartial(request);
-    const meta = await panelUserMeta(user.id, user.email);
+    const meta = await panelUserMeta(user.id);
     const full = await getUserById(user.id);
     const period = normalizeDashboardPeriod("hoje");
     const html = dashboardPage(
@@ -805,15 +811,23 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     const full = await getUserById(user.id);
-    const label = panelUserLabel({ name: full?.name ?? "", email: full?.email ?? user.email });
+    const label = panelUserLabel({
+      name: full?.name ?? "",
+      username: full?.username,
+      email: full?.email ?? user.email
+    });
     const notificationPrefs = await getNotificationPrefs(user.id);
     return reply.send({
       name: full?.name ?? "",
+      username: full?.username ?? "",
       email: full?.email ?? user.email,
       label,
       avatarUrl: full?.avatarUrl ?? "",
       notificationPrefs,
-      isPlatformOwner: isPlatformOwner(full?.email ?? user.email)
+      isPlatformOwner: isPlatformOwner({
+        username: full?.username,
+        email: full?.email ?? user.email
+      })
     });
   });
 
@@ -1311,7 +1325,7 @@ export async function registerPanelRoutes(
     const stats = await dashboardStats(user.id);
     const ranking = await salesRankingByUser(50);
     const rankIdx = ranking.findIndex((r) => r.userId === user.id);
-    const meta = await panelUserMeta(user.id, user.email);
+    const meta = await panelUserMeta(user.id);
     const notificationPrefs = await getNotificationPrefs(user.id);
     const html = profilePage(
       full,
@@ -1693,10 +1707,10 @@ export async function registerPanelRoutes(
   });
 
   app.get("/admin/usuarios", async (request, reply) => {
-    const user = requirePlatformOwner(request, reply);
+    const user = await requirePlatformOwner(request, reply);
     if (!user) return;
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
-    const meta = await panelUserMeta(user.id, user.email);
+    const meta = await panelUserMeta(user.id);
     const users = await listPlatformUsers();
     return reply
       .type("text/html")
@@ -1713,7 +1727,7 @@ export async function registerPanelRoutes(
   });
 
   app.post("/admin/usuarios/:id/delete", async (request, reply) => {
-    const user = requirePlatformOwner(request, reply);
+    const user = await requirePlatformOwner(request, reply);
     if (!user) return;
     try {
       const params = z.object({ id: z.string().min(1) }).parse(request.params);

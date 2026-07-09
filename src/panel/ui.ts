@@ -264,14 +264,14 @@ export function loginPage(message = "") {
       <a href="/login" class="login-shark-brand">${brandLockupHtml("login")}</a>
       <div class="login-shark-card">
         <h2>entrar</h2>
-        <p class="sub">use seu email e senha pra continuar</p>
+        <p class="sub">use seu usuário e senha pra continuar</p>
         ${message ? alertHtml(message, "error") : ""}
         <form method="post" action="/login" class="auth-form">
           <label class="field">
-            <span class="field-label">email</span>
+            <span class="field-label">usuário</span>
             <div class="login-shark-input-wrap">
-              <span class="login-shark-input-icon">${icons.chat}</span>
-              <input name="email" type="email" placeholder="voce@email.com" required autofocus />
+              <span class="login-shark-input-icon">${icons.users}</span>
+              <input name="username" type="text" placeholder="admin" required autofocus autocapitalize="off" autocomplete="username" />
             </div>
           </label>
           <label class="field login-password-field">
@@ -560,7 +560,7 @@ export function dashboardPage(
 }
 
 export function profilePage(
-  user: { id: string; name: string; email: string; avatarUrl?: string; createdAt: string },
+  user: { id: string; name: string; username: string; email: string; avatarUrl?: string; createdAt: string },
   stats: { salesTotalCents: number; salesCount: number; rank: number | null },
   notificationPrefs: NotificationPrefs,
   message = "",
@@ -603,7 +603,7 @@ export function profilePage(
               </label>
               <div class="profile-identity-info">
                 <label class="field">Nome completo<input name="name" value="${escapeHtml(user.name)}" required /></label>
-                <p class="profile-email">${escapeHtml(user.email)}</p>
+                <p class="profile-email">@${escapeHtml(user.username || user.email.split("@")[0] || "user")}</p>
                 <span class="profile-rank-badge">${icons.trophy} Ranking ${rankLabel}</span>
               </div>
               </div>
@@ -839,6 +839,14 @@ export function registerPage(message = "") {
               <span class="login-shark-input-icon">${icons.users}</span>
               <input name="name" placeholder="Como quer ser chamado" required />
             </div>
+          </label>
+          <label class="field">
+            <span class="field-label">usuário</span>
+            <div class="login-shark-input-wrap">
+              <span class="login-shark-input-icon">${icons.users}</span>
+              <input name="username" placeholder="seu_usuario" minlength="3" maxlength="32" required autocapitalize="off" autocomplete="username" />
+            </div>
+            <small>Letras, números e _ — mínimo 3 caracteres.</small>
           </label>
           <label class="field">
             <span class="field-label">email</span>

@@ -22,7 +22,9 @@ export type NavId =
   | "profile"
   | "admin";
 
-export function panelUserLabel(input: { name: string; email: string }) {
+export function panelUserLabel(input: { name: string; email?: string; username?: string }) {
+  const username = input.username?.trim();
+  if (username) return `@${username.replace(/^@/, "")}`;
   const email = input.email?.trim();
   if (email) return email;
   const name = input.name?.trim();

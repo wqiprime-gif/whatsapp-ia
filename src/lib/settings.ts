@@ -6,10 +6,12 @@ import { decryptSecret, encryptSecret } from "./crypto.js";
 import { AI_PROVIDERS, normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./ai-providers.js";
 import type { BotConfig } from "../bots.js";
 
-export function isPlatformOwner(email?: string) {
-  const admin = env.ADMIN_EMAIL?.trim().toLowerCase();
-  if (!admin || !email) return false;
-  return email.trim().toLowerCase() === admin;
+export function isPlatformOwner(user?: { email?: string; username?: string }) {
+  const adminUser = env.ADMIN_USERNAME?.trim().toLowerCase();
+  const adminEmail = env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (user?.username && adminUser && user.username.trim().toLowerCase() === adminUser) return true;
+  if (user?.email && adminEmail && user.email.trim().toLowerCase() === adminEmail) return true;
+  return false;
 }
 
 const settingsFile = path.join(env.DATA_DIR, "settings.json");
@@ -98,7 +100,7 @@ export async function getOpenAIApiKey(userId: string, userEmail?: string): Promi
   if (settings.openaiApiKeyEncrypted) {
     return decryptSecret(settings.openaiApiKeyEncrypted);
   }
-  if (isPlatformOwner(userEmail)) {
+  if (isPlatformOwner({ email: userEmail })) {
     if (settings.aiProvider === "openrouter" && env.OPENROUTER_API_KEY) {
       return env.OPENROUTER_API_KEY;
     }
@@ -136,7 +138,7 @@ export async function getApiKeyStatus(userId: string, userEmail?: string) {
       providerLabel: provider.label
     };
   }
-  if (isPlatformOwner(userEmail) && (env.OPENAI_API_KEY || env.OPENROUTER_API_KEY)) {
+  if (isPlatformOwner({ email: userEmail }) && (env.OPENAI_API_KEY || env.OPENROUTER_API_KEY)) {
     return {
       configured: true,
       masked: "",
@@ -207,7 +209,7 @@ export async function resolveBotAIConfig(bot: BotConfig, userEmail?: string): Pr
       source: "painel"
     };
   }
-  if (isPlatformOwner(userEmail)) {
+  if (isPlatformOwner({ email: userEmail })) {
     if (provider === "openrouter" && env.OPENROUTER_API_KEY) {
       return {
         apiKey: env.OPENROUTER_API_KEY,

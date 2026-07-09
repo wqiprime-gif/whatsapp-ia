@@ -9,6 +9,7 @@ import { getPool, useDatabase } from "./index.js";
 
 export type PanelUser = {
   id: string;
+  username: string;
   email: string;
   name: string;
   createdAt: string;
@@ -17,6 +18,7 @@ export type PanelUser = {
 
 type UserRow = {
   id: string;
+  username: string;
   email: string;
   password_hash: string;
   name: string;
@@ -26,6 +28,21 @@ type UserRow = {
 const usersFile = path.join(env.DATA_DIR, "users.json");
 
 type FileUser = PanelUser & { passwordHash: string; avatarUrl?: string };
+
+export function normalizeUsername(raw: string) {
+  return raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9_]/g, "")
+    .slice(0, 32);
+}
+
+function usernameFromEmail(email: string) {
+  const base = normalizeUsername(email.split("@")[0] || "user");
+  return base.length >= 3 ? base : "user";
+}
 
 async function loadFileUsers(): Promise<FileUser[]> {
   try {
@@ -44,11 +61,58 @@ async function saveFileUsers(users: FileUser[]) {
 function rowToUser(row: UserRow & { avatar_url?: string }): PanelUser {
   return {
     id: row.id,
+    username: row.username,
     email: row.email,
     name: row.name,
     createdAt: new Date(row.created_at).toISOString(),
     avatarUrl: row.avatar_url ?? ""
   };
+}
+
+async function backfillUsernames() {
+  const adminUsername = normalizeUsername(env.ADMIN_USERNAME || "admin");
+
+  if (useDatabase()) {
+    const db = getPool();
+    const { rows } = await db.query<{ id: string; email: string; username: string | null }>(
+      `SELECT id, email, username FROM panel_users`
+    );
+    const used = new Set(
+      rows.map((r) => (r.username ? normalizeUsername(r.username) : "")).filter(Boolean)
+    );
+
+    for (const row of rows) {
+      if (row.username && normalizeUsername(row.username).length >= 3) continue;
+      const isAdmin = row.email?.trim().toLowerCase() === (env.ADMIN_EMAIL || "").trim().toLowerCase();
+      let candidate = isAdmin ? adminUsername : usernameFromEmail(row.email || "user");
+      if (!candidate || candidate.length < 3) candidate = `user${row.id.slice(0, 6)}`;
+      while (used.has(candidate)) {
+        candidate = `${candidate.slice(0, 24)}_${row.id.slice(0, 4)}`;
+      }
+      used.add(candidate);
+      await db.query(`UPDATE panel_users SET username = $1 WHERE id = $2`, [candidate, row.id]);
+    }
+    return;
+  }
+
+  const users = await loadFileUsers();
+  const used = new Set(users.map((u) => normalizeUsername(u.username || "")).filter(Boolean));
+  let changed = false;
+
+  for (const user of users) {
+    if (user.username && normalizeUsername(user.username).length >= 3) continue;
+    const isAdmin = user.email?.trim().toLowerCase() === (env.ADMIN_EMAIL || "").trim().toLowerCase();
+    let candidate = isAdmin ? adminUsername : usernameFromEmail(user.email || "user");
+    if (!candidate || candidate.length < 3) candidate = `user${user.id.slice(0, 6)}`;
+    while (used.has(candidate)) {
+      candidate = `${candidate.slice(0, 24)}_${user.id.slice(0, 4)}`;
+    }
+    used.add(candidate);
+    user.username = candidate;
+    changed = true;
+  }
+
+  if (changed) await saveFileUsers(users);
 }
 
 export async function initUsersSchema() {
@@ -78,18 +142,23 @@ export async function initUsersSchema() {
       ALTER TABLE bots ADD COLUMN IF NOT EXISTS pix_recipient_name TEXT NOT NULL DEFAULT '';
       ALTER TABLE bots ADD COLUMN IF NOT EXISTS audio_library JSONB NOT NULL DEFAULT '[]';
       ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT '';
+      ALTER TABLE panel_users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
     `);
 
     const { rows } = await db.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM panel_users");
     if (Number(rows[0]?.count ?? 0) === 0) {
+      const username = normalizeUsername(env.ADMIN_USERNAME || "admin");
       const email = env.ADMIN_EMAIL || "admin@botmanager.local";
       await createUser({
+        username,
         email,
         password: env.PANEL_PASSWORD,
         name: env.ADMIN_NAME || "Administrador"
       });
-      console.log(`[db] Usuario admin criado: ${email}`);
+      console.log(`[db] Usuario admin criado: ${username}`);
     }
+
+    await backfillUsernames();
 
     await db.query(`
       UPDATE bots SET user_id = (SELECT id FROM panel_users ORDER BY created_at ASC LIMIT 1)
@@ -104,13 +173,17 @@ export async function initUsersSchema() {
 
   const users = await loadFileUsers();
   if (users.length === 0) {
+    const username = normalizeUsername(env.ADMIN_USERNAME || "admin");
     const email = env.ADMIN_EMAIL || "admin@botmanager.local";
     await createUser({
+      username,
       email,
       password: env.PANEL_PASSWORD,
       name: env.ADMIN_NAME || "Administrador"
     });
-    console.log(`[db] Usuario admin local criado: ${email}`);
+    console.log(`[db] Usuario admin local criado: ${username}`);
+  } else {
+    await backfillUsernames();
   }
 }
 
@@ -124,11 +197,12 @@ async function migrateFileUsersToPostgres() {
     const existing = await findUserByEmail(u.email);
     if (existing) continue;
     try {
+      const username = normalizeUsername(u.username || usernameFromEmail(u.email));
       await getPool().query(
-        `INSERT INTO panel_users (id, email, password_hash, name, created_at)
-         VALUES ($1, $2, $3, $4, $5::timestamptz)
+        `INSERT INTO panel_users (id, username, email, password_hash, name, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6::timestamptz)
          ON CONFLICT (email) DO NOTHING`,
-        [u.id, u.email, u.passwordHash, u.name, u.createdAt]
+        [u.id, username, u.email, u.passwordHash, u.name, u.createdAt]
       );
       await getPool().query(
         `INSERT INTO user_settings (user_id, openai_model) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
@@ -144,21 +218,34 @@ async function migrateFileUsersToPostgres() {
   }
 }
 
-export async function createUser(input: { email: string; password: string; name: string }) {
+export async function createUser(input: {
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+}) {
   const email = input.email.trim().toLowerCase();
+  const username = normalizeUsername(input.username);
+  if (username.length < 3) {
+    throw new Error("Usuário deve ter pelo menos 3 letras ou números.");
+  }
   const passwordHash = hashPassword(input.password);
 
   if (useDatabase()) {
-    const existing = await findUserByEmail(email);
-    if (existing) {
+    const existingUser = await findUserByUsername(username);
+    if (existingUser) {
+      throw new Error("Este usuário já está em uso. Escolha outro.");
+    }
+    const existingEmail = await findUserByEmail(email);
+    if (existingEmail) {
       throw new Error("Este e-mail já está cadastrado. Use Entrar para acessar sua conta.");
     }
     try {
       const { rows } = await getPool().query<UserRow>(
-        `INSERT INTO panel_users (email, password_hash, name)
-         VALUES ($1,$2,$3)
-         RETURNING id, email, password_hash, name, created_at`,
-        [email, passwordHash, input.name.trim()]
+        `INSERT INTO panel_users (username, email, password_hash, name)
+         VALUES ($1,$2,$3,$4)
+         RETURNING id, username, email, password_hash, name, created_at`,
+        [username, email, passwordHash, input.name.trim()]
       );
       const user = rowToUser(rows[0]);
       await getPool().query(
@@ -171,16 +258,23 @@ export async function createUser(input: { email: string; password: string; name:
       if (/panel_users_email_key|duplicate key.*email/i.test(msg)) {
         throw new Error("Este e-mail já está cadastrado. Use Entrar para acessar sua conta.");
       }
+      if (/panel_users_username_key|duplicate key.*username/i.test(msg)) {
+        throw new Error("Este usuário já está em uso. Escolha outro.");
+      }
       throw error;
     }
   }
 
   const users = await loadFileUsers();
+  if (users.some((u) => normalizeUsername(u.username) === username)) {
+    throw new Error("Este usuario ja esta em uso.");
+  }
   if (users.some((u) => u.email === email)) {
     throw new Error("Este e-mail ja esta cadastrado.");
   }
   const user: FileUser = {
     id: randomUUID(),
+    username,
     email,
     name: input.name.trim(),
     passwordHash,
@@ -188,7 +282,13 @@ export async function createUser(input: { email: string; password: string; name:
   };
   users.push(user);
   await saveFileUsers(users);
-  return { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt };
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    name: user.name,
+    createdAt: user.createdAt
+  };
 }
 
 export async function findUserByEmail(email: string) {
@@ -196,7 +296,7 @@ export async function findUserByEmail(email: string) {
 
   if (useDatabase()) {
     const { rows } = await getPool().query<UserRow>(
-      `SELECT id, email, password_hash, name, created_at FROM panel_users WHERE email = $1`,
+      `SELECT id, username, email, password_hash, name, created_at FROM panel_users WHERE email = $1`,
       [normalized]
     );
     return rows[0] ?? null;
@@ -207,6 +307,7 @@ export async function findUserByEmail(email: string) {
   if (!hit) return null;
   return {
     id: hit.id,
+    username: hit.username,
     email: hit.email,
     password_hash: hit.passwordHash,
     name: hit.name,
@@ -214,8 +315,33 @@ export async function findUserByEmail(email: string) {
   };
 }
 
-export async function authenticateUser(email: string, password: string) {
-  const row = await findUserByEmail(email);
+export async function findUserByUsername(username: string) {
+  const normalized = normalizeUsername(username);
+  if (!normalized) return null;
+
+  if (useDatabase()) {
+    const { rows } = await getPool().query<UserRow>(
+      `SELECT id, username, email, password_hash, name, created_at FROM panel_users WHERE LOWER(username) = $1`,
+      [normalized]
+    );
+    return rows[0] ?? null;
+  }
+
+  const users = await loadFileUsers();
+  const hit = users.find((u) => normalizeUsername(u.username) === normalized);
+  if (!hit) return null;
+  return {
+    id: hit.id,
+    username: hit.username,
+    email: hit.email,
+    password_hash: hit.passwordHash,
+    name: hit.name,
+    created_at: hit.createdAt
+  };
+}
+
+export async function authenticateUser(username: string, password: string) {
+  const row = await findUserByUsername(username);
   if (!row || !verifyPassword(password, row.password_hash)) {
     return null;
   }
@@ -225,7 +351,7 @@ export async function authenticateUser(email: string, password: string) {
 export async function getUserById(id: string): Promise<PanelUser | null> {
   if (useDatabase()) {
     const { rows } = await getPool().query<UserRow & { avatar_url?: string }>(
-      `SELECT id, email, password_hash, name, created_at, avatar_url FROM panel_users WHERE id = $1`,
+      `SELECT id, username, email, password_hash, name, created_at, avatar_url FROM panel_users WHERE id = $1`,
       [id]
     );
     return rows[0] ? rowToUser(rows[0]) : null;
@@ -234,7 +360,14 @@ export async function getUserById(id: string): Promise<PanelUser | null> {
   const users = await loadFileUsers();
   const hit = users.find((u) => u.id === id);
   return hit
-    ? { id: hit.id, email: hit.email, name: hit.name, createdAt: hit.createdAt, avatarUrl: hit.avatarUrl ?? "" }
+    ? {
+        id: hit.id,
+        username: hit.username,
+        email: hit.email,
+        name: hit.name,
+        createdAt: hit.createdAt,
+        avatarUrl: hit.avatarUrl ?? ""
+      }
     : null;
 }
 
@@ -247,13 +380,14 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
   if (useDatabase()) {
     const { rows } = await getPool().query<{
       id: string;
+      username: string;
       email: string;
       name: string;
       created_at: string;
       avatar_url?: string;
       bot_count: string;
     }>(`
-      SELECT u.id, u.email, u.name, u.created_at, u.avatar_url,
+      SELECT u.id, u.username, u.email, u.name, u.created_at, u.avatar_url,
              COUNT(b.id)::text AS bot_count
       FROM panel_users u
       LEFT JOIN bots b ON b.user_id = u.id
@@ -262,12 +396,13 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
     `);
     return rows.map((row) => ({
       id: row.id,
+      username: row.username,
       email: row.email,
       name: row.name,
       createdAt: new Date(row.created_at).toISOString(),
       avatarUrl: row.avatar_url ?? "",
       botCount: Number(row.bot_count || 0),
-      isOwner: isPlatformOwner(row.email)
+      isOwner: isPlatformOwner({ username: row.username, email: row.email })
     }));
   }
 
@@ -276,28 +411,26 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
   return users
     .map((u) => ({
       id: u.id,
+      username: u.username,
       email: u.email,
       name: u.name,
       createdAt: u.createdAt,
       avatarUrl: u.avatarUrl ?? "",
       botCount: bots.filter((b) => b.userId === u.id).length,
-      isOwner: isPlatformOwner(u.email)
+      isOwner: isPlatformOwner({ username: u.username, email: u.email })
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 /** Remove conta + instâncias. Retorna IDs dos bots removidos (para parar processos WA). */
-export async function deletePlatformUser(
-  targetUserId: string,
-  actor: { id: string; email: string }
-): Promise<string[]> {
+export async function deletePlatformUser(targetUserId: string, actor: { id: string }): Promise<string[]> {
   if (targetUserId === actor.id) {
     throw new Error("Você não pode excluir sua própria conta por aqui.");
   }
 
   const target = await getUserById(targetUserId);
   if (!target) throw new Error("Usuário não encontrado.");
-  if (isPlatformOwner(target.email)) {
+  if (isPlatformOwner({ username: target.username, email: target.email })) {
     throw new Error("Não é possível excluir a conta do administrador da plataforma.");
   }
 
