@@ -3319,6 +3319,100 @@ app.post('/api/send', async (req, res) => {
   }
 });
 
+app.get('/api/groups', async (_req, res) => {
+  const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  if (!connected) {
+    return res.status(503).json({
+      ok: false,
+      error: 'WhatsApp nao conectado.',
+      state: connectionState
+    });
+  }
+  try {
+    const chats = await client.getChats();
+    const groups = chats
+      .filter((c) => c.isGroup)
+      .map((g) => ({ id: g.id._serialized, name: g.name || g.id._serialized }));
+    return res.json({ ok: true, groups });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error?.message || String(error) });
+  }
+});
+
+app.post('/api/warm/send', async (req, res) => {
+  const connected = connectionState === 'ready' || connectionState === 'authenticated';
+  if (!connected) {
+    return res.status(503).json({
+      ok: false,
+      error: 'WhatsApp nao conectado.',
+      state: connectionState
+    });
+  }
+  const { chatId, action, text, mediaPath, latitude, longitude, locationName, emoji } = req.body || {};
+  if (!chatId || !action) {
+    return res.status(400).json({ ok: false, error: 'chatId e action obrigatorios' });
+  }
+  try {
+    const chat = await client.getChatById(chatId);
+    if (!chat) return res.status(404).json({ ok: false, error: 'Chat nao encontrado' });
+
+    if (action === 'text') {
+      await chat.sendMessage(String(text || 'oi'));
+      return res.json({ ok: true });
+    }
+
+    if (action === 'audio') {
+      if (!mediaPath) return res.status(400).json({ ok: false, error: 'mediaPath obrigatorio' });
+      const media = MessageMedia.fromFilePath(mediaPath);
+      await chat.sendMessage(media, { sendAudioAsVoice: true });
+      return res.json({ ok: true });
+    }
+
+    if (action === 'image') {
+      if (!mediaPath) return res.status(400).json({ ok: false, error: 'mediaPath obrigatorio' });
+      const media = MessageMedia.fromFilePath(mediaPath);
+      await chat.sendMessage(media);
+      return res.json({ ok: true });
+    }
+
+    if (action === 'location') {
+      const { Location } = require('whatsapp-web.js');
+      const loc = new Location(
+        Number(latitude) || -23.55,
+        Number(longitude) || -46.63,
+        locationName || 'Brasil'
+      );
+      await chat.sendMessage(loc);
+      return res.json({ ok: true });
+    }
+
+    if (action === 'reaction') {
+      const messages = await chat.fetchMessages({ limit: 25 });
+      const candidates = messages.filter((m) => !m.fromMe);
+      const target = candidates[Math.floor(Math.random() * Math.max(1, candidates.length))] || messages[0];
+      if (!target) return res.json({ ok: true, skipped: true });
+      await target.react(emoji || '👍');
+      return res.json({ ok: true });
+    }
+
+    if (action === 'quote') {
+      const messages = await chat.fetchMessages({ limit: 25 });
+      const candidates = messages.filter((m) => !m.fromMe);
+      const target = candidates[Math.floor(Math.random() * Math.max(1, candidates.length))];
+      if (target) {
+        await target.reply(String(text || 'verdade'));
+        return res.json({ ok: true });
+      }
+      await chat.sendMessage(String(text || 'verdade'));
+      return res.json({ ok: true });
+    }
+
+    return res.status(400).json({ ok: false, error: 'action invalida' });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error?.message || String(error) });
+  }
+});
+
 server.listen(port, function() {
   console.log(`\n🚀 [SESSION: ${sessionId}]`);
   console.log(`📱 Modelo: ${modelName}`);

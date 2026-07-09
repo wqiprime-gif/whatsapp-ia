@@ -8,6 +8,7 @@ export const panelClientScript = `
   const NAV_PATHS = [
     ["/", "Dashboard"],
     ["/instances", "Instâncias"],
+    ["/aquecimento", "Aquecimento"],
     ["/links", "Gerar links"],
     ["/leads", "Leads"],
     ["/remarketing", "Remarketing"],

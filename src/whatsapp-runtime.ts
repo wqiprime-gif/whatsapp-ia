@@ -848,6 +848,59 @@ export function jidFromChatId(chatId: number) {
   return `${chatId}@c.us`;
 }
 
+export type WarmActionInput = {
+  botId: string;
+  chatId: string;
+  action: "text" | "audio" | "image" | "location" | "reaction" | "quote";
+  text?: string;
+  mediaPath?: string;
+  latitude?: number;
+  longitude?: number;
+  locationName?: string;
+  emoji?: string;
+};
+
+export async function fetchBotGroups(botId: string): Promise<{ id: string; name: string }[]> {
+  const proc = processes.get(botId);
+  if (!proc) throw new Error("Instância WhatsApp não está rodando.");
+  const response = await fetch(`http://127.0.0.1:${proc.port}/api/groups`, {
+    signal: AbortSignal.timeout(120_000)
+  });
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const json = (await response.json()) as { error?: string };
+      detail = json.error ?? "";
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    throw new Error(detail || `Falha ao buscar grupos (HTTP ${response.status})`);
+  }
+  const data = (await response.json()) as { groups?: { id: string; name: string }[] };
+  return data.groups ?? [];
+}
+
+export async function sendWarmAction(input: WarmActionInput) {
+  const proc = processes.get(input.botId);
+  if (!proc) throw new Error("Instância WhatsApp não está rodando.");
+  const response = await fetch(`http://127.0.0.1:${proc.port}/api/warm/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(60_000)
+  });
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const json = (await response.json()) as { error?: string };
+      detail = json.error ?? "";
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    throw new Error(detail || `Falha no aquecimento (HTTP ${response.status})`);
+  }
+}
+
 /** Exportado para bot-instance validar args de proxy no spawn. */
 export function proxyArgsForUrl(proxyUrl: string) {
   return puppeteerProxyArgs(proxyUrl);

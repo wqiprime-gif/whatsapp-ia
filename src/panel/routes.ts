@@ -88,6 +88,23 @@ import {
 import { waLinksPage } from "./links-page.js";
 import { adminUsersPage } from "./admin-users-page.js";
 import {
+  chipWarmerDashboardPage,
+  chipWarmerNewPage,
+  chipWarmerSessionPage,
+  adminWarmOverviewPage
+} from "./chip-warmer-page.js";
+import {
+  createWarmSession,
+  getBotWarmScores,
+  getWarmSession,
+  listWarmSessions,
+  listActiveWarmSessions,
+  setWarmSessionStatus,
+  countPlatformWarmingChips,
+  countWarmingChipsByUser
+} from "../lib/chip-warmer.js";
+import { discoverCommonGroupsForBots } from "../lib/chip-warmer-scheduler.js";
+import {
   createWaRedirectLink,
   deleteWaRedirectLink,
   getWaRedirectLinkBySlug,
@@ -1765,6 +1782,204 @@ export async function registerPanelRoutes(
       return reply.redirect(flashRedirect("/admin/usuarios", "Conta excluída com sucesso."));
     } catch (error) {
       return reply.redirect(flashRedirect("/admin/usuarios", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.get("/admin/aquecimento", async (request, reply) => {
+    const user = await requirePlatformOwner(request, reply);
+    if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const meta = await panelUserMeta(user.id);
+    const users = await listPlatformUsers();
+    const warmingMap = await countWarmingChipsByUser();
+    const sessions = await listActiveWarmSessions();
+    const rows = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      username: u.username || u.email.split("@")[0] || "user",
+      warmingChips: warmingMap[u.id] ?? 0,
+      activeSessions: sessions.filter((s) => s.userId === u.id).length
+    }));
+    return reply.type("text/html").send(
+      adminWarmOverviewPage({
+        users: rows,
+        totalWarming: await countPlatformWarmingChips(),
+        totalSessions: sessions.length,
+        userName: meta.label,
+        userAvatar: meta.avatarUrl,
+        message: query.msg,
+        isError: query.t === "err"
+      })
+    );
+  });
+
+  app.get("/aquecimento", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const meta = await panelUserMeta(user.id);
+    const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
+    const sessions = await listWarmSessions(user.id);
+    const allBotIds = [...new Set(sessions.flatMap((s) => s.botIds))];
+    const scores = await getBotWarmScores(user.id, allBotIds);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
+    return reply.type("text/html").send(
+      chipWarmerDashboardPage({
+        userName: meta.label,
+        userAvatar: meta.avatarUrl,
+        sessions,
+        bots,
+        statuses,
+        scores,
+        message: query.msg,
+        isError: query.t === "err",
+        partial: isPartial(request),
+        showAdminNav
+      })
+    );
+  });
+
+  app.get("/aquecimento/novo", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const meta = await panelUserMeta(user.id);
+    const bots = await loadBots(user.id);
+    const statuses = await getWaLiveStatuses(bots);
+    const scores = await getBotWarmScores(
+      user.id,
+      bots.map((b) => b.id)
+    );
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
+    return reply.type("text/html").send(
+      chipWarmerNewPage({
+        userName: meta.label,
+        userAvatar: meta.avatarUrl,
+        bots,
+        statuses,
+        scores,
+        message: query.msg,
+        isError: query.t === "err",
+        partial: isPartial(request),
+        showAdminNav
+      })
+    );
+  });
+
+  app.get("/aquecimento/sessao/:id", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
+    const session = await getWarmSession(params.id, user.id);
+    if (!session) return reply.redirect(flashRedirect("/aquecimento", "Sessão não encontrada.", "err"));
+    const meta = await panelUserMeta(user.id);
+    const bots = await loadBots(user.id);
+    const scores = await getBotWarmScores(user.id, session.botIds);
+    const showAdminNav = await resolvePlatformOwnerAccess(user.id);
+    return reply.type("text/html").send(
+      chipWarmerSessionPage({
+        userName: meta.label,
+        userAvatar: meta.avatarUrl,
+        session,
+        bots,
+        scores,
+        message: query.msg,
+        isError: query.t === "err",
+        partial: isPartial(request),
+        showAdminNav
+      })
+    );
+  });
+
+  app.post("/aquecimento/sessao/criar", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          name: z.string().optional(),
+          mode: z.enum(["groups", "p2p"]).default("groups"),
+          botIds: z.union([z.string(), z.array(z.string())]),
+          groupIds: z.string().optional(),
+          groupsMeta: z.string().optional()
+        })
+        .parse(request.body ?? {});
+      const botIds = Array.isArray(body.botIds) ? body.botIds : [body.botIds];
+      const groupIds = (body.groupIds || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      let groupsMeta: { id: string; name: string }[] = [];
+      try {
+        groupsMeta = JSON.parse(body.groupsMeta || "[]");
+      } catch {
+        groupsMeta = [];
+      }
+      const session = await createWarmSession({
+        userId: user.id,
+        name: body.name || "",
+        mode: body.mode,
+        botIds,
+        groupIds,
+        groupsMeta
+      });
+      return reply.redirect(flashRedirect(`/aquecimento/sessao/${session.id}`, "Aquecimento ativado!"));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/aquecimento/novo", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/aquecimento/sessao/:id/pausar", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      await setWarmSessionStatus(params.id, user.id, "paused");
+      return reply.redirect(flashRedirect(`/aquecimento/sessao/${params.id}`, "Sessão pausada."));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/aquecimento/sessao/:id/retomar", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      await setWarmSessionStatus(params.id, user.id, "active");
+      return reply.redirect(flashRedirect(`/aquecimento/sessao/${params.id}`, "Sessão retomada."));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/aquecimento/sessao/:id/encerrar", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      await setWarmSessionStatus(params.id, user.id, "completed");
+      return reply.redirect(flashRedirect("/aquecimento", "Sessão encerrada."));
+    } catch (error) {
+      return reply.redirect(flashRedirect("/aquecimento", `Erro: ${errorMessage(error)}`, "err"));
+    }
+  });
+
+  app.post("/api/chip-warmer/discover-groups", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z.object({ botIds: z.array(z.string().min(1)).min(2) }).parse(request.body ?? {});
+      const bots = await loadBots(user.id);
+      for (const id of body.botIds) {
+        if (!bots.some((b) => b.id === id)) throw new Error("Instância inválida.");
+      }
+      const common = await discoverCommonGroupsForBots(user.id, body.botIds);
+      return reply.send({ ok: true, common, perBot: body.botIds.length });
+    } catch (error) {
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
     }
   });
 

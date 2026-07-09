@@ -23,6 +23,7 @@ export function adminUsersPage(
 ) {
   const total = users.length;
   const withBots = users.filter((u) => u.botCount > 0).length;
+  const warmingTotal = users.reduce((a, u) => a + (u.warmingChipCount || 0), 0);
 
   const rows =
     users.length === 0
@@ -34,6 +35,7 @@ export function adminUsersPage(
             <th>Usuário</th>
             <th>Login</th>
             <th>Instâncias</th>
+            <th>Aquecendo</th>
             <th>Cadastro</th>
             <th></th>
           </tr>
@@ -62,6 +64,7 @@ export function adminUsersPage(
             </td>
             <td><code style="font-size:0.82rem">@${escapeHtml(u.username || u.email.split("@")[0] || "user")}</code></td>
             <td>${u.botCount}</td>
+            <td>${u.warmingChipCount > 0 ? `<strong style="color:#fbbf24">${u.warmingChipCount}</strong>` : "0"}</td>
             <td style="font-size:0.85rem;color:var(--text-2)">${formatDate(u.createdAt)}</td>
             <td class="admin-user-actions">${deleteBtn}</td>
           </tr>`;
@@ -83,11 +86,15 @@ export function adminUsersPage(
           <div class="shark-kpi-head"><span class="shark-kpi-label">Com instâncias</span>${icons.layers}</div>
           <div class="shark-kpi-value">${withBots}</div>
         </div>
+        <div class="shark-kpi-card shark-card dash-glow-card">
+          <div class="shark-kpi-head"><span class="shark-kpi-label">Chips aquecendo</span>${icons.zap}</div>
+          <div class="shark-kpi-value">${warmingTotal}</div>
+        </div>
       </div>
       <div class="card card-premium">
         <div class="card-head">
           <h3>${icons.crown} Usuários da plataforma</h3>
-          <p class="form-hint" style="margin:0">Gerencie contas cadastradas. Excluir remove instâncias, bots e dados do usuário.</p>
+          <p class="form-hint" style="margin:0">Gerencie contas cadastradas. Excluir remove instâncias, bots e dados do usuário. <a href="/admin/aquecimento">Ver aquecimento global</a></p>
         </div>
         <div class="card-body card-body--flush">${rows}</div>
       </div>

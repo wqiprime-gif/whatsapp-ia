@@ -161,6 +161,9 @@ export async function initDatabase() {
     const { initPostSaleSchema } = await import("../lib/post-sale-scheduler.js");
     await initPostSaleSchema();
 
+    const { initChipWarmerSchema } = await import("../lib/chip-warmer.js");
+    await initChipWarmerSchema();
+
     const { initWaRedirectLinksSchema } = await import("../lib/wa-redirect-links.js");
     await initWaRedirectLinksSchema();
 

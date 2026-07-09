@@ -481,6 +481,7 @@ export async function getUserById(id: string): Promise<PanelUser | null> {
 
 export type PlatformUserSummary = PanelUser & {
   botCount: number;
+  warmingChipCount: number;
   isOwner: boolean;
 };
 
@@ -494,11 +495,16 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
       created_at: string;
       avatar_url?: string;
       bot_count: string;
+      warming_chip_count: string;
     }>(`
       SELECT u.id, u.username, u.email, u.name, u.created_at, u.avatar_url,
-             COUNT(b.id)::text AS bot_count
+             COUNT(DISTINCT b.id)::text AS bot_count,
+             COALESCE(SUM(
+               CASE WHEN cs.status = 'active' THEN jsonb_array_length(cs.bot_ids) ELSE 0 END
+             ), 0)::text AS warming_chip_count
       FROM panel_users u
       LEFT JOIN bots b ON b.user_id = u.id
+      LEFT JOIN chip_warm_sessions cs ON cs.user_id = u.id
       GROUP BY u.id
       ORDER BY u.created_at DESC
     `);
@@ -510,12 +516,20 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
       createdAt: new Date(row.created_at).toISOString(),
       avatarUrl: row.avatar_url ?? "",
       botCount: Number(row.bot_count || 0),
+      warmingChipCount: Number(row.warming_chip_count || 0),
       isOwner: isPlatformOwner({ username: row.username, email: row.email })
     }));
   }
 
   const users = await loadFileUsers();
   const bots = await loadBots();
+  let warmingByUser: Record<string, number> = {};
+  try {
+    const { countWarmingChipsByUser } = await import("../lib/chip-warmer.js");
+    warmingByUser = await countWarmingChipsByUser();
+  } catch {
+    warmingByUser = {};
+  }
   return users
     .map((u) => ({
       id: u.id,
@@ -525,6 +539,7 @@ export async function listPlatformUsers(): Promise<PlatformUserSummary[]> {
       createdAt: u.createdAt,
       avatarUrl: u.avatarUrl ?? "",
       botCount: bots.filter((b) => b.userId === u.id).length,
+      warmingChipCount: warmingByUser[u.id] ?? 0,
       isOwner: isPlatformOwner({ username: u.username, email: u.email })
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -544,6 +559,9 @@ export async function deletePlatformUser(targetUserId: string, actor: { id: stri
 
   const bots = await loadBots(targetUserId);
   const botIds = bots.map((b) => b.id);
+
+  const { purgeWarmDataForUser } = await import("../lib/chip-warmer.js");
+  await purgeWarmDataForUser(targetUserId);
 
   if (useDatabase()) {
     await getPool().query(`DELETE FROM panel_users WHERE id = $1`, [targetUserId]);

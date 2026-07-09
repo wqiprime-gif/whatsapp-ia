@@ -50,6 +50,8 @@ await initDatabase();
 if (!useDatabase()) {
   const { initUsersSchema } = await import("./db/users.js");
   await initUsersSchema();
+  const { initChipWarmerSchema } = await import("./lib/chip-warmer.js");
+  await initChipWarmerSchema();
 }
 await registerPanelRoutes(app, {
   restartBots: () => {
@@ -163,6 +165,16 @@ setInterval(() => {
 }, 60_000);
 void processDuePostSaleJobs().catch((error) =>
   console.error("[post-sale] Erro na verificação inicial:", error)
+);
+
+const { processChipWarmerTick } = await import("./lib/chip-warmer-scheduler.js");
+setInterval(() => {
+  void processChipWarmerTick().catch((error) =>
+    console.error("[chip-warmer] Erro no tick:", error)
+  );
+}, 60_000);
+void processChipWarmerTick().catch((error) =>
+  console.error("[chip-warmer] Erro na verificação inicial:", error)
 );
 
 let appShuttingDown = false;

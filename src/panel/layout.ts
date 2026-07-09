@@ -10,6 +10,7 @@ import { panelSceneScript } from "./panel-scene.js";
 export type NavId =
   | "dashboard"
   | "instances"
+  | "aquecimento"
   | "new"
   | "settings"
   | "leads"
@@ -189,6 +190,7 @@ export function appLayout(
       <div class="mobile-menu-section">PRINCIPAL</div>
       ${mobileMenuLink("/", "Dashboard", icons.dashboard, is("dashboard"))}
       ${mobileMenuLink("/instances", "Instâncias", icons.layers, is("instances"))}
+      ${mobileMenuLink("/aquecimento", "Aquecimento", icons.flame, is("aquecimento"))}
       ${mobileMenuLink("/links", "Gerar links", icons.link, is("links"))}
       ${mobileMenuLink("/leads", "Leads", icons.users, is("leads"))}
       <div class="mobile-menu-section">AUTOMAÇÕES</div>
@@ -197,7 +199,7 @@ export function appLayout(
       ${mobileMenuLink("/payments", "Pagamentos", icons.card, is("payments"))}
       ${mobileMenuLink("/products", "Produtos", icons.box, is("products"))}
       ${mobileMenuLink("/media", "Mídias", icons.image, is("media"))}
-      ${showAdminNav ? `<div class="mobile-menu-section">ADMIN</div>${mobileMenuLink("/admin/usuarios", "Usuários", icons.crown, is("admin"))}` : ""}
+      ${showAdminNav ? `<div class="mobile-menu-section">ADMIN</div>${mobileMenuLink("/admin/usuarios", "Usuários", icons.crown, is("admin"))}${mobileMenuLink("/admin/aquecimento", "Aquecimento", icons.flame, false)}` : ""}
       <div class="mobile-menu-section">CONTA</div>
       ${mobileMenuLink("/perfil", "Minha conta", icons.users, is("profile"))}
       <a href="${SUPPORT_WHATSAPP_URL}" class="mobile-menu-link" target="_blank" rel="noopener">${icons.help}<span>Suporte WhatsApp</span></a>
@@ -221,6 +223,7 @@ export function appLayout(
         <div class="nav-section">
           ${navItem("/", "Dashboard", icons.dashboard, is("dashboard"))}
           ${navItem("/instances", "Instâncias", icons.layers, is("instances"))}
+          ${navItem("/aquecimento", "Aquecimento", icons.flame, is("aquecimento"))}
           ${navItem("/links", "Gerar links", icons.link, is("links"))}
           ${navItem("/leads", "Leads", icons.users, is("leads"))}
           ${navItem("/remarketing", "Remarketing", icons.megaphone, is("remarketing"))}
@@ -228,7 +231,7 @@ export function appLayout(
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
-          ${showAdminNav ? `<div class="nav-section-label" style="margin-top:12px">ADMIN</div>${navItem("/admin/usuarios", "Usuários", icons.crown, is("admin"))}` : ""}
+          ${showAdminNav ? `<div class="nav-section-label" style="margin-top:12px">ADMIN</div>${navItem("/admin/usuarios", "Usuários", icons.crown, is("admin"))}${navItem("/admin/aquecimento", "Aquecimento", icons.flame, false)}` : ""}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
           <a href="${SUPPORT_WHATSAPP_URL}" class="nav-support" target="_blank" rel="noopener">${icons.help}<span class="nav-text"> Suporte WhatsApp</span></a>
         </div>
