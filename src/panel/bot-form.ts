@@ -285,13 +285,13 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
       <label class="field span-2">Vídeo da chamada (MP4)
         <div class="dropzone dropzone-neon">
           <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Vídeo em tela cheia após o lead atender</p>
-          <input form="${formId}" name="callVideoFile" type="file" accept="video/mp4,video/*" />
+          <input form="${formId}" name="callVideoFile" id="callVideoFile" type="file" accept="video/mp4,video/*" />
         </div>
         ${videoPreview}
         ${videoCallVideoUrl ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeCallVideo" value="1" /> Remover vídeo atual (${escapeHtml(videoName)})</label>` : ""}
-        <span class="form-hint">Salve a instância com o MP4, depois use o botão abaixo para <strong>gerar o link</strong> e testar a chamada.</span>
+        <span class="form-hint">Escolha o MP4 e clique em <strong>Gerar link</strong> abaixo — não precisa salvar a instância antes para testar.</span>
       </label>
-      <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}">
+      <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}" data-saved-video="${escapeHtml(videoCallVideoUrl)}">
         <label>Link OnlyChat da chamada (para testar)
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
             <input type="text" id="call-link-output" readonly value="${escapeHtml(videoCallLink && videoCallLink.includes("/call/") ? videoCallLink : "")}" placeholder="Clique em Gerar link para montar" style="flex:1;min-width:200px" />
@@ -300,7 +300,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
             <a class="btn btn-secondary" id="btn-open-call-link" href="#" target="_blank" rel="noopener" style="display:none">Abrir</a>
           </div>
         </label>
-        <span class="form-hint">1) Salve a instância com o vídeo · 2) Gere o link · 3) Copie e abra no celular para testar. O bot também envia esse tipo de link após o pagamento (~10 min).</span>
+        <span class="form-hint">1) Escolha o MP4 · 2) Gere o link · 3) Copie e abra no celular. Pode fazer isso <strong>antes de salvar</strong> a instância.</span>
       </div>
       <label class="field span-2">Link externo da chamada (opcional)
         <input name="videoCallLink" id="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="Cole aqui o link OnlyChat gerado, ou um Meet externo" />
@@ -604,11 +604,16 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           function esc(s) {
             return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           }
+          function syncSize() {
+            bd.style.height = ta.clientHeight + "px";
+            bd.style.width = ta.clientWidth + "px";
+          }
           function render() {
             var html = esc(ta.value).replace(/\\[\\[.+?\\]\\]/g, function (m) {
               return '<mark class="prompt-tag-hl">' + m + "</mark>";
             });
-            bd.innerHTML = html + "\\n";
+            bd.innerHTML = html + "\\n\\n";
+            syncSize();
             bd.scrollTop = ta.scrollTop;
             bd.scrollLeft = ta.scrollLeft;
           }
@@ -617,6 +622,10 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
             bd.scrollTop = ta.scrollTop;
             bd.scrollLeft = ta.scrollLeft;
           });
+          window.addEventListener("resize", function () { syncSize(); });
+          if (typeof ResizeObserver !== "undefined") {
+            new ResizeObserver(function () { syncSize(); }).observe(ta);
+          }
           window.__refreshPromptHighlight = render;
           render();
         })();

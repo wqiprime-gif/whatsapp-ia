@@ -24,6 +24,7 @@ export const panelClientScript = `
   const LS_LAST_SALE = "panelLastSaleId";
   const LS_SALE_INIT = "panelSaleInitDone";
   const LS_BELL_SEEN = "panelBellSeenAt";
+  const LS_BELL_CLEARED = "panelBellClearedAt";
   const LS_AVATAR = "panelAvatarUrl";
   const LS_AVATAR_PREVIEW = "panelAvatarPreview";
   const LS_DASH_PERIOD = "dashPeriod";
@@ -259,27 +260,59 @@ export const panelClientScript = `
       if (linkField && url) linkField.value = url;
     }
 
-    genBtn.addEventListener("click", async function () {
-      const botId = box.getAttribute("data-bot-id") || "";
-      if (!botId) {
-        showToast("Salve a instância", "Crie/salve a instância com o vídeo MP4, depois volte e gere o link.", "daily", true);
-        return;
+    async function uploadSelectedVideo() {
+      const fileInput = document.getElementById("callVideoFile") || scope.querySelector('input[name="callVideoFile"]');
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) return box.getAttribute("data-saved-video") || "";
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/panel/call-video-upload", {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok || !data.videoUrl) {
+        throw new Error(data.error || "Falha no upload do vídeo");
       }
+      box.setAttribute("data-saved-video", data.videoUrl);
+      box.setAttribute("data-has-video", "1");
+      return data.videoUrl;
+    }
+
+    genBtn.addEventListener("click", async function () {
       genBtn.disabled = true;
       const prev = genBtn.textContent;
       genBtn.textContent = "Gerando...";
       try {
+        const botId = box.getAttribute("data-bot-id") || "";
         const caller = (document.querySelector('input[name="videoCallCallerName"]') || {}).value || "";
         const locale = (document.querySelector('select[name="locale"]') || {}).value || "pt-BR";
+        let videoUrl = "";
+        try {
+          videoUrl = await uploadSelectedVideo();
+        } catch (err) {
+          showToast("Vídeo", err.message || "Selecione o MP4 da chamada.", "daily", true);
+          return;
+        }
+        if (!videoUrl && !botId) {
+          showToast("Selecione o MP4", "Escolha o vídeo da chamada e clique em Gerar link.", "daily", true);
+          return;
+        }
         const res = await fetch("/api/panel/call-preview", {
           method: "POST",
           credentials: "same-origin",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ botId: botId, callerName: caller, locale: locale })
+          body: JSON.stringify({
+            botId: botId || undefined,
+            callerName: caller,
+            locale: locale,
+            videoUrl: videoUrl || undefined
+          })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          showToast("Não gerou", data.error || "Salve o vídeo MP4 e tente de novo.", "daily", true);
+          showToast("Não gerou", data.error || "Selecione o MP4 e tente de novo.", "daily", true);
           return;
         }
         setLink(data.url);
@@ -1001,10 +1034,11 @@ export const panelClientScript = `
     bellBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       bellMenu.classList.toggle("open");
-      sessionStorage.setItem(LS_BELL_SEEN, String(Date.now()));
-      if (bellBadge) bellBadge.style.display = "none";
     });
-    document.addEventListener("click", () => bellMenu.classList.remove("open"));
+    document.addEventListener("click", (e) => {
+      if (bellMenu.contains(e.target) || bellBtn.contains(e.target)) return;
+      bellMenu.classList.remove("open");
+    });
   }
 
   if (Notification && Notification.permission === "default" && canDesktopNotify()) {
@@ -1024,14 +1058,30 @@ export const panelClientScript = `
     }
   }, 2500);
 
+  function getBellClearedAt() {
+    return Number(sessionStorage.getItem(LS_BELL_CLEARED) || 0);
+  }
+
+  function filterBellItems(items) {
+    const clearedAt = getBellClearedAt();
+    if (!clearedAt) return items || [];
+    return (items || []).filter(function (s) {
+      if (!s || !s.at) return true;
+      const t = new Date(s.at).getTime();
+      return !t || t > clearedAt;
+    });
+  }
+
   function updateBellMenu(items) {
     if (!bellMenu) return;
-    const merged = (items || []).slice(0, 12);
+    const merged = filterBellItems(items || []).slice(0, 12);
     if (merged.length === 0) {
-      bellMenu.innerHTML = '<div class="bell-empty">Nenhuma notificação ainda</div>';
+      bellMenu.innerHTML =
+        '<div class="bell-menu-head"><strong>Notificações</strong></div>' +
+        '<div class="bell-empty">Nenhuma notificação ainda</div>';
       return;
     }
-    bellMenu.innerHTML = merged.map((s) => {
+    const listHtml = merged.map((s) => {
       const kind = s.kind || "sale";
       const icon = BELL_ICONS[kind] || BELL_ICONS.sale;
       return '<div class="bell-item bell-item--' + kind + '">' +
@@ -1043,6 +1093,26 @@ export const panelClientScript = `
         '</div>' +
       '</div>';
     }).join("");
+    bellMenu.innerHTML =
+      '<div class="bell-menu-head">' +
+        '<strong>Notificações</strong>' +
+        '<button type="button" class="btn btn-secondary btn-sm" id="btn-clear-bell">Limpar</button>' +
+      '</div>' +
+      listHtml;
+    const clearBtn = bellMenu.querySelector("#btn-clear-bell");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const now = String(Date.now());
+        sessionStorage.setItem(LS_BELL_SEEN, now);
+        sessionStorage.setItem(LS_BELL_CLEARED, now);
+        localStorage.setItem(LS_EXTRA_BELL, "[]");
+        lastBellItems = [];
+        if (bellBadge) bellBadge.style.display = "none";
+        updateBellMenu([]);
+        showToast("Limpo", "Notificações do sino removidas.", "daily", true);
+      });
+    }
   }
 
   function prependExtraBell(item) {

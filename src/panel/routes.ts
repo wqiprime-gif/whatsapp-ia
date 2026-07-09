@@ -856,18 +856,12 @@ export async function registerPanelRoutes(
       if (!videoUrl) {
         return reply.code(400).send({
           ok: false,
-          error: "Salve a instância com o vídeo MP4 da chamada antes de gerar o link."
-        });
-      }
-      if (!botId) {
-        return reply.code(400).send({
-          ok: false,
-          error: "Salve a instância primeiro, depois gere o link de teste."
+          error: "Selecione o vídeo MP4 da chamada (ou salve a instância com o vídeo) antes de gerar o link."
         });
       }
 
       const session = await createCallSession({
-        botId,
+        botId: botId || undefined,
         leadJid: "preview-test",
         callerName: callerName || "OnlyChat",
         avatarUrl,
@@ -876,6 +870,27 @@ export async function registerPanelRoutes(
       });
       const url = buildCallPageUrl(session.token);
       return reply.send({ ok: true, url, token: session.token });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
+  app.post("/api/panel/call-video-upload", { bodyLimit: 80 * 1024 * 1024 }, async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      let videoUrl = "";
+      for await (const part of request.parts()) {
+        if (part.type === "file" && part.filename) {
+          videoUrl = await saveUploadedFile(part.file, part.filename);
+          break;
+        }
+      }
+      if (!videoUrl) {
+        return reply.code(400).send({ ok: false, error: "Envie um arquivo de vídeo MP4." });
+      }
+      return reply.send({ ok: true, videoUrl });
     } catch (error) {
       request.log.error(error);
       return reply.code(500).send({ ok: false, error: errorMessage(error) });

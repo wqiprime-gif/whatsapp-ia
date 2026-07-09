@@ -1273,7 +1273,12 @@ button, input, textarea, select { font-family: inherit; }
 .field textarea { min-height: 110px; resize: vertical; }
 
 /* Editor de prompt com tags destacadas */
-.prompt-editor { position: relative; width: 100%; }
+.prompt-editor {
+  position: relative;
+  width: 100%;
+  min-height: 340px;
+  max-height: min(70vh, 720px);
+}
 .prompt-editor .prompt-editor-backdrop,
 .prompt-editor .prompt-editor-input {
   margin: 0;
@@ -1295,23 +1300,29 @@ button, input, textarea, select { font-family: inherit; }
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
+  overflow: auto;
   border-color: transparent;
   color: var(--text);
   background: rgba(5, 10, 18, 0.8);
+  scrollbar-width: none;
 }
+.prompt-editor .prompt-editor-backdrop::-webkit-scrollbar { width: 0; height: 0; }
 .prompt-editor .prompt-editor-input {
   position: relative;
   z-index: 1;
   display: block;
   width: 100%;
   min-height: 340px;
+  max-height: min(70vh, 720px);
+  height: min(70vh, 720px);
   resize: vertical;
   background: transparent;
   color: transparent;
   caret-color: var(--text);
   outline: none;
-  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
   transition: border-color var(--ease), box-shadow var(--ease);
 }
 .prompt-editor .prompt-editor-input:focus {
@@ -1821,6 +1832,13 @@ button, input, textarea, select { font-family: inherit; }
   z-index: 100;
 }
 .bell-menu.open { display: block; }
+.bell-menu-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--card-solid); z-index: 1;
+}
+.bell-menu-head strong { font-size: 0.85rem; color: var(--text); }
+.bell-empty { padding: 16px 14px; color: var(--muted); font-size: 0.82rem; }
 .bell-item {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px; border-bottom: 1px solid var(--border);

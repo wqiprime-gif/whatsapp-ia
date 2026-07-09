@@ -47,7 +47,7 @@ function isExpired(session: CallSession) {
 }
 
 export async function createCallSession(input: {
-  botId: string;
+  botId?: string;
   leadJid?: string;
   callerName: string;
   avatarUrl: string;
@@ -60,7 +60,7 @@ export async function createCallSession(input: {
   const expiresAt = new Date(Date.now() + ttl * 3600 * 1000).toISOString();
   const session: CallSession = {
     token,
-    botId: input.botId,
+    botId: input.botId || "",
     leadJid: input.leadJid ?? "",
     callerName: input.callerName,
     avatarUrl: input.avatarUrl,
@@ -77,7 +77,7 @@ export async function createCallSession(input: {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         session.token,
-        session.botId,
+        session.botId || null,
         session.leadJid,
         session.callerName,
         session.avatarUrl,

@@ -193,7 +193,7 @@ export async function initEventsSchema() {
 
     CREATE TABLE IF NOT EXISTS call_sessions (
       token TEXT PRIMARY KEY,
-      bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+      bot_id UUID REFERENCES bots(id) ON DELETE CASCADE,
       lead_jid TEXT NOT NULL DEFAULT '',
       caller_name TEXT NOT NULL DEFAULT '',
       avatar_url TEXT NOT NULL DEFAULT '',
@@ -204,6 +204,7 @@ export async function initEventsSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS call_sessions_bot_id_idx ON call_sessions(bot_id);
+    ALTER TABLE call_sessions ALTER COLUMN bot_id DROP NOT NULL;
   `);
 }
 
