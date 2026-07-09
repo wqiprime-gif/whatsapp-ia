@@ -1,6 +1,5 @@
 import { escapeHtml } from "./layout.js";
 import { brandFaviconDataUri, brandIconSvgHtml } from "./brand-icon.js";
-import { whatsappAppIconSvg } from "./whatsapp-app-icon.js";
 
 export const BRAND_LOGO_SRC = "/brand/onlychat.svg";
 export const BRAND_ICON_PNG = "/brand/pwa-192.png";
@@ -39,13 +38,7 @@ export function brandLockupHtml(
   </div>`;
 }
 
-/** Marca na sidebar — ícone WhatsApp squircle + wordmark. */
+/** Marca na sidebar — ícone azul OnlyChat + wordmark. */
 export function brandMarkHtml(subtitle = "") {
-  return `<div class="brand-lockup brand-lockup--sidebar">
-    <span class="brand-icon-slot">${whatsappAppIconSvg(42)}</span>
-    <div class="brand-lockup-copy">
-      <span class="brand-lockup-text">ONLY<span class="brand-lockup-accent">CHAT</span></span>
-      ${subtitle ? `<span class="brand-sub">${escapeHtml(subtitle)}</span>` : ""}
-    </div>
-  </div>`;
+  return brandLockupHtml("sidebar", subtitle);
 }

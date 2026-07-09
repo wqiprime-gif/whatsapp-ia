@@ -11,16 +11,22 @@ export const mobileDrawerScript = `
     drawer.setAttribute("aria-hidden", "false");
     backdrop.setAttribute("aria-hidden", "false");
     document.body.classList.add("mobile-menu-open");
+    var menuBtn = document.getElementById("mobile-menu-btn");
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", "true");
   }
   function closeDrawer() {
     var drawer = document.getElementById("mobile-menu-drawer");
     var backdrop = document.getElementById("mobile-drawer-backdrop");
     if (!drawer || !backdrop) return;
+    var focused = document.activeElement;
+    if (focused && drawer.contains(focused) && typeof focused.blur === "function") focused.blur();
     drawer.classList.remove("mobile-menu-drawer--open");
     backdrop.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
     backdrop.setAttribute("aria-hidden", "true");
     document.body.classList.remove("mobile-menu-open");
+    var menuBtn = document.getElementById("mobile-menu-btn");
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
   }
   function toggleDrawer() {
     var drawer = document.getElementById("mobile-menu-drawer");

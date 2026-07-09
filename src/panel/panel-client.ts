@@ -171,8 +171,12 @@ export const panelClientScript = `
         );
         if (pushResult && pushResult.ok && pushResult.sent > 0) {
           showToast("Push enviado!", "Verifique a bandeja do celular (" + pushResult.sent + " dispositivo(s)).", "sale", true);
+        } else if (pushResult && !pushResult.ok && pushResult.error) {
+          showToast("Push: " + pushResult.error, localOk ? "Notificação local OK." : "Instale o app e aceite notificações.", "daily", true);
+        } else if (pushResult && pushResult.ok && pushResult.sent === 0) {
+          showToast("Nenhum dispositivo", "Instale o app na tela inicial e aceite notificações, depois teste de novo.", "daily", true);
         } else if (localOk) {
-          showToast("Notificação local OK", "Para push com app fechado, instale o app e configure VAPID no Railway.", "daily", true);
+          showToast("Notificação local OK", "Para push com app fechado, instale o app (Perfil) e aceite notificações.", "daily", true);
         } else if (Notification && Notification.permission === "denied") {
           showToast("Permissão bloqueada", "Ative notificações nas configurações do navegador/celular.", "daily", true);
         } else {
@@ -188,7 +192,7 @@ export const panelClientScript = `
   let deferredPwaPrompt = null;
   function bindPwaInstall(root) {
     const scope = root || document;
-    for (const btn of scope.querySelectorAll("#btn-pwa-install, #btn-pwa-install-profile")) {
+    for (const btn of scope.querySelectorAll("#btn-pwa-install-profile")) {
       if (!btn || btn.dataset.bound) continue;
       btn.dataset.bound = "1";
       btn.addEventListener("click", async function () {
@@ -196,8 +200,6 @@ export const panelClientScript = `
           deferredPwaPrompt.prompt();
           await deferredPwaPrompt.userChoice;
           deferredPwaPrompt = null;
-          const sidebarBtn = document.getElementById("btn-pwa-install");
-          if (sidebarBtn) sidebarBtn.style.display = "none";
           return;
         }
         showToast("Instalar app", "No Chrome: menu ⋮ → Adicionar à tela inicial / Instalar app.", "daily", true);
@@ -207,8 +209,8 @@ export const panelClientScript = `
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferredPwaPrompt = e;
-    const btn = document.getElementById("btn-pwa-install");
-    if (btn) btn.style.display = "flex";
+    const btn = document.getElementById("btn-pwa-install-profile");
+    if (btn) btn.textContent = "Instalar app agora (atalho disponível)";
   });
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
@@ -284,7 +286,8 @@ export const panelClientScript = `
   function normPath(p) {
     const s = (p || "/").split("?")[0];
     if (!s || s === "/") return "/";
-    return s.replace(/\/$/, "") || "/";
+    if (s.length > 1 && s.endsWith("/")) return s.slice(0, -1);
+    return s;
   }
 
   function setActiveNav(path) {

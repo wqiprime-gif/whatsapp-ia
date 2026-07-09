@@ -419,7 +419,18 @@ export async function registerPanelRoutes(
 
   app.addHook("onRequest", async (request, reply) => {
     const urlPath = request.url.split("?")[0];
-    const publicPaths = ["/login", "/register", "/uploads", "/health", "/brand", "/internal", "/webhooks"];
+    const publicPaths = [
+      "/login",
+      "/register",
+      "/uploads",
+      "/health",
+      "/brand",
+      "/internal",
+      "/webhooks",
+      "/manifest.webmanifest",
+      "/sw.js",
+      "/favicon.ico"
+    ];
     if (publicPaths.some((p) => urlPath === p || urlPath.startsWith(`${p}/`))) return;
     if (!isAuthenticated(request)) return reply.redirect("/login");
 

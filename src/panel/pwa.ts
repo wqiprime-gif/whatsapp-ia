@@ -6,7 +6,7 @@ export const PWA_MANIFEST = {
   scope: "/",
   display: "standalone",
   background_color: "#050505",
-  theme_color: "#25D366",
+  theme_color: "#0a5cff",
   orientation: "portrait-primary",
   icons: [
     {
@@ -94,7 +94,7 @@ self.addEventListener("notificationclick", (event) => {
 
 export const PWA_HEAD_TAGS = `
 <link rel="manifest" href="/manifest.webmanifest" />
-<meta name="theme-color" content="#25D366" />
+<meta name="theme-color" content="#0a5cff" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
