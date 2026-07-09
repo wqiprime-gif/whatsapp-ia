@@ -206,6 +206,112 @@ export const panelClientScript = `
       });
     }
   }
+
+  function bindAudioReplace(root) {
+    const scope = root || document;
+    scope.querySelectorAll("[data-audio-replace]").forEach(function (input) {
+      if (input.dataset.bound) return;
+      input.dataset.bound = "1";
+      input.addEventListener("change", function () {
+        const card = input.closest("[data-audio-card]");
+        if (!card) return;
+        const file = input.files && input.files[0];
+        const nameEl = card.querySelector("[data-audio-replace-name]");
+        const player = card.querySelector("[data-audio-player]");
+        if (!file) return;
+        if (nameEl) {
+          nameEl.style.display = "block";
+          nameEl.textContent = "Novo arquivo: " + file.name + " (salve a instância para aplicar)";
+        }
+        if (player) {
+          try {
+            const url = URL.createObjectURL(file);
+            player.src = url;
+            player.load();
+          } catch (_) {}
+        }
+      });
+    });
+  }
+
+  function bindCallLinkGenerator(root) {
+    const scope = root || document;
+    const box = scope.querySelector("[data-call-link-box]");
+    if (!box || box.dataset.bound) return;
+    box.dataset.bound = "1";
+    const out = scope.querySelector("#call-link-output") || document.getElementById("call-link-output");
+    const genBtn = scope.querySelector("#btn-generate-call-link") || document.getElementById("btn-generate-call-link");
+    const copyBtn = scope.querySelector("#btn-copy-call-link") || document.getElementById("btn-copy-call-link");
+    const openBtn = scope.querySelector("#btn-open-call-link") || document.getElementById("btn-open-call-link");
+    const linkField = scope.querySelector("#videoCallLink") || document.getElementById("videoCallLink");
+    if (!genBtn || !out) return;
+
+    function setLink(url) {
+      out.value = url || "";
+      if (openBtn) {
+        if (url) {
+          openBtn.href = url;
+          openBtn.style.display = "inline-flex";
+        } else {
+          openBtn.style.display = "none";
+        }
+      }
+      if (linkField && url) linkField.value = url;
+    }
+
+    genBtn.addEventListener("click", async function () {
+      const botId = box.getAttribute("data-bot-id") || "";
+      if (!botId) {
+        showToast("Salve a instância", "Crie/salve a instância com o vídeo MP4, depois volte e gere o link.", "daily", true);
+        return;
+      }
+      genBtn.disabled = true;
+      const prev = genBtn.textContent;
+      genBtn.textContent = "Gerando...";
+      try {
+        const caller = (document.querySelector('input[name="videoCallCallerName"]') || {}).value || "";
+        const locale = (document.querySelector('select[name="locale"]') || {}).value || "pt-BR";
+        const res = await fetch("/api/panel/call-preview", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ botId: botId, callerName: caller, locale: locale })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast("Não gerou", data.error || "Salve o vídeo MP4 e tente de novo.", "daily", true);
+          return;
+        }
+        setLink(data.url);
+        showToast("Link pronto!", "Copie e abra no celular para testar a chamada.", "sale", true);
+      } catch (_) {
+        showToast("Erro", "Falha ao gerar o link da chamada.", "daily", true);
+      } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = prev;
+      }
+    });
+
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async function () {
+        const url = out.value.trim();
+        if (!url) {
+          showToast("Sem link", "Gere o link primeiro.", "daily", true);
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          showToast("Copiado!", url, "sale", true);
+        } catch (_) {
+          out.select();
+          document.execCommand("copy");
+          showToast("Copiado!", url, "sale", true);
+        }
+      });
+    }
+
+    if (out.value) setLink(out.value);
+  }
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferredPwaPrompt = e;
@@ -379,6 +485,8 @@ export const panelClientScript = `
     setActiveNav(path);
     syncDashboardTopbar(main);
     bindForms(main);
+    bindAudioReplace(main);
+    bindCallLinkGenerator(main);
     if (path === "/perfil" || path.startsWith("/perfil")) {
       pageCache.delete("/perfil");
       bindTestNotify(main);
@@ -1203,6 +1311,8 @@ export const panelClientScript = `
   });
   bindTestNotify(document);
   bindPwaInstall(document);
+  bindAudioReplace(document);
+  bindCallLinkGenerator(document);
 
   function injectAdminNav() {
     if (document.querySelector('[data-nav-admin-injected]')) return;

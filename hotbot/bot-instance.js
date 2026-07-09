@@ -746,10 +746,27 @@ function buildAudioAppendix() {
   );
 }
 
+function buildLanguageAppendix() {
+  if (botLocale() !== 'en-US') return '';
+  return (
+    '\n\n--- LANGUAGE (MANDATORY) ---\n' +
+    'You MUST reply ONLY in English on WhatsApp. Every message, greeting, sales pitch, negotiation and follow-up must be in English.\n' +
+    'Even if the prompt above is written in Portuguese, translate the persona and speak English to the lead.\n' +
+    'Never reply in Portuguese while this instance is set to English.\n'
+  );
+}
+
 function buildSystemPrompt() {
   const panelPrompt = readPanelPromptRaw();
   const base = panelPrompt || loadDefaultPrompt() || '';
-  return base + buildPixAppendix() + buildDiscountAppendix() + buildGiftsAppendix() + buildAudioAppendix();
+  return (
+    base +
+    buildLanguageAppendix() +
+    buildPixAppendix() +
+    buildDiscountAppendix() +
+    buildGiftsAppendix() +
+    buildAudioAppendix()
+  );
 }
 
 function refreshAllConversationPrompts() {

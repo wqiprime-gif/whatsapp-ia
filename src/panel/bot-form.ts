@@ -144,7 +144,7 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
     ? `<div class="audio-grid audio-grid-form">
       ${SEED_AUDIO_CATALOG.map(
         (a) => `
-        <article class="audio-card">
+        <article class="audio-card" data-audio-card>
           <div class="audio-card-head">
             <span class="audio-badge">${icons.audio}</span>
             <div>
@@ -152,11 +152,18 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
               <p class="audio-triggers"><code>[[audio:${escapeHtml(a.slug)}]]</code> · ${escapeHtml(a.triggers || "só pela IA no prompt")}</p>
             </div>
           </div>
-          <audio controls preload="none" src="${escapeHtml(a.previewUrl)}" class="audio-player"></audio>
+          <audio controls preload="none" src="${escapeHtml(a.previewUrl)}" class="audio-player" data-audio-player></audio>
+          <div class="audio-card-actions">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+              Trocar áudio
+              <input form="${formId}" type="file" name="seedAudioFile_${escapeHtml(a.slug)}" accept="audio/*,.ogg,.opus" hidden data-audio-replace />
+            </label>
+          </div>
+          <p class="form-hint" data-audio-replace-name style="display:none;margin-top:6px"></p>
         </article>`
       ).join("")}
     </div>
-    <p class="form-hint">Esses 5 áudios entram automaticamente ao criar a instância. Depois de salvar, abra a instância para <strong>ouvir, remover ou trocar</strong> cada um.</p>`
+    <p class="form-hint">Clique em <strong>Trocar áudio</strong> em cada card para escolher outro arquivo. Ao salvar a instância, o áudio novo entra no funil.</p>`
     : "";
 
   const list =
@@ -167,7 +174,7 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
       ${library
         .map(
           (item, i) => `
-        <article class="audio-card">
+        <article class="audio-card" data-audio-card>
           <div class="audio-card-head">
             <span class="audio-badge">${icons.audio}</span>
             <div>
@@ -175,11 +182,16 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
               <p class="audio-triggers"><code>[[audio:${escapeHtml(item.slug || item.label.toLowerCase().replace(/\s+/g, "_"))}]]</code> · ${escapeHtml(item.triggers || item.keywords || "só pela IA no prompt")}</p>
             </div>
           </div>
-          <audio controls preload="none" src="${escapeHtml(item.url)}" class="audio-player"></audio>
+          <audio controls preload="none" src="${escapeHtml(item.url)}" class="audio-player" data-audio-player></audio>
           <div class="audio-card-actions">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+              Trocar áudio
+              <input form="${formId}" type="file" name="replaceAudioFile_${i}" accept="audio/*,.ogg,.opus" hidden data-audio-replace />
+            </label>
             <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Abrir</a>
             <label class="audio-remove"><input type="checkbox" form="${formId}" name="removeAudioIndexes" value="${i}" /> Remover</label>
           </div>
+          <p class="form-hint" data-audio-replace-name style="display:none;margin-top:6px"></p>
         </article>`
         )
         .join("")}
@@ -192,7 +204,7 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
         <span class="form-section-icon form-section-icon-cyan">${icons.audio}</span>
         <div>
           <h4>Áudios do funil (notas de voz)</h4>
-          <p>Gravações enviadas no WhatsApp quando a IA usa <code>[[audio:slug]]</code> ou quando o lead dispara um gatilho.</p>
+          <p>Gravações enviadas no WhatsApp quando a IA usa <code>[[audio:slug]]</code> ou quando o lead dispara um gatilho. Clique em <strong>Trocar áudio</strong> para substituir qualquer um.</p>
         </div>
       </div>
       ${isNew ? `<p class="form-hint"><strong>Áudios padrão incluídos na criação:</strong></p>${seedList}` : list}
@@ -217,7 +229,7 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
           <input form="${formId}" name="newAudioFile" type="file" accept="audio/*,.ogg,.opus" />
         </div>
       </label>
-      <p class="form-hint">Preencha nome + ID + arquivo para adicionar um áudio. Salve o formulário da instância para aplicar. Use as tags <code>[[audio:slug]]</code> no prompt.</p>
+      <p class="form-hint">Preencha nome + ID + arquivo para adicionar um áudio novo. Salve o formulário da instância para aplicar. Use as tags <code>[[audio:slug]]</code> no prompt.</p>
     </div>`;
 }
 
@@ -231,6 +243,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
   const videoCallLink = bot?.videoCallLink ?? "";
   const videoCallVideoUrl = bot?.videoCallVideoUrl ?? "";
   const callerName = bot?.videoCallCallerName ?? bot?.name ?? "";
+  const botId = bot?.id ?? "";
   const videoName = videoCallVideoUrl ? videoCallVideoUrl.split("/").pop() || videoCallVideoUrl : "";
   const videoPreview = videoCallVideoUrl
     ? `<video src="${escapeHtml(videoCallVideoUrl)}" controls playsinline style="max-width:100%;border-radius:12px;margin-top:8px"></video>`
@@ -276,11 +289,22 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         </div>
         ${videoPreview}
         ${videoCallVideoUrl ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeCallVideo" value="1" /> Remover vídeo atual (${escapeHtml(videoName)})</label>` : ""}
-        <span class="form-hint">Após o pagamento da chamada, o bot envia um <strong>link OnlyChat</strong> (~10 min) com simulador de ligação.</span>
+        <span class="form-hint">Salve a instância com o MP4, depois use o botão abaixo para <strong>gerar o link</strong> e testar a chamada.</span>
       </label>
+      <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}">
+        <label>Link OnlyChat da chamada (para testar)
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <input type="text" id="call-link-output" readonly value="${escapeHtml(videoCallLink && videoCallLink.includes("/call/") ? videoCallLink : "")}" placeholder="Clique em Gerar link para montar" style="flex:1;min-width:200px" />
+            <button type="button" class="btn btn-primary" id="btn-generate-call-link">Gerar link</button>
+            <button type="button" class="btn btn-secondary" id="btn-copy-call-link">Copiar</button>
+            <a class="btn btn-secondary" id="btn-open-call-link" href="#" target="_blank" rel="noopener" style="display:none">Abrir</a>
+          </div>
+        </label>
+        <span class="form-hint">1) Salve a instância com o vídeo · 2) Gere o link · 3) Copie e abra no celular para testar. O bot também envia esse tipo de link após o pagamento (~10 min).</span>
+      </div>
       <label class="field span-2">Link externo da chamada (opcional)
-        <input name="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="https://meet.google.com/... (só se não usar vídeo MP4 acima)" />
-        <span class="form-hint">Se o MP4 estiver configurado, o sistema prioriza o link OnlyChat. Use este campo só para link manual externo.</span>
+        <input name="videoCallLink" id="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="Cole aqui o link OnlyChat gerado, ou um Meet externo" />
+        <span class="form-hint">Cole o link gerado acima neste campo se quiser fixar. Se o MP4 estiver salvo, o bot gera link OnlyChat automaticamente no pagamento.</span>
       </label>
       ${list}
       <label class="field">
@@ -478,11 +502,11 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
           <input name="name" value="${isEdit ? escapeHtml(bot.name) : ""}" placeholder="Ex: MorenaVIP" required />
         </label>
         <label class="field">Idioma do bot
-          <select name="locale">
+          <select name="locale" id="bot-locale-select">
             <option value="pt-BR" ${botLocale === "pt-BR" ? "selected" : ""}>Português (Brasil)</option>
             <option value="en-US" ${botLocale === "en-US" ? "selected" : ""}>English (international)</option>
           </select>
-          <span class="form-hint">Use English para tráfego gringo no WhatsApp.</span>
+          <span class="form-hint">Com <strong>English</strong>, tudo que a IA falar no WhatsApp (prompt + mensagens do sistema) sai em inglês.</span>
         </label>
         <label class="field">Ligar instância
           <select name="active">

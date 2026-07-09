@@ -199,6 +199,8 @@ async function parseBotMultipart(request: FastifyRequest) {
   let newNamedAudioUrl = "";
   let priceTableUpload = "";
   let callVideoUpload = "";
+  const audioReplacements: Record<number, string> = {};
+  const seedAudioReplacements: Record<string, string> = {};
 
   for await (const part of request.parts()) {
     if (part.type === "file") {
@@ -219,6 +221,14 @@ async function parseBotMultipart(request: FastifyRequest) {
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
       if (part.fieldname === "priceTableImage") priceTableUpload = url;
       if (part.fieldname === "callVideoFile") callVideoUpload = url;
+      const replaceMatch = /^replaceAudioFile_(\d+)$/.exec(part.fieldname);
+      if (replaceMatch) {
+        audioReplacements[Number(replaceMatch[1])] = url;
+      }
+      const seedMatch = /^seedAudioFile_(.+)$/.exec(part.fieldname);
+      if (seedMatch) {
+        seedAudioReplacements[seedMatch[1]] = url;
+      }
       continue;
     }
     const key = part.fieldname;
@@ -232,7 +242,17 @@ async function parseBotMultipart(request: FastifyRequest) {
     }
   }
 
-  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload };
+  return {
+    fields,
+    fieldArrays,
+    previewUploads,
+    deliveryUploads,
+    newNamedAudioUrl,
+    priceTableUpload,
+    callVideoUpload,
+    audioReplacements,
+    seedAudioReplacements
+  };
 }
 
 /** Resolve a URL final da imagem da tabela: upload novo, remoção, ou mantém a atual. */
@@ -259,9 +279,14 @@ function resolveCallVideoUrl(
 function mergeAudioLibrary(
   existing: NamedAudio[],
   fields: Record<string, string>,
-  newUrl: string
+  newUrl: string,
+  replacements: Record<number, string> = {}
 ): NamedAudio[] {
-  let library = [...existing];
+  let library = existing.map((item, index) => {
+    const nextUrl = replacements[index];
+    if (!nextUrl) return item;
+    return { ...item, url: nextUrl };
+  });
   const removeRaw = fields.removeAudioIndexes || "";
   const removeSet = new Set(
     removeRaw
@@ -285,6 +310,18 @@ function mergeAudioLibrary(
   }
 
   return library;
+}
+
+async function applySeedAudioReplacements(
+  library: NamedAudio[],
+  replacements: Record<string, string>
+): Promise<NamedAudio[]> {
+  if (!replacements || Object.keys(replacements).length === 0) return library;
+  return library.map((item) => {
+    const slug = item.slug || "";
+    if (slug && replacements[slug]) return { ...item, url: replacements[slug] };
+    return item;
+  });
 }
 
 function mergePreviewUrls(
@@ -784,6 +821,64 @@ export async function registerPanelRoutes(
     } catch (error) {
       request.log.error(error);
       return reply.code(500).send({ ok: false, error: error instanceof Error ? error.message : "Erro" });
+    }
+  });
+
+  app.post("/api/panel/call-preview", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          botId: z.string().optional(),
+          callerName: z.string().optional(),
+          videoUrl: z.string().optional(),
+          avatarUrl: z.string().optional(),
+          locale: z.enum(["pt-BR", "en-US"]).optional()
+        })
+        .parse(request.body ?? {});
+
+      let videoUrl = String(body.videoUrl || "").trim();
+      let callerName = String(body.callerName || "").trim();
+      let avatarUrl = String(body.avatarUrl || "").trim();
+      let locale = body.locale === "en-US" ? "en-US" : "pt-BR";
+      let botId = body.botId || "";
+
+      if (botId) {
+        const bot = await getBotById(botId, user.id);
+        if (!bot) return reply.code(404).send({ ok: false, error: "Instância não encontrada" });
+        videoUrl = videoUrl || bot.videoCallVideoUrl || "";
+        callerName = callerName || bot.videoCallCallerName || bot.name;
+        avatarUrl = avatarUrl || bot.avatarUrl || "";
+        locale = bot.locale === "en-US" ? "en-US" : locale;
+      }
+
+      if (!videoUrl) {
+        return reply.code(400).send({
+          ok: false,
+          error: "Salve a instância com o vídeo MP4 da chamada antes de gerar o link."
+        });
+      }
+      if (!botId) {
+        return reply.code(400).send({
+          ok: false,
+          error: "Salve a instância primeiro, depois gere o link de teste."
+        });
+      }
+
+      const session = await createCallSession({
+        botId,
+        leadJid: "preview-test",
+        callerName: callerName || "OnlyChat",
+        avatarUrl,
+        videoUrl,
+        locale
+      });
+      const url = buildCallPageUrl(session.token);
+      return reply.send({ ok: true, url, token: session.token });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ ok: false, error: errorMessage(error) });
     }
   });
 
@@ -1295,13 +1390,13 @@ export async function registerPanelRoutes(
     if (!user) return;
     let botId = "";
     try {
-      const { fields, newNamedAudioUrl } = await parseBotMultipart(request);
+      const { fields, newNamedAudioUrl, audioReplacements } = await parseBotMultipart(request);
       botId = fields.botId?.trim() || "";
       if (!botId) throw new Error("Instância não informada.");
       const bot = await getBotById(botId, user.id);
       if (!bot) throw new Error("Instância não encontrada.");
 
-      const library = mergeAudioLibrary(bot.audioLibrary ?? [], fields, newNamedAudioUrl);
+      const library = mergeAudioLibrary(bot.audioLibrary ?? [], fields, newNamedAudioUrl, audioReplacements);
       await upsertBot({ ...bot, audioLibrary: library });
       hooks.syncBots();
       return reply.redirect(
@@ -1894,8 +1989,16 @@ export async function registerPanelRoutes(
       const existing = await getBotById(params.id, user.id);
       if (!existing) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload } =
-        await parseBotMultipart(request);
+      const {
+        fields,
+        fieldArrays,
+        previewUploads,
+        deliveryUploads,
+        newNamedAudioUrl,
+        priceTableUpload,
+        callVideoUpload,
+        audioReplacements
+      } = await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
@@ -1912,7 +2015,12 @@ export async function registerPanelRoutes(
           messageDelayMs: messageDelayMsFromForm(body),
           previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
           deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
-          audioLibrary: mergeAudioLibrary(existing.audioLibrary ?? [], fields, newNamedAudioUrl),
+          audioLibrary: mergeAudioLibrary(
+            existing.audioLibrary ?? [],
+            fields,
+            newNamedAudioUrl,
+            audioReplacements
+          ),
           active: body.active === "true",
           paymentMethod: body.paymentMethod,
           laranjinhaApiKeyEncrypted: laranjinhaKey
@@ -2289,8 +2397,16 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     try {
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload } =
-        await parseBotMultipart(request);
+      const {
+        fields,
+        fieldArrays,
+        previewUploads,
+        deliveryUploads,
+        newNamedAudioUrl,
+        priceTableUpload,
+        callVideoUpload,
+        seedAudioReplacements
+      } = await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
       const botId = randomUUID();
@@ -2301,7 +2417,8 @@ export async function registerPanelRoutes(
 
       // Áudios padrão prontos para teste + o que o cliente já tenha subido no form
       const seededAudios = await buildDefaultAudioLibrary();
-      const initialAudioLibrary = mergeAudioLibrary(seededAudios, fields, newNamedAudioUrl);
+      const withSeedReplacements = await applySeedAudioReplacements(seededAudios, seedAudioReplacements);
+      const initialAudioLibrary = mergeAudioLibrary(withSeedReplacements, fields, newNamedAudioUrl);
 
       await upsertBot(
         applyAIFieldsFromForm(
