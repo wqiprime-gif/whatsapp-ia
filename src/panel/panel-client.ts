@@ -207,6 +207,7 @@ export const panelClientScript = `
     }
   }
   window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
     deferredPwaPrompt = e;
     const btn = document.getElementById("btn-pwa-install-profile");
     if (btn) btn.textContent = "Instalar app agora";
@@ -835,6 +836,7 @@ export const panelClientScript = `
     const amount = sale.amountCents != null
       ? money(Number(sale.amountCents))
       : (sale.amount || "");
+    const title = saleNotifyTitle(sale);
     const subtitle = sale.subtitle || sale.productName || "Nova venda confirmada";
     const el = document.createElement("div");
     el.className = "sale-popup";
@@ -842,7 +844,7 @@ export const panelClientScript = `
       '<div class="sale-popup-glow" aria-hidden="true"></div>' +
       '<div class="sale-popup-icon" aria-hidden="true">' + SALE_ICON + '</div>' +
       '<div class="sale-popup-body">' +
-        '<div class="sale-popup-title">Venda confirmada!</div>' +
+        '<div class="sale-popup-title">' + title + '</div>' +
         '<div class="sale-popup-amount">' + amount + '</div>' +
         '<div class="sale-popup-sub">' + subtitle + '</div>' +
       '</div>' +
@@ -852,8 +854,9 @@ export const panelClientScript = `
     el.querySelector(".sale-popup-close").addEventListener("click", () => dismissSalePopup(el));
     setTimeout(() => el.classList.add("show"), 16);
     setTimeout(() => dismissSalePopup(el), 7000);
-    showToast("Venda confirmada!", subtitle, "sale");
-    desktopNotify("Venda confirmada!", amount + " · " + subtitle, "sale");
+    showToast(title, subtitle, "sale");
+    desktopNotify(title, subtitle, "sale");
+    if (sale.id) markSaleSeen(sale.id);
   }
 
   function handleLatestSale(latest) {
@@ -868,7 +871,7 @@ export const panelClientScript = `
     if (prev !== latest.id) {
       showSalePopup(latest);
       pushBellBadge();
-      localStorage.setItem(LS_LAST_SALE, latest.id);
+      markSaleSeen(latest.id);
     }
   }
 
@@ -897,11 +900,19 @@ export const panelClientScript = `
   }
 
   if (Notification && Notification.permission === "default" && canDesktopNotify()) {
-    ensureServiceWorker().then(() => Notification.requestPermission().catch(() => {}));
+    ensureServiceWorker().then(() =>
+      Notification.requestPermission().then((p) => {
+        if (p === "granted") ensurePushSubscription().catch(() => {});
+      }).catch(() => {})
+    );
   }
   setTimeout(function () {
     if (canDesktopNotify() && typeof Notification !== "undefined" && Notification.permission === "default") {
-      ensureServiceWorker().then(() => Notification.requestPermission().catch(() => {}));
+      ensureServiceWorker().then(() =>
+        Notification.requestPermission().then((p) => {
+          if (p === "granted") ensurePushSubscription().catch(() => {});
+        }).catch(() => {})
+      );
     }
   }, 2500);
 
@@ -948,8 +959,14 @@ export const panelClientScript = `
           desktopNotify("Nova conversa", item.subtitle, "lead");
         }
         if (liveNotificationsReady && item.kind === "sale" && canNotify("sale")) {
-          showToast("Venda confirmada!", item.subtitle, "sale");
-          desktopNotify("Venda confirmada!", item.subtitle, "sale");
+          const saleId = item.saleId || item.id;
+          if (saleId && isSaleAlreadySeen(saleId)) continue;
+          const saleTitle = item.amountCents != null
+            ? "Venda: " + money(Number(item.amountCents))
+            : (item.title || "Venda confirmada!");
+          showToast(saleTitle, item.subtitle, "sale");
+          desktopNotify(saleTitle, item.subtitle, "sale");
+          if (saleId) markSaleSeen(saleId);
           pushBellBadge();
         }
         if (liveNotificationsReady && item.kind === "receipt" && canNotify("sale")) {
@@ -1032,6 +1049,36 @@ export const panelClientScript = `
     return "R$ " + (cents / 100).toFixed(2).replace(".", ",");
   }
 
+  function saleNotifyTitle(sale) {
+    const cents = sale && sale.amountCents != null ? Number(sale.amountCents) : null;
+    if (cents != null && !isNaN(cents)) return "Venda: " + money(cents);
+    if (sale && sale.amount) return "Venda: " + sale.amount;
+    return "Venda confirmada!";
+  }
+
+  function normalizeSaleId(id) {
+    if (!id) return "";
+    return String(id).replace(/^sale-/, "");
+  }
+
+  function markSaleSeen(saleId) {
+    const id = normalizeSaleId(saleId);
+    if (!id) return;
+    localStorage.setItem(LS_LAST_SALE, id);
+    const seen = loadSeenEvents();
+    seen.add("sale-" + id);
+    seen.add(id);
+    saveSeenEvents(seen);
+  }
+
+  function isSaleAlreadySeen(saleId) {
+    const id = normalizeSaleId(saleId);
+    if (!id) return false;
+    if (localStorage.getItem(LS_LAST_SALE) === id) return true;
+    const seen = loadSeenEvents();
+    return seen.has("sale-" + id) || seen.has(id);
+  }
+
   function applyLive(data) {
     if (!data) return;
     const stats = data.stats;
@@ -1103,6 +1150,10 @@ export const panelClientScript = `
 
   async function refreshLive(silent) {
     if (location.pathname !== "/") return;
+    if (document.hidden) return;
+    const now = Date.now();
+    if (refreshLive._lastAt && now - refreshLive._lastAt < 2000) return;
+    refreshLive._lastAt = now;
     try {
       const res = await fetch("/api/panel/live?period=" + encodeURIComponent(dashPeriod), {
         credentials: "same-origin"
@@ -1201,7 +1252,18 @@ export const panelClientScript = `
     });
   }
   checkNewSales();
-  setInterval(checkNewSales, 3000);
+  let salePollMs = 3000;
+  setInterval(function () {
+    if (document.hidden) return;
+    checkNewSales();
+  }, salePollMs);
+  document.addEventListener("visibilitychange", function () {
+    salePollMs = document.hidden ? 8000 : 3000;
+    if (!document.hidden) {
+      checkNewSales();
+      if (location.pathname === "/") refreshLive(true);
+    }
+  });
   setInterval(() => {
     if (document.hidden) return;
     if (location.pathname !== "/") return;

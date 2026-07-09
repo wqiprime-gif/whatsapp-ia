@@ -1,6 +1,6 @@
 import type { BotConfig } from "../bots.js";
 import type { WaLiveStatus } from "../whatsapp-runtime.js";
-import { DEFAULT_PROMPT_WHATSAPP } from "../lib/prompt-default.js";
+import { DEFAULT_PROMPT_WHATSAPP, DEFAULT_PROMPT_WHATSAPP_EN } from "../lib/prompt-default.js";
 import { SEED_AUDIO_CATALOG } from "../lib/seed-audios.js";
 import { AI_PROVIDERS, OPENROUTER_FREE_MODELS, sanitizeAIModel } from "../lib/ai-providers.js";
 import { PROXY_TYPE_OPTIONS, parseProxyUrl } from "../lib/wa-proxy.js";
@@ -229,6 +229,12 @@ function platformConnectionBlock(_isEdit: boolean, _bot?: BotConfig) {
 export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form") {
   const link = bot?.deliveryLink ?? "";
   const videoCallLink = bot?.videoCallLink ?? "";
+  const videoCallVideoUrl = bot?.videoCallVideoUrl ?? "";
+  const callerName = bot?.videoCallCallerName ?? bot?.name ?? "";
+  const videoName = videoCallVideoUrl ? videoCallVideoUrl.split("/").pop() || videoCallVideoUrl : "";
+  const videoPreview = videoCallVideoUrl
+    ? `<video src="${escapeHtml(videoCallVideoUrl)}" controls playsinline style="max-width:100%;border-radius:12px;margin-top:8px"></video>`
+    : "";
   const urls = bot?.deliveryMediaUrls ?? [];
   const list =
     urls.length === 0
@@ -259,9 +265,22 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         <input name="deliveryLink" value="${escapeHtml(link)}" placeholder="https://drive.google.com/... ou link do canal/página VIP" />
         <span class="form-hint">Pack/fotos — enviado após pagamento de pacote básico ou completo.</span>
       </label>
-      <label class="field span-2">Link da chamada de vídeo
-        <input name="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="https://meet.google.com/... ou link da sala da chamada" />
-        <span class="form-hint">Usado quando o lead comprar <strong>chamada de vídeo</strong> — o bot avisa que manda em ~10 min e depois envia este link.</span>
+      <label class="field">Nome na chamada
+        <input name="videoCallCallerName" value="${escapeHtml(callerName)}" placeholder="Ex: Bia" />
+        <span class="form-hint">Aparece na tela &quot;está te ligando...&quot; do link OnlyChat.</span>
+      </label>
+      <label class="field span-2">Vídeo da chamada (MP4)
+        <div class="dropzone dropzone-neon">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Vídeo em tela cheia após o lead atender</p>
+          <input form="${formId}" name="callVideoFile" type="file" accept="video/mp4,video/*" />
+        </div>
+        ${videoPreview}
+        ${videoCallVideoUrl ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeCallVideo" value="1" /> Remover vídeo atual (${escapeHtml(videoName)})</label>` : ""}
+        <span class="form-hint">Após o pagamento da chamada, o bot envia um <strong>link OnlyChat</strong> (~10 min) com simulador de ligação.</span>
+      </label>
+      <label class="field span-2">Link externo da chamada (opcional)
+        <input name="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="https://meet.google.com/... (só se não usar vídeo MP4 acima)" />
+        <span class="form-hint">Se o MP4 estiver configurado, o sistema prioriza o link OnlyChat. Use este campo só para link manual externo.</span>
       </label>
       ${list}
       <label class="field">
@@ -431,6 +450,8 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
   const followUpMinutes = isEdit ? bot.followUpAfterMinutes ?? 10 : 10;
   const followUpMax = isEdit ? bot.followUpMaxPerLead ?? 2 : 2;
   const followUpSteps = isEdit ? bot.followUpSteps ?? [] : [];
+  const botLocale = isEdit ? (bot.locale === "en-US" ? "en-US" : "pt-BR") : "pt-BR";
+  const defaultPromptText = botLocale === "en-US" ? DEFAULT_PROMPT_WHATSAPP_EN : DEFAULT_PROMPT_WHATSAPP;
   const followUpStepRows =
     followUpSteps.length > 0
       ? followUpSteps
@@ -455,6 +476,13 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
       <div class="form-grid">
         <label class="field">Nome da instância
           <input name="name" value="${isEdit ? escapeHtml(bot.name) : ""}" placeholder="Ex: MorenaVIP" required />
+        </label>
+        <label class="field">Idioma do bot
+          <select name="locale">
+            <option value="pt-BR" ${botLocale === "pt-BR" ? "selected" : ""}>Português (Brasil)</option>
+            <option value="en-US" ${botLocale === "en-US" ? "selected" : ""}>English (international)</option>
+          </select>
+          <span class="form-hint">Use English para tráfego gringo no WhatsApp.</span>
         </label>
         <label class="field">Ligar instância
           <select name="active">
@@ -539,7 +567,7 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         <label class="field span-2" id="prompt">Prompt / persona da IA
           <div class="prompt-editor">
             <div class="prompt-editor-backdrop" id="prompt-backdrop" aria-hidden="true"></div>
-            <textarea name="prompt" id="prompt-textarea" class="prompt-editor-input" spellcheck="false" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(DEFAULT_PROMPT_WHATSAPP)}</textarea>
+            <textarea name="prompt" id="prompt-textarea" class="prompt-editor-input" spellcheck="false" required>${isEdit ? escapeHtml(bot.prompt) : escapeHtml(defaultPromptText)}</textarea>
           </div>
           <span class="form-hint">Texto livre da IA desta instância. As <strong class="prompt-hint-tag">tags</strong> ficam destacadas em amarelo — clique nas tags à direita para inserir ações automáticas (prévia, Pix, tabela…). Salve sem desconectar o WhatsApp se só alterou prompt, delay ou entrega.</span>
         </label>

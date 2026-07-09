@@ -71,6 +71,13 @@ import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
 import { buildPwaManifest, SERVICE_WORKER_JS } from "./pwa.js";
+import {
+  buildCallPageUrl,
+  createCallSession,
+  getCallSession,
+  updateCallSessionStatus
+} from "../db/call-sessions.js";
+import { renderCallPage } from "./call-page.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -191,6 +198,7 @@ async function parseBotMultipart(request: FastifyRequest) {
   const deliveryUploads: string[] = [];
   let newNamedAudioUrl = "";
   let priceTableUpload = "";
+  let callVideoUpload = "";
 
   for await (const part of request.parts()) {
     if (part.type === "file") {
@@ -210,6 +218,7 @@ async function parseBotMultipart(request: FastifyRequest) {
       }
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
       if (part.fieldname === "priceTableImage") priceTableUpload = url;
+      if (part.fieldname === "callVideoFile") callVideoUpload = url;
       continue;
     }
     const key = part.fieldname;
@@ -223,7 +232,7 @@ async function parseBotMultipart(request: FastifyRequest) {
     }
   }
 
-  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload };
+  return { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload };
 }
 
 /** Resolve a URL final da imagem da tabela: upload novo, remoção, ou mantém a atual. */
@@ -233,6 +242,16 @@ function resolvePriceTableImageUrl(
   uploaded: string
 ): string {
   if (fields.removePriceTableImage === "1") return "";
+  if (uploaded) return uploaded;
+  return existing ?? "";
+}
+
+function resolveCallVideoUrl(
+  existing: string | undefined,
+  fields: Record<string, string>,
+  uploaded: string
+): string {
+  if (fields.removeCallVideo === "1") return "";
   if (uploaded) return uploaded;
   return existing ?? "";
 }
@@ -317,6 +336,8 @@ const botFormFieldsSchema = z.object({
   productPrice: z.coerce.number().default(97),
   deliveryLink: z.string().default(""),
   videoCallLink: z.string().default(""),
+  videoCallCallerName: z.string().default(""),
+  locale: z.enum(["pt-BR", "en-US"]).default("pt-BR"),
   waApiProvider: z.enum(["whatsapp_web", "meta_cloud"]).default("whatsapp_web"),
   proxyEnabled: z.enum(["true", "false"]).default("false"),
   proxyType: z.enum(["http", "https", "socks5", "socks5h"]).default("http"),
@@ -429,7 +450,9 @@ export async function registerPanelRoutes(
       "/webhooks",
       "/manifest.webmanifest",
       "/sw.js",
-      "/favicon.ico"
+      "/favicon.ico",
+      "/call",
+      "/call-assets"
     ];
     if (publicPaths.some((p) => urlPath === p || urlPath.startsWith(`${p}/`))) return;
     if (!isAuthenticated(request)) return reply.redirect("/login");
@@ -678,7 +701,7 @@ export async function registerPanelRoutes(
           content: body.content
         });
       } else if (body.type === "sale") {
-        await logSale({
+        const saleId = await logSale({
           botId: body.botId,
           chatId,
           productName: body.productName ?? "VIP",
@@ -687,14 +710,17 @@ export async function registerPanelRoutes(
         });
         const saleBot = await getBotByIdAny(body.botId);
         if (saleBot?.userId) {
-          const reais = ((body.amountCents ?? 0) / 100).toFixed(2).replace(".", ",");
-          const { notifyUserPush } = await import("../lib/web-push.js");
-          void notifyUserPush(saleBot.userId, {
-            title: "Venda confirmada!",
-            body: `${body.productName ?? "VIP"} · R$ ${reais}`,
-            url: "/",
-            tag: "sale"
-          }).catch(() => {});
+          const prefs = await getNotificationPrefs(saleBot.userId);
+          if (prefs.enabled && prefs.sales) {
+            const reais = ((body.amountCents ?? 0) / 100).toFixed(2).replace(".", ",");
+            const { notifyUserPush } = await import("../lib/web-push.js");
+            void notifyUserPush(saleBot.userId, {
+              title: `Venda: R$ ${reais}`,
+              body: body.productName ?? "VIP",
+              url: "/",
+              tag: saleId ? `sale-${saleId}` : `sale-${body.botId}-${Date.now()}`
+            }).catch(() => {});
+          }
         }
         if (saleBot?.postSaleEnabled) {
           const { schedulePostSaleJob } = await import("../lib/post-sale-scheduler.js");
@@ -720,6 +746,88 @@ export async function registerPanelRoutes(
       request.log.error(error);
       return reply.code(400).send({ ok: false });
     }
+  });
+
+  app.post("/internal/call-sessions", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().min(1),
+          leadJid: z.string().optional(),
+          jid: z.string().optional()
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) return reply.code(404).send({ ok: false, error: "Bot não encontrado" });
+
+      const videoUrl = String(bot.videoCallVideoUrl || "").trim();
+      if (!videoUrl) {
+        const fallback = String(bot.videoCallLink || "").trim();
+        if (!fallback) return reply.code(400).send({ ok: false, error: "Vídeo da chamada não configurado" });
+        return reply.send({ ok: true, url: fallback, external: true });
+      }
+
+      const session = await createCallSession({
+        botId: bot.id,
+        leadJid: body.leadJid || body.jid || "",
+        callerName: bot.videoCallCallerName?.trim() || bot.name,
+        avatarUrl: bot.avatarUrl || "",
+        videoUrl,
+        locale: bot.locale || "pt-BR"
+      });
+      const url = buildCallPageUrl(session.token);
+      return reply.send({ ok: true, url, token: session.token, external: false });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ ok: false, error: error instanceof Error ? error.message : "Erro" });
+    }
+  });
+
+  app.get("/call-assets/ringtone.mp3", async (_request, reply) => {
+    const filePath = seedAudioPath("chamadavideo.mp3");
+    if (!filePath) return reply.code(404).send("Audio nao encontrado.");
+    return reply.type("audio/mpeg").send(fsSync.createReadStream(filePath));
+  });
+
+  app.get("/call/:token", async (request, reply) => {
+    const params = z.object({ token: z.string().min(8) }).parse(request.params);
+    const session = await getCallSession(params.token);
+    if (!session) return reply.code(404).type("text/html").send(renderCallPage({
+      token: params.token,
+      callerName: "",
+      avatarUrl: "",
+      videoUrl: "",
+      locale: "pt-BR",
+      status: "expired"
+    }));
+    return reply.type("text/html").send(renderCallPage({
+      token: session.token,
+      callerName: session.callerName,
+      avatarUrl: session.avatarUrl,
+      videoUrl: session.videoUrl,
+      locale: session.locale,
+      status: session.status
+    }));
+  });
+
+  app.post("/call/:token/accept", async (request, reply) => {
+    const params = z.object({ token: z.string().min(8) }).parse(request.params);
+    const session = await getCallSession(params.token);
+    if (!session || session.status === "expired") {
+      return reply.code(404).send({ ok: false });
+    }
+    await updateCallSessionStatus(params.token, "accepted");
+    return reply.send({ ok: true, videoUrl: session.videoUrl });
+  });
+
+  app.post("/call/:token/decline", async (request, reply) => {
+    const params = z.object({ token: z.string().min(8) }).parse(request.params);
+    await updateCallSessionStatus(params.token, "declined");
+    return reply.send({ ok: true });
   });
 
   app.get("/login", async (request, reply) => {
@@ -914,9 +1022,11 @@ export async function registerPanelRoutes(
 
     const bellItems = activities.map((a) => ({
       id: a.id,
+      saleId: a.type === "sale" ? a.id : undefined,
       kind: a.type,
       title: activityTitles[a.type] ?? a.title,
       subtitle: a.subtitle,
+      amountCents: a.type === "sale" ? a.amountCents : undefined,
       time: formatRelativeTime(a.at),
       at: a.at
     }));
@@ -1784,7 +1894,7 @@ export async function registerPanelRoutes(
       const existing = await getBotById(params.id, user.id);
       if (!existing) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
@@ -1812,6 +1922,9 @@ export async function registerPanelRoutes(
           productPriceCents: Math.round(body.productPrice * 100),
           deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
           videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
+          videoCallVideoUrl: resolveCallVideoUrl(existing.videoCallVideoUrl, fields, callVideoUpload),
+          videoCallCallerName: body.videoCallCallerName?.trim() || existing.videoCallCallerName || body.name,
+          locale: body.locale === "en-US" ? "en-US" : "pt-BR",
           backupToken: body.backupToken?.trim() || existing.backupToken,
           followUpEnabled: body.followUpEnabled === "true",
           followUpAfterMinutes: body.followUpAfterMinutes,
@@ -2176,12 +2289,15 @@ export async function registerPanelRoutes(
     const user = requireUser(request, reply);
     if (!user) return;
     try {
-      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload } =
+      const { fields, fieldArrays, previewUploads, deliveryUploads, newNamedAudioUrl, priceTableUpload, callVideoUpload } =
         await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
       const botId = randomUUID();
       const platform: BotPlatform = "whatsapp";
+      const { DEFAULT_PROMPT_WHATSAPP, DEFAULT_PROMPT_WHATSAPP_EN } = await import("../lib/prompt-default.js");
+      const defaultPrompt = body.locale === "en-US" ? DEFAULT_PROMPT_WHATSAPP_EN : DEFAULT_PROMPT_WHATSAPP;
+      const promptText = body.prompt?.trim() || defaultPrompt;
 
       // Áudios padrão prontos para teste + o que o cliente já tenha subido no form
       const seededAudios = await buildDefaultAudioLibrary();
@@ -2201,7 +2317,7 @@ export async function registerPanelRoutes(
               proxyEnabled: false,
               metaPhoneNumberId: "",
               metaVerifyToken: defaultMetaVerifyToken(),
-              prompt: body.prompt,
+              prompt: promptText,
               pixKey: body.pixKey || "nao-configurado",
               pixRecipientName: body.pixRecipientName?.trim() || body.name,
               messageDelayMs: messageDelayMsFromForm(body),
@@ -2218,6 +2334,9 @@ export async function registerPanelRoutes(
               productPriceCents: Math.round(body.productPrice * 100),
               deliveryLink: body.deliveryLink?.trim() || "",
               videoCallLink: body.videoCallLink?.trim() || "",
+              videoCallVideoUrl: callVideoUpload || "",
+              videoCallCallerName: body.videoCallCallerName?.trim() || body.name,
+              locale: body.locale === "en-US" ? "en-US" : "pt-BR",
               backupToken: body.backupToken?.trim() || undefined,
               followUpEnabled: body.followUpEnabled === "true",
               followUpAfterMinutes: body.followUpAfterMinutes,

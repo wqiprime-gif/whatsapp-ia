@@ -187,6 +187,23 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_enabled BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS product_presentation_media_urls JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS wa_phone_number TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_external_link TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_caller_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'pt-BR';
+
+    CREATE TABLE IF NOT EXISTS call_sessions (
+      token TEXT PRIMARY KEY,
+      bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+      lead_jid TEXT NOT NULL DEFAULT '',
+      caller_name TEXT NOT NULL DEFAULT '',
+      avatar_url TEXT NOT NULL DEFAULT '',
+      video_url TEXT NOT NULL DEFAULT '',
+      locale TEXT NOT NULL DEFAULT 'pt-BR',
+      status TEXT NOT NULL DEFAULT 'pending',
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS call_sessions_bot_id_idx ON call_sessions(bot_id);
   `);
 }
 
@@ -358,19 +375,21 @@ export async function logSale(input: {
   productName: string;
   amountCents: number;
   paymentMethod: string;
-}) {
+}): Promise<string> {
   if (useDatabase()) {
-    await getPool().query(
+    const { rows } = await getPool().query(
       `INSERT INTO sales (bot_id, chat_id, product_name, amount_cents, payment_method)
-       VALUES ($1,$2,$3,$4,$5)`,
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id`,
       [input.botId, input.chatId, input.productName, input.amountCents, input.paymentMethod]
     );
-    return;
+    return String(rows[0]?.id ?? "");
   }
 
+  const id = randomUUID();
   const store = await loadFileStore();
   store.sales.unshift({
-    id: randomUUID(),
+    id,
     botId: input.botId,
     chatId: input.chatId,
     productName: input.productName,
@@ -380,6 +399,7 @@ export async function logSale(input: {
     createdAt: new Date().toISOString()
   });
   await saveFileStore(store);
+  return id;
 }
 
 export async function listLeadsWithoutPurchase(botIds: string[]) {
@@ -740,6 +760,7 @@ export type ActivityItem = {
   type: "sale" | "lead" | "receipt";
   title: string;
   subtitle: string;
+  amountCents?: number;
   at: string;
 };
 
@@ -813,6 +834,7 @@ export async function listRecentActivity(limit = 8, userId?: string): Promise<Ac
         type: "sale",
         title: "Venda confirmada",
         subtitle: formatSaleSubtitle(s.product_name, s.amount_cents, s.bot_name),
+        amountCents: s.amount_cents,
         at: new Date(s.created_at).toISOString()
       });
     }
@@ -846,6 +868,7 @@ export async function listRecentActivity(limit = 8, userId?: string): Promise<Ac
         type: "sale",
         title: "Venda confirmada",
         subtitle: formatSaleSubtitle(s.productName, s.amountCents, botName(s.botId)),
+        amountCents: s.amountCents,
         at: s.createdAt
       });
     }

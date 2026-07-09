@@ -5,13 +5,20 @@ export function panelSceneScript(mode: "auth" | "app" = "app") {
   return `
 (function(){
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var isStandalone = window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true;
+  var isMobile = window.matchMedia("(max-width: 768px)").matches;
+  if (isStandalone && isMobile) return;
   var canvas = document.getElementById("panel-scene-canvas");
   if (!canvas) return;
   canvas.style.opacity = "${intensity}";
 
-  var s = document.createElement("script");
-  s.src = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js";
-  s.onload = function(){
+  function bootScene() {
+    if (window.__panelSceneBooted) return;
+    window.__panelSceneBooted = true;
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js";
+    s.onload = function(){
     var THREE = window.THREE;
     var w = window.innerWidth, h = window.innerHeight;
     var scene = new THREE.Scene();
@@ -122,6 +129,13 @@ export function panelSceneScript(mode: "auth" | "app" = "app") {
     });
   };
   document.head.appendChild(s);
+  }
+
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(bootScene, { timeout: 2500 });
+  } else {
+    setTimeout(bootScene, 1200);
+  }
 })();
 `.trim();
 }

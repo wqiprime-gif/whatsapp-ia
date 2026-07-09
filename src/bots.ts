@@ -55,8 +55,14 @@ export type BotConfig = {
   productPriceCents: number;
   /** Link de entrega do produto enviado após o Pix aprovado (Drive, canal VIP, página etc.). */
   deliveryLink: string;
-  /** Link da chamada de vídeo — enviado ~10 min após pagamento do pacote chamada. */
+  /** Link da chamada de vídeo — override externo opcional (Meet etc.). */
   videoCallLink: string;
+  /** Vídeo MP4 da chamada simulada (/uploads/...). */
+  videoCallVideoUrl: string;
+  /** Nome exibido na tela "está te ligando". */
+  videoCallCallerName: string;
+  /** Idioma das mensagens automáticas do bot. */
+  locale: "pt-BR" | "en-US";
   backupToken?: string;
   giftPrompt?: string;
   giftItems?: GiftItem[];
@@ -171,7 +177,16 @@ function rowToBot(row: {
   product_presentation_media_urls?: string[] | string;
   wa_phone_number?: string | null;
   video_call_video_url?: string | null;
+  video_call_external_link?: string | null;
+  video_call_caller_name?: string | null;
+  locale?: string | null;
 }): BotConfig {
+  const rawVideo = String(row.video_call_video_url ?? "");
+  const externalLink = String(row.video_call_external_link ?? "");
+  const legacyHttpInVideo =
+    rawVideo.startsWith("http://") || rawVideo.startsWith("https://");
+  const videoCallVideoUrl = legacyHttpInVideo ? "" : rawVideo;
+  const videoCallLink = legacyHttpInVideo ? rawVideo : externalLink;
   return {
     id: row.id,
     userId: row.user_id ?? "",
@@ -211,7 +226,10 @@ function rowToBot(row: {
     productName: row.product_name ?? "VIP",
     productPriceCents: row.product_price_cents ?? 4990,
     deliveryLink: row.telegram_group_link ?? "",
-    videoCallLink: row.video_call_video_url ?? "",
+    videoCallLink,
+    videoCallVideoUrl,
+    videoCallCallerName: row.video_call_caller_name?.trim() || row.name || "",
+    locale: row.locale === "en-US" ? "en-US" : "pt-BR",
     backupToken: row.backup_token ?? undefined,
     giftPrompt: row.gift_prompt ?? "",
     giftItems: parseGiftItems(row.gift_items),
@@ -238,7 +256,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
   follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
-  price_table_image_url, video_call_video_url,
+  price_table_image_url, video_call_video_url, video_call_external_link, video_call_caller_name, locale,
   ai_provider, ai_model, ai_api_key_encrypted
   FROM bots`;
 
@@ -262,7 +280,10 @@ export async function loadBots(userId?: string) {
     productName: b.productName ?? "VIP",
     productPriceCents: b.productPriceCents ?? 4990,
     deliveryLink: b.deliveryLink ?? (b as { telegramGroupLink?: string }).telegramGroupLink ?? "",
-    videoCallLink: b.videoCallLink ?? (b as { video_call_video_url?: string }).video_call_video_url ?? "",
+    videoCallLink: b.videoCallLink ?? "",
+    videoCallVideoUrl: b.videoCallVideoUrl ?? "",
+    videoCallCallerName: b.videoCallCallerName ?? b.name ?? "",
+    locale: b.locale === "en-US" ? "en-US" : "pt-BR",
     backupToken: b.backupToken,
     paymentMethod: b.paymentMethod === "laranjinha" ? "laranjinha" : "pix",
     audioLibrary: parseAudioLibrary(b.audioLibrary),
@@ -315,9 +336,9 @@ export async function upsertBot(bot: BotConfig) {
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
         follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
         price_table_image_url,
-        video_call_video_url,
+        video_call_video_url, video_call_external_link, video_call_caller_name, locale,
         ai_provider, ai_model, ai_api_key_encrypted)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -356,6 +377,9 @@ export async function upsertBot(bot: BotConfig) {
          follow_up_steps = EXCLUDED.follow_up_steps,
          price_table_image_url = EXCLUDED.price_table_image_url,
          video_call_video_url = EXCLUDED.video_call_video_url,
+         video_call_external_link = EXCLUDED.video_call_external_link,
+         video_call_caller_name = EXCLUDED.video_call_caller_name,
+         locale = EXCLUDED.locale,
          ai_provider = EXCLUDED.ai_provider,
          ai_model = EXCLUDED.ai_model,
          ai_api_key_encrypted = COALESCE(EXCLUDED.ai_api_key_encrypted, bots.ai_api_key_encrypted)`,
@@ -397,7 +421,10 @@ export async function upsertBot(bot: BotConfig) {
         bot.followUpMaxPerLead ?? 2,
         JSON.stringify(bot.followUpSteps ?? []),
         bot.priceTableImageUrl ?? "",
+        bot.videoCallVideoUrl ?? "",
         bot.videoCallLink ?? "",
+        bot.videoCallCallerName?.trim() || bot.name,
+        bot.locale ?? "pt-BR",
         bot.aiProvider ?? "openai",
         bot.aiModel ?? null,
         bot.aiApiKeyEncrypted ?? null

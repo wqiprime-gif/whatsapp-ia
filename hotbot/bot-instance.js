@@ -165,6 +165,12 @@ function resolveChromiumPath() {
 }
 
 const { waChatId } = require('./utils/wa-chat-id');
+const { getBotMessages, formatMoney } = require('./messages');
+
+function botLocale() {
+  const loc = String(loadBotConfig().locale || 'pt-BR');
+  return loc === 'en-US' ? 'en-US' : 'pt-BR';
+}
 
 async function panelLog(payload) {
   const panelUrl = process.env.PANEL_URL;
@@ -188,6 +194,41 @@ async function panelLog(payload) {
   } catch (err) {
     console.error('[panelLog] erro:', payload.type, err.message);
   }
+}
+
+async function resolveVideoCallLink(leadJid) {
+  const config = loadBotConfig();
+  const videoUrl = String(config.videoCallVideoUrl || '').trim();
+  const externalLink = String(config.videoCallLink || process.env.LINK_CHAMADA || '').trim();
+  const panelUrl = process.env.PANEL_URL;
+  const secret = process.env.INTERNAL_SECRET;
+  const botId = process.env.BOT_ID || sessionId;
+
+  if (videoUrl) {
+    if (!panelUrl || !secret) {
+      console.warn('[call-session] PANEL_URL ou INTERNAL_SECRET ausente — usando link externo se houver');
+      return externalLink;
+    }
+    try {
+      const res = await axios.post(
+        `${panelUrl}/internal/call-sessions`,
+        { botId, jid: leadJid, leadJid },
+        {
+          headers: { 'x-internal': secret, 'Content-Type': 'application/json' },
+          timeout: 12000,
+          validateStatus: () => true
+        }
+      );
+      if (res.data?.ok && res.data.url) {
+        console.log(`   📞 Link OnlyChat gerado: ${res.data.url}`);
+        return res.data.url;
+      }
+      console.warn('[call-session] falhou:', res.data?.error || res.status);
+    } catch (err) {
+      console.error('[call-session] erro:', err.message);
+    }
+  }
+  return externalLink;
 }
 
 function logLeadFromMessage(message) {
@@ -646,14 +687,15 @@ function readPanelPromptRaw() {
 }
 
 function buildPixAppendix() {
+  const m = getBotMessages(botLocale());
   const { pixKey, pixRecipientName } = getPixConfig();
   if (!pixKey) {
-    return '\n\n[PIX NÃO CONFIGURADO — configure a chave Pix no painel da instância.]';
+    return m.pixNotConfigured;
   }
-  let block = `\n\n--- DADOS REAIS DO PAINEL (OBRIGATÓRIO) ---\nChave PIX: ${pixKey}\n`;
-  if (pixRecipientName) block += `Nome do recebedor: ${pixRecipientName}\n`;
-  block += 'Quando o lead quiser pagar, use EXATAMENTE a chave acima ou a tag [[send_chave_pix]].\n';
-  block += 'NUNCA escreva [sua_chave_pix], {chave_pix} ou "chave do painel".\n';
+  let block = `${m.pixHeader} ${pixKey}\n`;
+  if (pixRecipientName) block += `${m.pixRecipient} ${pixRecipientName}\n`;
+  block += `${m.pixWhenPay}\n`;
+  block += `${m.pixNeverPlaceholder}\n`;
   return block;
 }
 
@@ -1457,43 +1499,43 @@ function pickGiftMessageJs(items, slug) {
 }
 
 function buildPriceTableFromProducts(products) {
+  const locale = botLocale();
+  const m = getBotMessages(locale);
   const sorted = [...(products || [])].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
   if (!sorted.length) return null;
   const lines = sorted.map((p, i) => {
     const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'][i] || '•';
-    const price = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
-    return `${emoji} *${String(p.name).toUpperCase()}* - R$ ${price}`;
+    const price = formatMoney(p.priceCents || 0, locale);
+    return `${emoji} *${String(p.name).toUpperCase()}* - ${price}`;
   });
-  return ['💎 *MEUS PACOTES* 💎', ...lines, '', 'Qual pacote te interessa, amor? 💕'].join('\n');
+  return [m.priceTableTitle, ...lines, '', m.priceTableAsk].join('\n');
 }
 
 function buildVideoCallPriceTableFromProducts(products) {
+  const locale = botLocale();
+  const m = getBotMessages(locale);
   const callProducts = [...(products || [])]
-    .filter((p) => p.active !== false && /chamada|v[ií]deo|video/i.test(String(p.name || '')))
+    .filter((p) => p.active !== false && /chamada|v[ií]deo|video|call/i.test(String(p.name || '')))
     .sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
 
   if (!callProducts.length) {
-    return [
-      '📹 *CHAMADA DE VÍDEO* 📹',
-      '',
-      '1️⃣ *CHAMADA VÍDEO* - R$ 15,00',
-      '   📹 5 min no zap',
-      '',
-      'Qual você quer, amor? 💕'
-    ].join('\n');
+    return [m.videoCallTitle, '', m.videoCallDefault, m.videoCallDefaultSub, '', m.videoCallAsk].join('\n');
   }
 
   const lines = callProducts.map((p, i) => {
     const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'][i] || '•';
-    const price = ((p.priceCents || 0) / 100).toFixed(2).replace('.', ',');
-    return `${emoji} *${String(p.name).toUpperCase()}* - R$ ${price} (5 min no zap)`;
+    const price = formatMoney(p.priceCents || 0, locale);
+    return `${emoji} *${String(p.name).toUpperCase()}* - ${price} ${m.videoCallDuration}`;
   });
 
-  return ['📹 *CHAMADA DE VÍDEO* 📹', '', ...lines, '', 'Qual você quer, amor? 💕'].join('\n');
+  return [m.videoCallTitle, '', ...lines, '', m.videoCallAsk].join('\n');
 }
 
 function wantsPreviewIntent(text) {
   const t = String(text || '').toLowerCase();
+  if (botLocale() === 'en-US') {
+    return /preview|sample|free\s+sample|send\s+(me\s+)?(a\s+)?photo|got\s+pics|show\s+me|can\s+you\s+send|wanna\s+see|your\s+photo|pic\s+of\s+you/i.test(t);
+  }
   return /pr[eé]via|amostra|teste gr[aá]tis|manda(r)?\s+(uma\s+)?foto|tem foto|me manda|manda\s+manda|manda\s+a[ií]|cad[eê]\s+(a\s+)?(previa|prévia|foto|amostra)|quer(o)?\s+ver|uma\s+foto\s+sua|foto\s+sua|previa\s+sua|prévia\s+sua|manda\s+pra\s+mim|tem\s+como\s+mandar/i.test(
     t
   );
@@ -2183,13 +2225,14 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
   const VIDEO_CALL_LINK_DELAY_MS = 10 * 60 * 1000;
 
-  async function deliverVideoCallLinkWithDelay(messageFrom, link) {
+  async function deliverVideoCallLinkWithDelay(messageFrom) {
+    const link = await resolveVideoCallLink(messageFrom);
     if (!link) return;
     const notice =
       (await generatePersonaReply(
         messageFrom,
         'Pagamento da chamada de vídeo confirmado. Avise com carinho que daqui 10 minutinhos você manda o link para ele entrar na chamada. NÃO mande o link agora.'
-      )) || 'prontinho amor 😘 daqui 10 minutinhos eu te mando o link pra entrar na chamada, tá?';
+      )) || getBotMessages(botLocale()).videoCallDelayFallback;
     await sendTextHuman(client, messageFrom, notice);
     console.log(`   ⏱️ Link da chamada agendado para ${messageFrom} em 10 min`);
 
@@ -2199,7 +2242,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
           (await generatePersonaReply(
             messageFrom,
             'Mande o link da chamada de vídeo com carinho, em uma frase curta.'
-          )) || 'prontinho amor, é só entrar na chamada 😘';
+          )) || getBotMessages(botLocale()).videoCallLinkFallback;
         await sendTextHuman(client, messageFrom, `${msg}\n${link}`);
         console.log(`   ✅ Link da chamada enviado (agendado) para ${messageFrom}`);
       } catch (err) {
@@ -2247,7 +2290,6 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       const delivered = await sendDeliveryMedia(client, messageFrom);
       const productLink = String(config.productDeliveryLink || '').trim();
-      const videoCallLink = String(config.videoCallLink || process.env.LINK_CHAMADA || '').trim();
       const pacote = await detectarPacote(messageFrom);
 
       if (delivered > 0) {
@@ -2262,22 +2304,19 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       if (productLink) {
         if (pacote === 'chamada') {
-          if (videoCallLink) {
-            await deliverVideoCallLinkWithDelay(messageFrom, videoCallLink);
-          }
+          await deliverVideoCallLinkWithDelay(messageFrom);
         } else {
           const linkIntro =
             (await generatePersonaReply(
               messageFrom,
               'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
-            )) || 'Aqui está seu acesso amor, aproveite 😘';
+            )) || getBotMessages(botLocale()).deliveryIntroFallback;
           await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
         }
       }
 
       if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
-        const linkChamada = videoCallLink;
         const linkCompleto = process.env.LINK_COMPLETO || '';
 
         console.log(`   Pacote detectado: ${pacote.toUpperCase()} (fallback links)`);
@@ -2285,22 +2324,18 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
         if (pacote === 'completo') {
           const completoSingle = process.env.COMPLETO_SINGLE === 'true' || pacotesConfig?.completo_single === true;
           if (completoSingle && linkCompleto) {
-            await deliverVideoCallLinkWithDelay(messageFrom, linkCompleto);
+            await deliverVideoCallLinkWithDelay(messageFrom);
           } else {
             if (linkBasico) {
-              await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
+              await client.sendMessage(messageFrom, `${getBotMessages(botLocale()).basicPackDelivery}\n${linkBasico}`);
               await sleep(1500);
             }
-            if (linkChamada) {
-              await deliverVideoCallLinkWithDelay(messageFrom, linkChamada);
-            }
+            await deliverVideoCallLinkWithDelay(messageFrom);
           }
         } else if (pacote === 'chamada') {
-          if (linkChamada) {
-            await deliverVideoCallLinkWithDelay(messageFrom, linkChamada);
-          }
+          await deliverVideoCallLinkWithDelay(messageFrom);
         } else if (linkBasico) {
-          await client.sendMessage(messageFrom, `Aqui estão suas 50 fotos e vídeos amor, aproveite 😘\n${linkBasico}`);
+          await client.sendMessage(messageFrom, `${getBotMessages(botLocale()).basicPackDelivery}\n${linkBasico}`);
         }
       }
 
@@ -2312,7 +2347,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
         await sendTextHuman(
           client,
           messageFrom,
-          'Amor, confirmou o pagamento mas deu um probleminha na entrega. Me chama que eu mando manual 💕'
+          getBotMessages(botLocale()).deliveryError
         );
       } catch (_) {}
     }
@@ -3014,7 +3049,7 @@ async function transcribeAudio(fileBuffer, ext = 'ogg') {
     const formData = new FormData();
     formData.append('file', fileBuffer, `audio.${ext}`);
     formData.append('model', 'whisper-1');
-    formData.append('language', 'pt');
+    formData.append('language', getBotMessages(botLocale()).whisperLang);
 
     const response = await axios.post(
       'https://api.openai.com/v1/audio/transcriptions',

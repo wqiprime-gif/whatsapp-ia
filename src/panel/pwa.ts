@@ -34,7 +34,7 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.21.4";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.0";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -55,18 +55,36 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET") return;
-  if (!url.pathname.startsWith("/brand/pwa-")) return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (!res || res.status !== 200) return res;
-        const copy = res.clone();
-        caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
-        return res;
-      });
-    })
-  );
+  if (url.origin !== self.location.origin) return;
+
+  if (url.pathname.startsWith("/brand/pwa-")) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((res) => {
+          if (!res || res.status !== 200) return res;
+          const copy = res.clone();
+          caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  if (event.request.mode === "navigate" && (url.pathname === "/" || url.pathname === "/login")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || caches.match("/")))
+    );
+  }
 });
 
 self.addEventListener("push", (event) => {
@@ -134,4 +152,6 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
 <link rel="apple-touch-icon" href="/brand/pwa-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;
