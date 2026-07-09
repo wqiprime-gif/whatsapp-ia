@@ -33,6 +33,7 @@ COPY tsconfig.json tsconfig.base.json ./
 RUN npm ci --include=dev
 
 COPY src ./src
+COPY scripts ./scripts
 COPY hotbot ./hotbot
 COPY public ./public
 COPY assets ./assets
