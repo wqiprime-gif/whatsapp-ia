@@ -373,33 +373,34 @@ export function dashboardPage(
   const greet = timeGreeting();
   const dateStr = dashboardDateLabel();
 
-  const topbarFatPill = `
-      <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
-        ${sharkIconBox(icons.dollar, true, true, "money")}
-        <div class="shark-fat-body">
-          <div class="shark-fat-top">
-            <span class="shark-fat-label">Faturamento</span>
-            <span class="shark-fat-pct" data-live-stat="fatPct">${fatProgress}%</span>
-          </div>
-          <div class="shark-fat-bar" role="progressbar" aria-valuenow="${fatProgress}" aria-valuemin="0" aria-valuemax="100">
-            <span style="width:${fatProgress}%" data-live-stat="fatBar"></span>
-          </div>
-          <div class="shark-fat-bottom">
-            <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
-            <span class="shark-fat-meta">/ 10k</span>
-          </div>
-        </div>
-      </div>`;
-
-  const topbarGreeting = `
-      <div class="shark-greeting shark-greeting--topbar">
-        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
-        <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
-      </div>`;
-
   const body = `
     <div class="dash-shell shark-dash">
     ${message ? alertHtml(message, isError ? "error" : "success") : ""}
+
+    <div class="dash-hero-row">
+      <div class="dash-hero-greeting">
+        <h2 class="shark-greeting-title" data-greeting-name="${greetingName}">${greet}, <span class="shark-greeting-name">${greetingName}</span></h2>
+        <p class="shark-greeting-date" id="shark-greeting-date">${dateStr}</p>
+      </div>
+      <div class="dash-hero-fatpill">
+        <div class="shark-fat-pill shark-card dash-glow-card shark-fat-pill--topbar" style="${glowStyle(0)}">
+          ${sharkIconBox(icons.dollar, true, true, "money")}
+          <div class="shark-fat-body">
+            <div class="shark-fat-top">
+              <span class="shark-fat-label">Faturamento</span>
+              <span class="shark-fat-pct" data-live-stat="fatPct">${fatProgress}%</span>
+            </div>
+            <div class="shark-fat-bar" role="progressbar" aria-valuenow="${fatProgress}" aria-valuemin="0" aria-valuemax="100">
+              <span style="width:${fatProgress}%" data-live-stat="fatBar"></span>
+            </div>
+            <div class="shark-fat-bottom">
+              <div class="shark-fat-value" data-live-stat="salesValue">R$ ${salesReais}</div>
+              <span class="shark-fat-meta">/ 10k</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="shark-period-bar shark-period-card">
       <span class="shark-period-label">${icons.calendar} Período</span>
@@ -558,7 +559,7 @@ export function dashboardPage(
     </script>
     <script>${sharkChartBootScript()}</script>`;
 
-  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, topbarFatPill, topbarGreeting, showAdminNav);
+  return appLayout("Dashboard", "dashboard", body, partial, userName, "", userAvatar, "", "", showAdminNav);
 }
 
 export function profilePage(

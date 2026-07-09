@@ -240,13 +240,15 @@ export const panelClientScript = `
   }
 
   function runInlineScripts(root) {
-    (root || document).querySelectorAll("script:not([src])").forEach(function (old) {
+    if (!root || root === document) return;
+    root.querySelectorAll("script:not([src]):not([data-inline-ran])").forEach(function (old) {
       if (!old.textContent || !old.textContent.trim()) return;
       if (old.type && (old.type.indexOf("json") >= 0 || old.type.indexOf("ld+json") >= 0)) return;
       var s = document.createElement("script");
       if (old.type) s.type = old.type;
       s.textContent = old.textContent;
-      old.parentNode.replaceChild(s, old);
+      s.setAttribute("data-inline-ran", "1");
+      try { old.parentNode.replaceChild(s, old); } catch (_) {}
     });
   }
 
@@ -359,6 +361,7 @@ export const panelClientScript = `
     syncTopbarFromProfilePreview();
   }
 
+  const AVATAR_MISSING_MARK = "panelAvatarMissing";
   function resolveAvatarSrc(preview, cached, serverSrc, apiAvatar) {
     const cachedData = cached.indexOf("data:") === 0 ? cached : "";
     if (preview) return preview;
@@ -366,7 +369,7 @@ export const panelClientScript = `
     if (serverSrc && serverSrc.indexOf("data:") === 0) return serverSrc;
     if (serverSrc && serverSrc.indexOf("/uploads/") === 0) return serverSrc;
     if (serverSrc && serverSrc.indexOf("http") === 0) return serverSrc;
-    if (apiAvatar) return "/api/panel/avatar";
+    if (apiAvatar && sessionStorage.getItem(AVATAR_MISSING_MARK) !== "1") return "/api/panel/avatar";
     return serverSrc || "";
   }
 
@@ -398,13 +401,12 @@ export const panelClientScript = `
     }
     img.hidden = true;
     fb.classList.remove("user-avatar-fallback--hidden");
-    img.onload = function () {
-      img.hidden = false;
-      fb.classList.add("user-avatar-fallback--hidden");
-    };
     img.onerror = function () {
       img.hidden = true;
       fb.classList.remove("user-avatar-fallback--hidden");
+      if (apiAvatar && img.src.indexOf("/api/panel/avatar") >= 0) {
+        sessionStorage.setItem(AVATAR_MISSING_MARK, "1");
+      }
       if (preview && img.src !== preview) {
         img.src = preview;
         return;
@@ -416,12 +418,11 @@ export const panelClientScript = `
         img.src = cachedData;
         return;
       }
-      if (apiAvatar && img.src.indexOf("/api/panel/avatar") >= 0) {
-        const prof = document.getElementById("profile-avatar-preview");
-        if (prof && prof.src && prof.style.display !== "none") {
-          img.src = prof.src;
-        }
-      }
+    };
+    img.onload = function () {
+      if (apiAvatar) sessionStorage.removeItem(AVATAR_MISSING_MARK);
+      img.hidden = false;
+      fb.classList.add("user-avatar-fallback--hidden");
     };
     if (trySrc.indexOf("data:") === 0) {
       img.src = trySrc;

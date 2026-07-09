@@ -141,10 +141,8 @@ export function appLayout(
   if (partial) return body;
 
   const is = (id: NavId) => active === id;
-  const topbarCls = topbarLeftHtml || topbarCenterHtml ? " topbar--dash" : "";
-  const topbarLeft = topbarLeftHtml
-    ? topbarLeftHtml
-    : `<h1>OnlyChat</h1>`;
+  const topbarCls = topbarLeftHtml || topbarCenterHtml ? " topbar--dash" : " topbar--minimal";
+  const topbarLeft = topbarLeftHtml || "";
   const topbarCenter = topbarCenterHtml
     ? `<div class="topbar-center">${topbarCenterHtml}</div>`
     : "";
