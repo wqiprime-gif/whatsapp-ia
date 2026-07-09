@@ -657,7 +657,9 @@ export function profilePage(
                 <span><strong>Notificações do navegador</strong><em>Alertas nativos do sistema operacional</em></span>
               </label>
               <button type="submit" class="btn btn-primary btn-block">Salvar notificações</button>
+              <button type="button" class="btn btn-secondary btn-block" id="btn-pwa-install-profile">Instalar app na tela do celular</button>
               <button type="button" class="btn btn-secondary btn-block" id="btn-test-notify">Testar notificação no celular</button>
+              <p class="form-hint" style="margin-top:8px">Para push com app fechado: instale o app + aceite notificações. iOS: Safari → Compartilhar → Adicionar à Tela de Início.</p>
             </form>
           </div>
         </div>

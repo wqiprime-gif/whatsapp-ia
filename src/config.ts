@@ -37,7 +37,10 @@ const envSchema = z.object({
   DATA_DIR: z.string().default(""),
   LARANJINHA_API_BASE: z.string().default("https://laranjinha.digital/api"),
   META_GRAPH_VERSION: z.string().default("v21.0"),
-  PUBLIC_BASE_URL: z.string().default("")
+  PUBLIC_BASE_URL: z.string().default(""),
+  VAPID_PUBLIC_KEY: z.string().default(""),
+  VAPID_PRIVATE_KEY: z.string().default(""),
+  VAPID_SUBJECT: z.string().default("mailto:kauawqii@gmail.com")
 });
 
 function stripEnvQuotes(value: string) {

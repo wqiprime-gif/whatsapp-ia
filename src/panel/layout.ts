@@ -6,6 +6,7 @@ import { brandLockupHtml, brandMarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } fr
 import { mobileDrawerScript } from "./mobile-drawer.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
+import { whatsappAppIconSvg } from "./whatsapp-app-icon.js";
 
 export type NavId =
   | "dashboard"
@@ -218,6 +219,12 @@ export function appLayout(
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">${brandMarkHtml()}</div>
+      <div class="sidebar-app-shortcuts" aria-label="Apps">
+        <a href="/" class="sidebar-app-tile sidebar-app-tile--wa active" data-nav title="OnlyChat WhatsApp">${whatsappAppIconSvg(36)}</a>
+        <a href="/instances" class="sidebar-app-tile sidebar-app-tile--instances" data-nav title="Instâncias">${icons.layers.replace('width="20"','width="18"').replace('height="20"','height="18"')}</a>
+        <a href="/maturador" class="sidebar-app-tile sidebar-app-tile--warm" data-nav title="Maturador">${icons.flame.replace('width="20"','width="18"').replace('height="20"','height="18"')}</a>
+        <button type="button" class="sidebar-app-tile sidebar-app-tile--install" id="btn-pwa-install" title="Instalar app na tela inicial" style="display:none">${icons.smartphone.replace('width="18"','width="16"').replace('height="18"','height="16"')}</button>
+      </div>
       <a href="/instances/new" class="btn-new">${icons.plus}<span class="btn-new-label"> Nova Instância</span></a>
       <nav class="nav">
         <div class="nav-section">

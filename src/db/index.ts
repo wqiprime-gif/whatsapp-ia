@@ -164,6 +164,9 @@ export async function initDatabase() {
     const { initChipWarmerSchema } = await import("../lib/chip-warmer.js");
     await initChipWarmerSchema();
 
+    const { initPushSubscriptionsSchema } = await import("../lib/web-push.js");
+    await initPushSubscriptionsSchema();
+
     const { initWaRedirectLinksSchema } = await import("../lib/wa-redirect-links.js");
     await initWaRedirectLinksSchema();
 

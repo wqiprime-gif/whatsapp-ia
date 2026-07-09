@@ -79,6 +79,43 @@ export const panelClientScript = `
     return swRegisterPromise;
   }
 
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function ensurePushSubscription() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+    const reg = await ensureServiceWorker();
+    if (!reg) return null;
+    const keyRes = await fetch("/api/push/vapid-public-key", { credentials: "same-origin" });
+    if (!keyRes.ok) return null;
+    const keyData = await keyRes.json();
+    if (!keyData.configured || !keyData.publicKey) return null;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+      });
+    }
+    const json = sub.toJSON();
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth }
+      })
+    });
+    return sub;
+  }
+
   async function pushSystemNotify(title, body, tag, url) {
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -89,8 +126,8 @@ export const panelClientScript = `
         await reg.showNotification(title, {
           body: body,
           tag: tag || "onlychat",
-          icon: "/brand/onlychat.png",
-          badge: "/brand/onlychat.png",
+          icon: "/brand/pwa-192.png",
+          badge: "/brand/pwa-192.png",
           vibrate: [200, 100, 200],
           renotify: true,
           data: { url: url || "/" }
@@ -100,7 +137,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/onlychat.png" });
+        new Notification(title, { body: body, icon: "/brand/pwa-192.png" });
         return true;
       } catch (_) {}
     }
@@ -119,16 +156,27 @@ export const panelClientScript = `
         if (typeof Notification !== "undefined" && Notification.permission === "default") {
           await Notification.requestPermission();
         }
-        const ok = await pushSystemNotify(
-          "Teste OnlyChat",
-          "Notificação de teste — se viu isso, alertas no celular funcionam!",
-          "zap-test",
-          "/"
+        await ensureServiceWorker();
+        let pushResult = null;
+        try {
+          await ensurePushSubscription();
+          const res = await fetch("/api/push/test", { method: "POST", credentials: "same-origin" });
+          pushResult = await res.json();
+        } catch (_) {}
+        const localOk = await pushSystemNotify(
+          "OnlyChat — teste",
+          "Notificação local + push Web (se configurado)",
+          "onlychat-test",
+          "/perfil"
         );
-        if (ok) {
-          showToast("Teste enviado!", "Verifique a bandeja de notificações do celular.", "daily");
+        if (pushResult && pushResult.ok && pushResult.sent > 0) {
+          showToast("Push enviado!", "Verifique a bandeja do celular (" + pushResult.sent + " dispositivo(s)).", "sale", true);
+        } else if (localOk) {
+          showToast("Notificação local OK", "Para push com app fechado, instale o app e configure VAPID no Railway.", "daily", true);
+        } else if (Notification && Notification.permission === "denied") {
+          showToast("Permissão bloqueada", "Ative notificações nas configurações do navegador/celular.", "daily", true);
         } else {
-          showToast("Permissão necessária", "Ative notificações nas configurações do navegador/celular.", "daily");
+          showToast("Teste parcial", "Ative notificações do navegador e instale o app na tela inicial.", "daily", true);
         }
       } finally {
         btn.disabled = false;
@@ -136,6 +184,32 @@ export const panelClientScript = `
       }
     });
   }
+
+  let deferredPwaPrompt = null;
+  function bindPwaInstall(root) {
+    const scope = root || document;
+    for (const btn of scope.querySelectorAll("#btn-pwa-install, #btn-pwa-install-profile")) {
+      if (!btn || btn.dataset.bound) continue;
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", async function () {
+        if (deferredPwaPrompt) {
+          deferredPwaPrompt.prompt();
+          await deferredPwaPrompt.userChoice;
+          deferredPwaPrompt = null;
+          const sidebarBtn = document.getElementById("btn-pwa-install");
+          if (sidebarBtn) sidebarBtn.style.display = "none";
+          return;
+        }
+        showToast("Instalar app", "No Chrome: menu ⋮ → Adicionar à tela inicial / Instalar app.", "daily", true);
+      });
+    }
+  }
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredPwaPrompt = e;
+    const btn = document.getElementById("btn-pwa-install");
+    if (btn) btn.style.display = "flex";
+  });
   let dashPeriod = localStorage.getItem(LS_DASH_PERIOD) || "hoje";
   const pageCache = new Map();
   let navigating = false;
@@ -271,6 +345,7 @@ export const panelClientScript = `
     if (path === "/perfil" || path.startsWith("/perfil")) {
       pageCache.delete("/perfil");
       bindTestNotify(main);
+      bindPwaInstall(main);
     }
     if (path === "/") {
       bindPeriodTabs(main);
@@ -691,8 +766,8 @@ export const panelClientScript = `
     }
   }
 
-  function showToast(title, body, kind) {
-    if (!canNotify(kind || "sale")) return;
+  function showToast(title, body, kind, force) {
+    if (!force && !canNotify(kind || "sale")) return;
     if (!toastRoot) return;
     const el = document.createElement("div");
     el.className = "panel-toast" + (kind ? " panel-toast--" + kind : "");
@@ -1031,8 +1106,13 @@ export const panelClientScript = `
     });
   }
 
-  ensureServiceWorker();
+  ensureServiceWorker().then(function () {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      ensurePushSubscription().catch(function () {});
+    }
+  });
   bindTestNotify(document);
+  bindPwaInstall(document);
 
   function injectAdminNav() {
     if (document.querySelector('[data-nav-admin-injected]')) return;

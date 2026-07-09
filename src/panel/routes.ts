@@ -6,6 +6,7 @@ import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { onlyChatIconSvg, brandFaviconDataUri } from "./brand-icon.js";
+import { renderWhatsappAppIconPng, whatsappAppIconSvg } from "./whatsapp-app-icon.js";
 import { env, rootDir } from "../config.js";
 import { useDatabase } from "../db/index.js";
 import {
@@ -674,6 +675,16 @@ export async function registerPanelRoutes(
           paymentMethod: (body.paymentMethod as "pix" | "laranjinha") ?? "pix"
         });
         const saleBot = await getBotByIdAny(body.botId);
+        if (saleBot?.userId) {
+          const reais = ((body.amountCents ?? 0) / 100).toFixed(2).replace(".", ",");
+          const { notifyUserPush } = await import("../lib/web-push.js");
+          void notifyUserPush(saleBot.userId, {
+            title: "Venda confirmada!",
+            body: `${body.productName ?? "VIP"} · R$ ${reais}`,
+            url: "/",
+            tag: "sale"
+          }).catch(() => {});
+        }
         if (saleBot?.postSaleEnabled) {
           const { schedulePostSaleJob } = await import("../lib/post-sale-scheduler.js");
           await schedulePostSaleJob({
@@ -1045,11 +1056,67 @@ export async function registerPanelRoutes(
   });
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-      <circle cx="24" cy="24" r="24" fill="#0a5cff"/>
-      <path fill="#fff" d="M34.2 13.5c-2.6-2.6-6.1-4-9.8-4-7.6 0-13.8 6.2-13.8 13.8 0 2.4.6 4.8 1.8 6.9L9 37l7.1-1.9c2 .9 4.2 1.4 6.4 1.4h.1c7.6 0 13.8-6.2 13.8-13.8 0-3.7-1.4-7.2-4-9.8l-.2-.4zm-9.8 21.3h-.1c-2 0-4-.5-5.7-1.5l-.4-.2-4.2 1.1 1.1-4.1-.3-.4c-1.1-1.7-1.7-3.7-1.7-5.8 0-6 4.9-10.9 10.9-10.9 2.9 0 5.7 1.1 7.8 3.2 2.1 2.1 3.2 4.9 3.2 7.8 0 6-4.9 10.9-10.9 10.9zm6-8.1c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.7.2-.2.3-.8 1.1-1 1.3-.2.2-.4.3-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.4.4-.5.1-.1.1-.3.2-.5.1-.2 0-.3 0-.5 0-.1-.7-1.7-1-2.3-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.8 2.7 4.3 3.8.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.3-.2-.6-.3z"/>
-    </svg>`;
-    return reply.type("image/svg+xml").send(svg);
+    return reply.type("image/svg+xml").send(whatsappAppIconSvg(48));
+  });
+
+  app.get("/brand/pwa-192.png", async (_request, reply) => {
+    const buf = await renderWhatsappAppIconPng(192);
+    return reply.type("image/png").send(buf);
+  });
+
+  app.get("/brand/pwa-512.png", async (_request, reply) => {
+    const buf = await renderWhatsappAppIconPng(512);
+    return reply.type("image/png").send(buf);
+  });
+
+  app.get("/api/push/vapid-public-key", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const { getVapidPublicKey, isWebPushConfigured } = await import("../lib/web-push.js");
+    return reply.send({
+      ok: true,
+      configured: isWebPushConfigured(),
+      publicKey: getVapidPublicKey()
+    });
+  });
+
+  app.post("/api/push/subscribe", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          endpoint: z.string().url(),
+          keys: z.object({
+            p256dh: z.string().min(1),
+            auth: z.string().min(1)
+          })
+        })
+        .parse(request.body ?? {});
+      const { savePushSubscription } = await import("../lib/web-push.js");
+      await savePushSubscription(user.id, body);
+      return reply.send({ ok: true });
+    } catch (error) {
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
+  app.post("/api/push/test", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const { sendTestPush, isWebPushConfigured } = await import("../lib/web-push.js");
+      if (!isWebPushConfigured()) {
+        return reply.code(503).send({
+          ok: false,
+          error: "Configure VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY no Railway."
+        });
+      }
+      const result = await sendTestPush(user.id);
+      return reply.send({ ok: true, ...result });
+    } catch (error) {
+      return reply.code(500).send({ ok: false, error: errorMessage(error) });
+    }
   });
 
   app.get("/instances/:id/qr", async (request, reply) => {

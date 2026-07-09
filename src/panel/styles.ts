@@ -444,7 +444,36 @@ button, input, textarea, select { font-family: inherit; }
   color: #fff;
   font-weight: 500;
 }
-.sidebar-brand { padding: 6px 4px 20px; }
+.sidebar-brand { padding: 6px 4px 12px; }
+.sidebar-app-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+.sidebar-app-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  text-decoration: none;
+  color: #fff;
+  padding: 0;
+}
+.sidebar-app-tile:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.16); }
+.sidebar-app-tile--wa { background: transparent; border: none; padding: 0; }
+.sidebar-app-tile--wa.active { box-shadow: 0 0 0 2px rgba(37,211,102,.45); border-radius: 14px; }
+.sidebar-app-tile--instances { background: rgba(10,92,255,.15); border-color: rgba(59,130,246,.25); }
+.sidebar-app-tile--warm { background: rgba(245,158,11,.12); border-color: rgba(251,191,36,.28); }
+.sidebar-app-tile--install { background: rgba(255,255,255,.06); }
+.brand-icon-slot { display: inline-flex; line-height: 0; }
 .btn-new {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 12px;
