@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsx scripts/generate-pwa-icons.ts && tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "postinstall": "cd hotbot && npm ci --omit=dev",
     "typecheck": "tsc -p tsconfig.json --noEmit"

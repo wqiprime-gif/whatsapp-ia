@@ -1,41 +1,72 @@
-export const PWA_MANIFEST = {
-  name: "OnlyChat WhatsApp",
-  short_name: "OnlyChat",
-  description: "Painel WhatsApp IA — vendas, leads e instâncias",
-  start_url: "/",
-  scope: "/",
-  display: "standalone",
-  background_color: "#050505",
-  theme_color: "#0a5cff",
-  orientation: "portrait-primary",
-  icons: [
-    {
-      src: "/brand/pwa-192.png",
-      sizes: "192x192",
-      type: "image/png",
-      purpose: "any"
-    },
-    {
-      src: "/brand/pwa-512.png",
-      sizes: "512x512",
-      type: "image/png",
-      purpose: "any"
-    },
-    {
-      src: "/brand/pwa-512.png",
-      sizes: "512x512",
-      type: "image/png",
-      purpose: "maskable"
-    }
-  ]
-};
+export function buildPwaManifest(baseUrl = "") {
+  const base = (baseUrl || "").replace(/\/$/, "");
+  const icon = (size: number) => (base ? `${base}/brand/pwa-${size}.png` : `/brand/pwa-${size}.png`);
 
-export const SERVICE_WORKER_JS = `self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  return {
+    id: base || "/",
+    name: "OnlyChat",
+    short_name: "OnlyChat",
+    description: "Painel WhatsApp IA — vendas, leads e instâncias",
+    lang: "pt-BR",
+    dir: "ltr",
+    start_url: "/?source=pwa",
+    scope: "/",
+    display: "standalone",
+    background_color: "#050505",
+    theme_color: "#0a5cff",
+    orientation: "portrait-primary",
+    prefer_related_applications: false,
+    categories: ["business", "productivity"],
+    icons: [
+      {
+        src: icon(192),
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: icon(512),
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
+      }
+    ]
+  };
+}
+
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.21.4";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(SW_VERSION).then((cache) =>
+      cache.addAll(["/brand/pwa-192.png", "/brand/pwa-512.png"]).catch(() => undefined)
+    ).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== SW_VERSION).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET") return;
+  if (!url.pathname.startsWith("/brand/pwa-")) return;
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((res) => {
+        if (!res || res.status !== 200) return res;
+        const copy = res.clone();
+        caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
+        return res;
+      });
+    })
+  );
 });
 
 self.addEventListener("push", (event) => {
@@ -79,11 +110,14 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
         if ("focus" in client) {
-          client.navigate(target);
-          return client.focus();
+          return client.focus().then(() => {
+            if ("navigate" in client && typeof client.navigate === "function") {
+              return client.navigate(target);
+            }
+          });
         }
       }
       if (self.clients.openWindow) return self.clients.openWindow(target);

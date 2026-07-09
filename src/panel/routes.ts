@@ -70,7 +70,7 @@ import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
-import { PWA_MANIFEST, SERVICE_WORKER_JS } from "./pwa.js";
+import { buildPwaManifest, SERVICE_WORKER_JS } from "./pwa.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
   activityFeedHtml,
@@ -1018,13 +1018,18 @@ export async function registerPanelRoutes(
     return reply.type("text/html").send(html);
   });
 
-  app.get("/manifest.webmanifest", async (_request, reply) => {
-    return reply.type("application/manifest+json").send(PWA_MANIFEST);
+  app.get("/manifest.webmanifest", async (request, reply) => {
+    const base = (env.PUBLIC_BASE_URL || `${request.protocol}://${request.hostname}`).replace(/\/$/, "");
+    return reply
+      .type("application/manifest+json; charset=utf-8")
+      .header("Cache-Control", "public, max-age=300")
+      .send(JSON.stringify(buildPwaManifest(base)));
   });
 
   app.get("/sw.js", async (_request, reply) => {
     return reply
       .header("Service-Worker-Allowed", "/")
+      .header("Cache-Control", "no-cache")
       .type("application/javascript; charset=utf-8")
       .send(SERVICE_WORKER_JS);
   });
@@ -1071,11 +1076,25 @@ export async function registerPanelRoutes(
   });
 
   app.get("/brand/pwa-192.png", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "pwa-192.png");
+    if (fsSync.existsSync(file)) {
+      return reply
+        .type("image/png")
+        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .send(fsSync.createReadStream(file));
+    }
     const buf = await renderWhatsappAppIconPng(192);
     return reply.type("image/png").send(buf);
   });
 
   app.get("/brand/pwa-512.png", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "pwa-512.png");
+    if (fsSync.existsSync(file)) {
+      return reply
+        .type("image/png")
+        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .send(fsSync.createReadStream(file));
+    }
     const buf = await renderWhatsappAppIconPng(512);
     return reply.type("image/png").send(buf);
   });

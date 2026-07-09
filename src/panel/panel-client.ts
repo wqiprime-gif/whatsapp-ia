@@ -74,7 +74,7 @@ export const panelClientScript = `
   async function ensureServiceWorker() {
     if (!("serviceWorker" in navigator)) return null;
     if (!swRegisterPromise) {
-      swRegisterPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
+      swRegisterPromise = navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null);
     }
     return swRegisterPromise;
   }
