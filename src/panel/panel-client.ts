@@ -325,6 +325,7 @@ export const panelClientScript = `
           avatarUrl = await uploadSelectedAvatar();
         } catch (err) {
           showToast("Foto", err.message || "Falha ao enviar a foto de perfil.", "daily", true);
+          return;
         }
         try {
           videoUrl = await uploadSelectedVideo();
@@ -1093,13 +1094,8 @@ export const panelClientScript = `
       if (opening) {
         const current = filterBellItems(loadExtraBell().concat(lastBellItems));
         updateBellMenu(current);
-        // Nunca limpa o card: só busca feed se ainda estiver vazio
-        if (current.length === 0) {
-          fetchBellFeed().then(function () {
-            const again = filterBellItems(loadExtraBell().concat(lastBellItems));
-            updateBellMenu(again);
-          });
-        }
+        // Sempre atualiza do servidor (PC e celular na mesma conta)
+        fetchBellFeed();
       }
     });
     document.addEventListener("click", (e) => {
@@ -1115,7 +1111,11 @@ export const panelClientScript = `
       const data = await res.json();
       if (data.bellItems && data.bellItems.length) {
         lastBellItems = data.bellItems;
-        updateBellMenu(loadExtraBell().concat(lastBellItems).slice(0, 12));
+        // Servidor já inclui extras da conta — não duplicar local em cima
+        const localOnly = loadExtraBell().filter(function (x) {
+          return !(data.bellItems || []).some(function (s) { return s && x && s.id === x.id; });
+        });
+        updateBellMenu(localOnly.concat(lastBellItems).slice(0, 16));
       } else if (data.bellSales && data.bellSales.length) {
         lastBellItems = data.bellSales.map(function (s) { return Object.assign({ kind: "sale" }, s); });
         updateBellMenu(loadExtraBell().concat(lastBellItems).slice(0, 12));
@@ -1200,6 +1200,7 @@ export const panelClientScript = `
         lastBellItems = [];
         if (bellBadge) bellBadge.style.display = "none";
         updateBellMenu([]);
+        fetch("/api/panel/bell", { method: "DELETE", credentials: "same-origin" }).catch(function () {});
         showToast("Limpo", "Notificações do sino removidas.", "daily", true, true);
       });
     }
@@ -1210,6 +1211,18 @@ export const panelClientScript = `
     extra.unshift(item);
     saveExtraBell(extra.slice(0, 24));
     updateBellMenu(extra.concat(lastBellItems).slice(0, 12));
+    // Persiste no servidor para aparecer no celular (mesma conta)
+    fetch("/api/panel/bell", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: item.id,
+        kind: item.kind || "daily",
+        title: item.title || "",
+        subtitle: item.subtitle || ""
+      })
+    }).catch(function () {});
   }
 
   function processLiveNotifications(data) {

@@ -82,11 +82,13 @@ export function renderCallPage(session: CallPageSession) {
   }
 
   const name = escapeHtml(session.callerName || "OnlyChat");
-  const avatar = session.avatarUrl?.trim() ? escapeHtml(session.avatarUrl) : "/brand/pwa-192.png";
+  const rawAvatar = session.avatarUrl?.trim() || "";
+  const avatar = escapeHtml(rawAvatar || "/brand/pwa-192.png");
   const videoUrl = JSON.stringify(session.videoUrl || "");
   const token = JSON.stringify(session.token);
   const callerNameJs = JSON.stringify(session.callerName || "OnlyChat");
   const ringingText = escapeHtml(copy.ringing(session.callerName || "OnlyChat"));
+  const initial = escapeHtml((session.callerName || "O").trim().charAt(0).toUpperCase() || "O");
 
   return `<!doctype html>
 <html lang="${loc}">
@@ -96,6 +98,8 @@ export function renderCallPage(session: CallPageSession) {
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>${name}</title>
+  ${session.videoUrl ? `<link rel="preload" as="video" href="${escapeHtml(session.videoUrl)}" />` : ""}
+  ${rawAvatar ? `<link rel="preload" as="image" href="${escapeHtml(rawAvatar)}" />` : ""}
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
@@ -109,13 +113,20 @@ export function renderCallPage(session: CallPageSession) {
     .ring-wrap{position:relative;width:148px;height:148px;margin-top:12vh}
     .ring-pulse,.ring-pulse2{
       position:absolute;inset:0;border-radius:50%;border:2px solid rgba(52,199,89,.35);
-      animation:ringPulse 2.2s ease-out infinite;
+      animation:ringPulse 2.2s ease-out infinite;pointer-events:none;
     }
     .ring-pulse2{animation-delay:.7s;border-color:rgba(10,92,255,.3)}
     @keyframes ringPulse{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.55);opacity:0}}
+    .avatar-fallback{
+      position:absolute;inset:0;z-index:0;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(145deg,#1e4d9c,#0a92ff);font-size:3rem;font-weight:700;color:#fff;
+      border:3px solid rgba(255,255,255,.2);
+    }
     .avatar{
       position:relative;z-index:1;width:148px;height:148px;border-radius:50%;object-fit:cover;
-      border:3px solid rgba(255,255,255,.2);box-shadow:0 12px 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.08);
+      border:3px solid rgba(255,255,255,.25);box-shadow:0 12px 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.08);
+      background:#111;
     }
     .r-name{margin-top:28px;font-size:1.6rem;font-weight:700;letter-spacing:-.02em}
     .r-status{margin-top:8px;font-size:1rem;opacity:.78}
@@ -132,8 +143,10 @@ export function renderCallPage(session: CallPageSession) {
     video#mainVideo{width:100%;height:100%;object-fit:cover;background:#000}
     video::-webkit-media-controls,video::-webkit-media-controls-enclosure{display:none !important}
     .topbar{position:absolute;top:25px;left:0;right:0;display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:10}
-    .pill{pointer-events:auto;background:rgba(0,0,0,.35);padding:6px 16px;border-radius:999px;display:flex;flex-direction:column;align-items:center;gap:1px;backdrop-filter:blur(8px)}
-    #callerText{font-size:16px;font-weight:500}
+    .pill{pointer-events:auto;background:rgba(0,0,0,.35);padding:6px 14px 6px 6px;border-radius:999px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px)}
+    .pill-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#222;flex-shrink:0}
+    .pill-text{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+    #callerText{font-size:14px;font-weight:600}
     #timerText{font-size:12px;color:#2bffae}
     .controls{
       position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:20;
@@ -184,7 +197,8 @@ export function renderCallPage(session: CallPageSession) {
     <div class="ring-wrap">
       <div class="ring-pulse" aria-hidden="true"></div>
       <div class="ring-pulse2" aria-hidden="true"></div>
-      <img class="avatar" src="${avatar}" alt="" />
+      <div class="avatar-fallback" aria-hidden="true">${initial}</div>
+      <img class="avatar" id="ringAvatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='/brand/pwa-192.png';" />
     </div>
     <div class="r-name">${name}</div>
     <div class="r-status">${ringingText}</div>
@@ -204,11 +218,14 @@ export function renderCallPage(session: CallPageSession) {
     <div class="stage">
       <div class="topbar">
         <div class="pill">
-          <span id="callerText">${escapeHtml(copy.inCall)}</span>
-          <span id="timerText">00:00</span>
+          <img class="pill-avatar" id="pillAvatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='/brand/pwa-192.png';" />
+          <div class="pill-text">
+            <span id="callerText">${escapeHtml(copy.inCall)}</span>
+            <span id="timerText">00:00</span>
+          </div>
         </div>
       </div>
-      <video id="mainVideo" playsinline webkit-playsinline oncontextmenu="return false;"></video>
+      <video id="mainVideo" playsinline webkit-playsinline preload="auto" oncontextmenu="return false;"></video>
       <div class="small" id="selfPreviewWrap">
         <video id="selfPreview" playsinline autoplay muted></video>
       </div>
@@ -307,6 +324,24 @@ export function renderCallPage(session: CallPageSession) {
 
     playRing();
     lockNavigation();
+
+    // Pré-carrega o vídeo durante o toque para iniciar na hora ao atender
+    if (videoSrc) {
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      video.preload = "auto";
+      video.src = videoSrc;
+      video.load();
+      var warm = video.play();
+      if (warm && warm.then) {
+        warm.then(function(){
+          try { video.pause(); video.currentTime = 0; } catch(_){}
+        }).catch(function(){});
+      }
+    }
+
     window.addEventListener("pagehide", function(){ if(!callEnded && inCall) markEndedOnServer(); });
     window.addEventListener("beforeunload", function(e){
       if(inCall && !callEnded){
@@ -332,8 +367,8 @@ export function renderCallPage(session: CallPageSession) {
       timerSec = 0;
       timerId = setInterval(tick, 1000);
       if(!videoSrc){ endCall(true); return; }
-      video.src = videoSrc;
-      video.load();
+      if(!video.src){ video.src = videoSrc; video.load(); }
+      try { video.currentTime = 0; } catch(_){}
       var tryPlay = function(){
         video.muted = false;
         var p = video.play();
@@ -345,7 +380,11 @@ export function renderCallPage(session: CallPageSession) {
         }
       };
       if(video.readyState >= 2) tryPlay();
-      else video.addEventListener("loadeddata", tryPlay, { once:true });
+      else {
+        video.addEventListener("loadeddata", tryPlay, { once:true });
+        video.addEventListener("canplay", tryPlay, { once:true });
+        setTimeout(tryPlay, 80);
+      }
     });
 
     video.addEventListener("ended", function(){ endCall(true); });

@@ -1833,6 +1833,19 @@ button, input, textarea, select { font-family: inherit; }
   z-index: 100;
 }
 .bell-menu.open { display: block; }
+@media (max-width: 900px) {
+  .bell-wrap { position: static; }
+  .bell-menu.open {
+    position: fixed;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    top: max(72px, calc(env(safe-area-inset-top, 0px) + 58px));
+    width: auto;
+    max-width: none;
+    max-height: min(65vh, 420px);
+    z-index: 220;
+  }
+}
 .bell-menu-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 12px 14px; border-bottom: 1px solid var(--border);

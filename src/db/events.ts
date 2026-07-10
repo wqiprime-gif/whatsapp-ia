@@ -206,6 +206,17 @@ export async function initEventsSchema() {
     );
     CREATE INDEX IF NOT EXISTS call_sessions_bot_id_idx ON call_sessions(bot_id);
     ALTER TABLE call_sessions ALTER COLUMN bot_id DROP NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS panel_notifications (
+      id TEXT PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES panel_users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL DEFAULT 'daily',
+      title TEXT NOT NULL DEFAULT '',
+      subtitle TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS panel_notifications_user_created_idx
+      ON panel_notifications(user_id, created_at DESC);
   `);
 }
 

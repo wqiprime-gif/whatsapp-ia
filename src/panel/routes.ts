@@ -77,6 +77,11 @@ import {
   getCallSession,
   updateCallSessionStatus
 } from "../db/call-sessions.js";
+import {
+  addPanelNotification,
+  clearPanelNotifications,
+  listPanelNotifications
+} from "../db/panel-notifications.js";
 import { renderCallPage } from "./call-page.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
@@ -934,6 +939,49 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/api/panel/bell", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const body = z
+        .object({
+          id: z.string().optional(),
+          kind: z.string().optional(),
+          title: z.string().min(1),
+          subtitle: z.string().optional()
+        })
+        .parse(request.body ?? {});
+      const item = await addPanelNotification({
+        userId: user.id,
+        id: body.id,
+        kind: body.kind,
+        title: body.title,
+        subtitle: body.subtitle
+      });
+      return reply.send({
+        ok: true,
+        item: {
+          id: item.id,
+          kind: item.kind,
+          title: item.title,
+          subtitle: item.subtitle,
+          time: formatRelativeTime(item.at),
+          at: item.at
+        }
+      });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
+  app.delete("/api/panel/bell", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    await clearPanelNotifications(user.id);
+    return reply.send({ ok: true });
+  });
+
   app.get("/call-assets/ringtone.mp3", async (_request, reply) => {
     const filePath = seedAudioPath("chamadavideo.mp3");
     if (!filePath) return reply.code(404).send("Audio nao encontrado.");
@@ -1166,6 +1214,7 @@ export async function registerPanelRoutes(
     const latestSale = await getLatestSale(user.id);
     const recentSales = await listSales(8, user.id);
     const todayStats = await dashboardStatsForPeriod("hoje", user.id);
+    const panelBell = await listPanelNotifications(user.id, 24);
 
     const activityTitles: Record<string, string> = {
       sale: "Venda aprovada",
@@ -1173,7 +1222,7 @@ export async function registerPanelRoutes(
       receipt: "Pagamento confirmado"
     };
 
-    const bellItems = activities.map((a) => ({
+    const activityBell = activities.map((a) => ({
       id: a.id,
       saleId: a.type === "sale" ? a.id : undefined,
       kind: a.type,
@@ -1183,6 +1232,19 @@ export async function registerPanelRoutes(
       time: formatRelativeTime(a.at),
       at: a.at
     }));
+
+    const extraBell = panelBell.map((n) => ({
+      id: n.id,
+      kind: n.kind,
+      title: n.title,
+      subtitle: n.subtitle,
+      time: formatRelativeTime(n.at),
+      at: n.at
+    }));
+
+    const bellItems = [...extraBell, ...activityBell]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 16);
 
     const bellSales = recentSales.map((row) => {
       const s = row as Record<string, unknown>;
