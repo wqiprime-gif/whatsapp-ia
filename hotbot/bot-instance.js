@@ -2308,6 +2308,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
       const delivered = await sendDeliveryMedia(client, messageFrom);
       const productLink = String(config.productDeliveryLink || '').trim();
       const pacote = await detectarPacote(messageFrom);
+      const isCallPackage = pacote === 'chamada' || pacote === 'completo';
 
       if (delivered > 0) {
         console.log(`   📦 ${delivered} arquivo(s) de entrega enviado(s)`);
@@ -2319,39 +2320,25 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
         });
       }
 
-      if (productLink) {
-        if (pacote === 'chamada') {
-          await deliverVideoCallLinkWithDelay(messageFrom);
-        } else {
-          const linkIntro =
-            (await generatePersonaReply(
-              messageFrom,
-              'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
-            )) || getBotMessages(botLocale()).deliveryIntroFallback;
-          await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
-        }
+      // Link de entrega do pack (básico ou completo com mídias) — chamada pura não recebe link de pack
+      if (productLink && pacote !== 'chamada') {
+        const linkIntro =
+          (await generatePersonaReply(
+            messageFrom,
+            'Pagamento confirmado. Mande uma frase curta com carinho antes do link de acesso.'
+          )) || getBotMessages(botLocale()).deliveryIntroFallback;
+        await sendTextHuman(client, messageFrom, `${linkIntro}\n${productLink}`);
       }
 
-      if (!productLink && delivered === 0) {
+      // Todo lead que comprou chamada ou completo recebe o link OnlyChat da chamada
+      if (isCallPackage) {
+        await deliverVideoCallLinkWithDelay(messageFrom);
+      } else if (!productLink && delivered === 0) {
         const linkBasico = process.env.LINK_BASICO || '';
-        const linkCompleto = process.env.LINK_COMPLETO || '';
 
         console.log(`   Pacote detectado: ${pacote.toUpperCase()} (fallback links)`);
 
-        if (pacote === 'completo') {
-          const completoSingle = process.env.COMPLETO_SINGLE === 'true' || pacotesConfig?.completo_single === true;
-          if (completoSingle && linkCompleto) {
-            await deliverVideoCallLinkWithDelay(messageFrom);
-          } else {
-            if (linkBasico) {
-              await client.sendMessage(messageFrom, `${getBotMessages(botLocale()).basicPackDelivery}\n${linkBasico}`);
-              await sleep(1500);
-            }
-            await deliverVideoCallLinkWithDelay(messageFrom);
-          }
-        } else if (pacote === 'chamada') {
-          await deliverVideoCallLinkWithDelay(messageFrom);
-        } else if (linkBasico) {
+        if (linkBasico && pacote === 'basico') {
           await client.sendMessage(messageFrom, `${getBotMessages(botLocale()).basicPackDelivery}\n${linkBasico}`);
         }
       }

@@ -483,7 +483,7 @@ export function dashboardPage(
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity)}
             <div>
-              <h3><span class="live-pulse" aria-hidden="true"></span> Log de atividades</h3>
+              <h3>Log de atividades</h3>
               <span class="shark-card-sub">Tempo real</span>
             </div>
           </div>

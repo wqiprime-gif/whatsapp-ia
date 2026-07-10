@@ -339,21 +339,16 @@ export function renderCallPage(session: CallPageSession) {
     playRing();
     lockNavigation();
 
-    // Pré-carrega o vídeo durante o toque para iniciar na hora ao atender
+    // Pré-carrega o vídeo em elemento separado — NÃO dispara ended no vídeo principal
     if (videoSrc) {
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute("playsinline", "");
-      video.setAttribute("webkit-playsinline", "");
-      video.preload = "auto";
-      video.src = videoSrc;
-      video.load();
-      var warm = video.play();
-      if (warm && warm.then) {
-        warm.then(function(){
-          try { video.pause(); video.currentTime = 0; } catch(_){}
-        }).catch(function(){});
-      }
+      var preloadVideo = document.createElement("video");
+      preloadVideo.muted = true;
+      preloadVideo.preload = "auto";
+      preloadVideo.setAttribute("playsinline", "");
+      preloadVideo.style.cssText = "position:absolute;width:0;height:0;opacity:0;pointer-events:none";
+      preloadVideo.src = videoSrc;
+      document.body.appendChild(preloadVideo);
+      preloadVideo.load();
     }
 
     window.addEventListener("pagehide", function(){ if(!callEnded && inCall) markEndedOnServer(); });
@@ -401,8 +396,8 @@ export function renderCallPage(session: CallPageSession) {
       }
     });
 
-    video.addEventListener("ended", function(){ endCall(true); });
-    video.addEventListener("error", function(){ endCall(true); });
+    video.addEventListener("ended", function(){ if(inCall) endCall(true); });
+    video.addEventListener("error", function(){ if(inCall) endCall(true); });
 
     document.getElementById("hangupBtn").addEventListener("click", function(){ endCall(true); });
 

@@ -34,7 +34,7 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.6";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.7";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

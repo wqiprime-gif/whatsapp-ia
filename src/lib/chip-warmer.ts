@@ -23,6 +23,8 @@ export type WarmSessionStats = {
   locations: number;
   mentions: number;
   quotes: number;
+  /** Última instância que enviou mensagem no grupo (alternância). */
+  lastBotId?: string;
 };
 
 export type WarmSession = {
@@ -542,6 +544,7 @@ export async function purgeWarmDataForUser(userId: string) {
 }
 
 export function pickBestBotForSession(session: WarmSession, bots: BotConfig[], scores: Record<string, BotWarmScore>) {
+  const lastBot = session.stats.lastBotId;
   const eligible = session.botIds
     .map((id) => {
       const bot = bots.find((b) => b.id === id);
@@ -550,8 +553,10 @@ export function pickBestBotForSession(session: WarmSession, bots: BotConfig[], s
     })
     .filter((x) => x.bot);
   if (eligible.length === 0) return null;
-  eligible.sort((a, b) => b.health - a.health || a.sent - b.sent);
-  return eligible[0]!.id;
+  const alternates = lastBot ? eligible.filter((x) => x.id !== lastBot) : eligible;
+  const pool = alternates.length > 0 ? alternates : eligible;
+  pool.sort((a, b) => b.health - a.health || a.sent - b.sent);
+  return pool[0]!.id;
 }
 
 export const WARM_CASUAL_TEXTS = [

@@ -170,9 +170,11 @@ async function processSession(session: WarmSession) {
   if (!chatId) return;
 
   const humanText = pickHumanMessage();
+  const multiBotGroup = session.mode === "groups" && session.botIds.length >= 2;
   const roll = Math.random();
   let action: Parameters<typeof sendWarmAction>[0]["action"];
-  if (roll < 0.52) action = "text";
+  if (multiBotGroup && roll < 0.58) action = "quote";
+  else if (roll < 0.52) action = "text";
   else if (roll < 0.68) action = "reaction";
   else if (roll < 0.8) action = "audio";
   else if (roll < 0.91) action = "image";
@@ -223,6 +225,7 @@ async function processSession(session: WarmSession) {
     session.messagesToday += 1;
     session.messagesTotal += 1;
     session.lastTickAt = new Date().toISOString();
+    session.stats.lastBotId = botId;
     session.lastLog = `[OK] ${action} humanizado`;
 
     const health = computeHealthScore({
