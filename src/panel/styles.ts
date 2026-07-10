@@ -1276,11 +1276,13 @@ button, input, textarea, select { font-family: inherit; }
 .prompt-editor {
   position: relative;
   width: 100%;
+  display: grid;
+  grid-template-areas: "stack";
   min-height: 340px;
-  max-height: min(70vh, 720px);
 }
 .prompt-editor .prompt-editor-backdrop,
 .prompt-editor .prompt-editor-input {
+  grid-area: stack;
   margin: 0;
   font-family: var(--font-body, 'Inter', system-ui, sans-serif);
   font-size: 0.9rem;
@@ -1294,13 +1296,14 @@ button, input, textarea, select { font-family: inherit; }
   word-break: break-word;
   letter-spacing: normal;
   tab-size: 2;
+  min-height: 340px;
+  max-height: 85vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .prompt-editor .prompt-editor-backdrop {
-  position: absolute;
-  inset: 0;
   z-index: 0;
   pointer-events: none;
-  overflow: auto;
   border-color: transparent;
   color: var(--text);
   background: rgba(5, 10, 18, 0.8);
@@ -1312,16 +1315,11 @@ button, input, textarea, select { font-family: inherit; }
   z-index: 1;
   display: block;
   width: 100%;
-  min-height: 340px;
-  max-height: min(70vh, 720px);
-  height: min(70vh, 720px);
   resize: vertical;
   background: transparent;
   color: transparent;
   caret-color: var(--text);
   outline: none;
-  overflow-x: hidden;
-  overflow-y: scroll;
   overscroll-behavior: contain;
   transition: border-color var(--ease), box-shadow var(--ease);
 }

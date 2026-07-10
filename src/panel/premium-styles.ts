@@ -1047,27 +1047,27 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--blue-bright);
-  box-shadow: 0 0 0 0 rgba(10, 92, 255, 0.6);
+  background: #ff3b30;
+  box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.6);
   animation: live-pulse 1.8s ease infinite;
   margin-right: 8px;
   vertical-align: middle;
 }
 @keyframes live-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(10, 92, 255, 0.55); }
-  70% { box-shadow: 0 0 0 8px rgba(10, 92, 255, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(10, 92, 255, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
 }
 .live-badge {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--blue-bright);
+  color: #ff3b30;
   padding: 4px 10px;
   border-radius: 99px;
-  background: rgba(10, 92, 255, 0.12);
-  border: 1px solid rgba(10, 92, 255, 0.25);
+  background: rgba(255, 59, 48, 0.12);
+  border: 1px solid rgba(255, 59, 48, 0.35);
 }
 .card-live-feed .card-head h3 {
   display: flex;

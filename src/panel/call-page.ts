@@ -83,7 +83,7 @@ export function renderCallPage(session: CallPageSession) {
 
   const name = escapeHtml(session.callerName || "OnlyChat");
   const rawAvatar = session.avatarUrl?.trim() || "";
-  const avatar = escapeHtml(rawAvatar || "/brand/pwa-192.png");
+  const avatarJs = JSON.stringify(rawAvatar || "/brand/pwa-192.png");
   const videoUrl = JSON.stringify(session.videoUrl || "");
   const token = JSON.stringify(session.token);
   const callerNameJs = JSON.stringify(session.callerName || "OnlyChat");
@@ -99,7 +99,7 @@ export function renderCallPage(session: CallPageSession) {
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>${name}</title>
   ${session.videoUrl ? `<link rel="preload" as="video" href="${escapeHtml(session.videoUrl)}" />` : ""}
-  ${rawAvatar ? `<link rel="preload" as="image" href="${escapeHtml(rawAvatar)}" />` : ""}
+  ${rawAvatar && !rawAvatar.startsWith("data:") ? `<link rel="preload" as="image" href="${escapeHtml(rawAvatar)}" />` : ""}
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
@@ -198,7 +198,7 @@ export function renderCallPage(session: CallPageSession) {
       <div class="ring-pulse" aria-hidden="true"></div>
       <div class="ring-pulse2" aria-hidden="true"></div>
       <div class="avatar-fallback" aria-hidden="true">${initial}</div>
-      <img class="avatar" id="ringAvatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='/brand/pwa-192.png';" />
+      <img class="avatar" id="ringAvatar" src="/brand/pwa-192.png" alt="" />
     </div>
     <div class="r-name">${name}</div>
     <div class="r-status">${ringingText}</div>
@@ -218,7 +218,7 @@ export function renderCallPage(session: CallPageSession) {
     <div class="stage">
       <div class="topbar">
         <div class="pill">
-          <img class="pill-avatar" id="pillAvatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='/brand/pwa-192.png';" />
+          <img class="pill-avatar" id="pillAvatar" src="/brand/pwa-192.png" alt="" />
           <div class="pill-text">
             <span id="callerText">${escapeHtml(copy.inCall)}</span>
             <span id="timerText">00:00</span>
@@ -273,7 +273,21 @@ export function renderCallPage(session: CallPageSession) {
   (function(){
     var token = ${token};
     var videoSrc = ${videoUrl};
+    var avatarSrc = ${avatarJs};
     var callerName = ${callerNameJs};
+    function applyAvatar(){
+      var ring = document.getElementById("ringAvatar");
+      var pill = document.getElementById("pillAvatar");
+      var fb = document.querySelector(".avatar-fallback");
+      if(!avatarSrc || avatarSrc === "/brand/pwa-192.png") return;
+      if(ring){
+        ring.onload = function(){ if(fb) fb.style.display = "none"; };
+        ring.onerror = function(){ this.onerror = null; this.src = "/brand/pwa-192.png"; };
+        ring.src = avatarSrc;
+      }
+      if(pill) pill.src = avatarSrc;
+    }
+    applyAvatar();
     var ringing = document.getElementById("ringing-screen");
     var videoScreen = document.getElementById("video-screen");
     var video = document.getElementById("mainVideo");

@@ -196,6 +196,27 @@ async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: strin
   return `/uploads/${fileName}`;
 }
 
+/** Converte /uploads/ em data URL para persistir no Postgres e sobreviver deploy. */
+async function normalizeAvatarForStorage(url: string): Promise<string> {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("data:")) return trimmed;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  if (trimmed.startsWith("/uploads/")) {
+    const fileName = path.basename(trimmed);
+    const filePath = path.join(uploadsDir, fileName);
+    try {
+      const buf = await fs.readFile(filePath);
+      if (buf.length > 0 && buf.length <= AVATAR_MAX_DATA_BYTES) {
+        return `data:${mimeTypeFromPath(filePath)};base64,${buf.toString("base64")}`;
+      }
+    } catch {
+      /* arquivo sumiu após deploy — mantém URL original */
+    }
+  }
+  return trimmed;
+}
+
 async function parseBotMultipart(request: FastifyRequest) {
   const fields: Record<string, string> = {};
   const fieldArrays: Record<string, string[]> = {};
@@ -211,6 +232,10 @@ async function parseBotMultipart(request: FastifyRequest) {
   for await (const part of request.parts()) {
     if (part.type === "file") {
       if (!part.filename) continue;
+      if (part.fieldname === "callAvatarFile") {
+        callAvatarUpload = await saveProfileAvatar(part.file, part.filename);
+        continue;
+      }
       const url = await saveUploadedFile(part.file, part.filename);
       if (
         part.fieldname === "previewFiles" ||
@@ -833,7 +858,7 @@ export async function registerPanelRoutes(
         botId: bot.id,
         leadJid: body.leadJid || body.jid || "",
         callerName: bot.videoCallCallerName?.trim() || bot.name,
-        avatarUrl: bot.videoCallAvatarUrl || bot.avatarUrl || "",
+        avatarUrl: await normalizeAvatarForStorage(bot.videoCallAvatarUrl || bot.avatarUrl || ""),
         videoUrl,
         locale: bot.locale || "pt-BR"
       });
@@ -881,6 +906,15 @@ export async function registerPanelRoutes(
         });
       }
 
+      avatarUrl = await normalizeAvatarForStorage(avatarUrl);
+
+      if (botId && avatarUrl) {
+        const bot = await getBotById(botId, user.id);
+        if (bot && bot.videoCallAvatarUrl !== avatarUrl) {
+          await upsertBot({ ...bot, videoCallAvatarUrl: avatarUrl });
+        }
+      }
+
       const session = await createCallSession({
         botId: botId || undefined,
         leadJid: "preview-test",
@@ -925,7 +959,7 @@ export async function registerPanelRoutes(
       let avatarUrl = "";
       for await (const part of request.parts()) {
         if (part.type === "file" && part.filename) {
-          avatarUrl = await saveUploadedFile(part.file, part.filename);
+          avatarUrl = await saveProfileAvatar(part.file, part.filename);
           break;
         }
       }
