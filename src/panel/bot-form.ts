@@ -619,13 +619,12 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
             return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           }
           function syncSize() {
-            var maxH = Math.floor(window.innerHeight * 0.85);
             ta.style.height = "auto";
-            var sh = ta.scrollHeight;
-            var h = Math.max(340, Math.min(sh, maxH));
+            var h = Math.max(340, ta.scrollHeight);
             ta.style.height = h + "px";
-            ta.style.overflowY = sh > maxH ? "auto" : "auto";
+            ta.style.overflowY = "auto";
             bd.style.height = h + "px";
+            bd.style.width = ta.clientWidth + "px";
           }
           function render() {
             var html = esc(ta.value).replace(/\\[\\[.+?\\]\\]/g, function (m) {

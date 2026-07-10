@@ -74,7 +74,6 @@ export function renderCallPage(session: CallPageSession) {
     session.status === "expired" ||
     session.status === "declined" ||
     session.status === "ended" ||
-    session.status === "accepted" ||
     !session.videoUrl;
 
   if (dead) {
@@ -351,10 +350,8 @@ export function renderCallPage(session: CallPageSession) {
       preloadVideo.load();
     }
 
-    window.addEventListener("pagehide", function(){ if(!callEnded && inCall) markEndedOnServer(); });
     window.addEventListener("beforeunload", function(e){
       if(inCall && !callEnded){
-        markEndedOnServer();
         e.preventDefault();
         e.returnValue = "";
       }

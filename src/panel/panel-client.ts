@@ -263,7 +263,7 @@ export const panelClientScript = `
     }
 
     async function uploadSelectedVideo() {
-      const fileInput = document.getElementById("callVideoFile") || scope.querySelector('input[name="callVideoFile"]');
+      const fileInput = scope.querySelector('input[name="callVideoFile"]') || document.getElementById("callVideoFile");
       const file = fileInput && fileInput.files && fileInput.files[0];
       if (!file) return box.getAttribute("data-saved-video") || "";
       const fd = new FormData();
@@ -283,8 +283,8 @@ export const panelClientScript = `
     }
 
     async function uploadSelectedAvatar() {
-      const fileInput = document.getElementById("callAvatarFile") || scope.querySelector('input[name="callAvatarFile"]');
-      const hidden = document.getElementById("videoCallAvatarUrl") || scope.querySelector('input[name="videoCallAvatarUrl"]');
+      const fileInput = scope.querySelector('input[name="callAvatarFile"]') || document.getElementById("callAvatarFile");
+      const hidden = scope.querySelector('input[name="videoCallAvatarUrl"]') || document.getElementById("videoCallAvatarUrl");
       const file = fileInput && fileInput.files && fileInput.files[0];
       if (!file) {
         return (hidden && hidden.value) || box.getAttribute("data-saved-avatar") || "";

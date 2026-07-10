@@ -1297,7 +1297,7 @@ button, input, textarea, select { font-family: inherit; }
   letter-spacing: normal;
   tab-size: 2;
   min-height: 340px;
-  max-height: 85vh;
+  max-height: none;
   overflow-x: hidden;
   overflow-y: auto;
 }
