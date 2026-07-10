@@ -243,10 +243,14 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
   const videoCallLink = bot?.videoCallLink ?? "";
   const videoCallVideoUrl = bot?.videoCallVideoUrl ?? "";
   const callerName = bot?.videoCallCallerName ?? bot?.name ?? "";
+  const callAvatarUrl = bot?.videoCallAvatarUrl ?? "";
   const botId = bot?.id ?? "";
   const videoName = videoCallVideoUrl ? videoCallVideoUrl.split("/").pop() || videoCallVideoUrl : "";
   const videoPreview = videoCallVideoUrl
     ? `<video src="${escapeHtml(videoCallVideoUrl)}" controls playsinline style="max-width:100%;border-radius:12px;margin-top:8px"></video>`
+    : "";
+  const avatarPreview = callAvatarUrl
+    ? `<img src="${escapeHtml(callAvatarUrl)}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-top:8px;border:2px solid rgba(255,255,255,.15)" />`
     : "";
   const urls = bot?.deliveryMediaUrls ?? [];
   const list =
@@ -282,6 +286,16 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         <input name="videoCallCallerName" value="${escapeHtml(callerName)}" placeholder="Ex: Bia" />
         <span class="form-hint">Aparece na tela &quot;está te ligando...&quot; do link OnlyChat.</span>
       </label>
+      <label class="field">Foto de perfil na chamada
+        <div class="dropzone dropzone-neon" style="padding:12px">
+          <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Foto redonda na tela de atendimento</p>
+          <input form="${formId}" name="callAvatarFile" id="callAvatarFile" type="file" accept="image/jpeg,image/png,image/webp,image/*" />
+        </div>
+        ${avatarPreview}
+        <input type="hidden" name="videoCallAvatarUrl" id="videoCallAvatarUrl" value="${escapeHtml(callAvatarUrl)}" />
+        ${callAvatarUrl ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeCallAvatar" value="1" /> Remover foto atual</label>` : ""}
+        <span class="form-hint">Salva no banco com a instância. Também entra no link ao clicar em Gerar link.</span>
+      </label>
       <label class="field span-2">Vídeo da chamada (MP4)
         <div class="dropzone dropzone-neon">
           <p style="color:var(--muted);margin-bottom:8px">${icons.upload} Vídeo em tela cheia após o lead atender</p>
@@ -291,7 +305,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         ${videoCallVideoUrl ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeCallVideo" value="1" /> Remover vídeo atual (${escapeHtml(videoName)})</label>` : ""}
         <span class="form-hint">Escolha o MP4 e clique em <strong>Gerar link</strong> abaixo — não precisa salvar a instância antes para testar.</span>
       </label>
-      <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}" data-saved-video="${escapeHtml(videoCallVideoUrl)}">
+      <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}" data-saved-video="${escapeHtml(videoCallVideoUrl)}" data-saved-avatar="${escapeHtml(callAvatarUrl)}">
         <label>Link OnlyChat da chamada (para testar)
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
             <input type="text" id="call-link-output" readonly value="${escapeHtml(videoCallLink && videoCallLink.includes("/call/") ? videoCallLink : "")}" placeholder="Clique em Gerar link para montar" style="flex:1;min-width:200px" />

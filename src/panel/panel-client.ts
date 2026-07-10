@@ -28,11 +28,13 @@ export const panelClientScript = `
   const LS_AVATAR = "panelAvatarUrl";
   const LS_AVATAR_PREVIEW = "panelAvatarPreview";
   const LS_DASH_PERIOD = "dashPeriod";
+  const LS_EXTRA_BELL = "panelExtraBellItems";
   const LS_WA_STATUS = "panelWaStatusMap";
   const LS_SEEN_EVENTS = "panelSeenEventIds";
   const LS_DAILY_SUMMARY = "panelDailySummaryDate";
-  const LS_EXTRA_BELL = "panelExtraBellItems";
   const LS_NOTIFY_PREFS = "panelNotifyPrefs";
+  let memoryExtraBell = [];
+  let lastBellItems = [];
   let notifyPrefs = {
     enabled: true,
     sales: true,
@@ -280,6 +282,29 @@ export const panelClientScript = `
       return data.videoUrl;
     }
 
+    async function uploadSelectedAvatar() {
+      const fileInput = document.getElementById("callAvatarFile") || scope.querySelector('input[name="callAvatarFile"]');
+      const hidden = document.getElementById("videoCallAvatarUrl") || scope.querySelector('input[name="videoCallAvatarUrl"]');
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) {
+        return (hidden && hidden.value) || box.getAttribute("data-saved-avatar") || "";
+      }
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/panel/call-avatar-upload", {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok || !data.avatarUrl) {
+        throw new Error(data.error || "Falha no upload da foto");
+      }
+      box.setAttribute("data-saved-avatar", data.avatarUrl);
+      if (hidden) hidden.value = data.avatarUrl;
+      return data.avatarUrl;
+    }
+
     genBtn.addEventListener("click", async function () {
       genBtn.disabled = true;
       const prev = genBtn.textContent;
@@ -294,7 +319,13 @@ export const panelClientScript = `
         const caller = (document.querySelector('input[name="videoCallCallerName"]') || {}).value || "";
         const locale = (document.querySelector('select[name="locale"]') || {}).value || "pt-BR";
         let videoUrl = "";
-        showToast("Gerando link", "Enviando vídeo e montando a chamada...", "daily", true);
+        let avatarUrl = "";
+        showToast("Gerando link", "Enviando mídia e montando a chamada...", "daily", true);
+        try {
+          avatarUrl = await uploadSelectedAvatar();
+        } catch (err) {
+          showToast("Foto", err.message || "Falha ao enviar a foto de perfil.", "daily", true);
+        }
         try {
           videoUrl = await uploadSelectedVideo();
         } catch (err) {
@@ -313,7 +344,8 @@ export const panelClientScript = `
             botId: botId || undefined,
             callerName: caller,
             locale: locale,
-            videoUrl: videoUrl || undefined
+            videoUrl: videoUrl || undefined,
+            avatarUrl: avatarUrl || undefined
           })
         });
         const data = await res.json();
@@ -917,7 +949,6 @@ export const panelClientScript = `
   };
 
   let liveNotificationsReady = false;
-  let lastBellItems = [];
 
   function loadSeenEvents() {
     try {
@@ -933,14 +964,20 @@ export const panelClientScript = `
 
   function loadExtraBell() {
     try {
-      return JSON.parse(localStorage.getItem(LS_EXTRA_BELL) || "[]");
-    } catch (_) {
-      return [];
-    }
+      const fromLs = JSON.parse(localStorage.getItem(LS_EXTRA_BELL) || "[]");
+      if (Array.isArray(fromLs) && fromLs.length) {
+        memoryExtraBell = fromLs;
+        return fromLs;
+      }
+    } catch (_) {}
+    return memoryExtraBell.slice();
   }
 
   function saveExtraBell(items) {
-    localStorage.setItem(LS_EXTRA_BELL, JSON.stringify(items.slice(0, 24)));
+    memoryExtraBell = (items || []).slice(0, 24);
+    try {
+      localStorage.setItem(LS_EXTRA_BELL, JSON.stringify(memoryExtraBell));
+    } catch (_) {}
   }
 
   function waConnected(status) {
@@ -954,7 +991,7 @@ export const panelClientScript = `
     }
   }
 
-  function showToast(title, body, kind, force) {
+  function showToast(title, body, kind, force, skipBell) {
     if (!force && !canNotify(kind || "sale")) return;
     if (!toastRoot) return;
     const el = document.createElement("div");
@@ -964,7 +1001,17 @@ export const panelClientScript = `
     el.querySelector("button").addEventListener("click", () => el.remove());
     setTimeout(() => el.classList.add("show"), 10);
     setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 8000);
-    pushBellBadge();
+    if (!skipBell) {
+      pushBellBadge();
+      prependExtraBell({
+        id: "toast-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+        kind: kind || "daily",
+        title: title,
+        subtitle: body || "",
+        time: "agora",
+        at: new Date().toISOString()
+      });
+    }
   }
 
   function desktopNotify(title, body, kind) {
@@ -1038,18 +1085,20 @@ export const panelClientScript = `
   }
 
   if (bellBtn && bellMenu) {
-    updateBellMenu(loadExtraBell());
+    updateBellMenu(loadExtraBell().concat(lastBellItems));
     bellBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       const opening = !bellMenu.classList.contains("open");
       bellMenu.classList.toggle("open");
       if (opening) {
         const current = filterBellItems(loadExtraBell().concat(lastBellItems));
+        updateBellMenu(current);
+        // Nunca limpa o card: só busca feed se ainda estiver vazio
         if (current.length === 0) {
-          updateBellMenu([]);
-          fetchBellFeed();
-        } else {
-          updateBellMenu(current);
+          fetchBellFeed().then(function () {
+            const again = filterBellItems(loadExtraBell().concat(lastBellItems));
+            updateBellMenu(again);
+          });
         }
       }
     });
@@ -1147,10 +1196,11 @@ export const panelClientScript = `
         sessionStorage.setItem(LS_BELL_SEEN, now);
         sessionStorage.setItem(LS_BELL_CLEARED, now);
         localStorage.setItem(LS_EXTRA_BELL, "[]");
+        memoryExtraBell = [];
         lastBellItems = [];
         if (bellBadge) bellBadge.style.display = "none";
         updateBellMenu([]);
-        showToast("Limpo", "Notificações do sino removidas.", "daily", true);
+        showToast("Limpo", "Notificações do sino removidas.", "daily", true, true);
       });
     }
   }

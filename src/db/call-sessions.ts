@@ -4,7 +4,7 @@ import path from "node:path";
 import { env } from "../config.js";
 import { getPool, useDatabase } from "./index.js";
 
-export type CallSessionStatus = "pending" | "accepted" | "declined" | "expired";
+export type CallSessionStatus = "pending" | "accepted" | "declined" | "expired" | "ended";
 
 export type CallSession = {
   token: string;

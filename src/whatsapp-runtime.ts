@@ -279,6 +279,7 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         videoCallLink: bot.videoCallLink || "",
         videoCallVideoUrl: bot.videoCallVideoUrl || "",
         videoCallCallerName: bot.videoCallCallerName || bot.name,
+        videoCallAvatarUrl: bot.videoCallAvatarUrl || "",
         locale: bot.locale || "pt-BR",
         paymentMethod: bot.paymentMethod,
         messageDelayMs: bot.messageDelayMs ?? 4000,

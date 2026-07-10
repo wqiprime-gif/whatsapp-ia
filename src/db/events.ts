@@ -189,6 +189,7 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS wa_phone_number TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_external_link TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_caller_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_avatar_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'pt-BR';
 
     CREATE TABLE IF NOT EXISTS call_sessions (

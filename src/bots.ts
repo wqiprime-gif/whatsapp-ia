@@ -61,6 +61,8 @@ export type BotConfig = {
   videoCallVideoUrl: string;
   /** Nome exibido na tela "está te ligando". */
   videoCallCallerName: string;
+  /** Foto de perfil na tela de chamada (/uploads/...). */
+  videoCallAvatarUrl: string;
   /** Idioma das mensagens automáticas do bot. */
   locale: "pt-BR" | "en-US";
   backupToken?: string;
@@ -179,6 +181,7 @@ function rowToBot(row: {
   video_call_video_url?: string | null;
   video_call_external_link?: string | null;
   video_call_caller_name?: string | null;
+  video_call_avatar_url?: string | null;
   locale?: string | null;
 }): BotConfig {
   const rawVideo = String(row.video_call_video_url ?? "");
@@ -229,6 +232,7 @@ function rowToBot(row: {
     videoCallLink,
     videoCallVideoUrl,
     videoCallCallerName: row.video_call_caller_name?.trim() || row.name || "",
+    videoCallAvatarUrl: row.video_call_avatar_url?.trim() || "",
     locale: row.locale === "en-US" ? "en-US" : "pt-BR",
     backupToken: row.backup_token ?? undefined,
     giftPrompt: row.gift_prompt ?? "",
@@ -256,7 +260,7 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   gift_prompt, gift_items, wa_port, wa_api_provider, wa_phone_number, proxy_enabled, proxy_url_encrypted,
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
   follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
-  price_table_image_url, video_call_video_url, video_call_external_link, video_call_caller_name, locale,
+  price_table_image_url, video_call_video_url, video_call_external_link, video_call_caller_name, video_call_avatar_url, locale,
   ai_provider, ai_model, ai_api_key_encrypted
   FROM bots`;
 
@@ -283,6 +287,7 @@ export async function loadBots(userId?: string) {
     videoCallLink: b.videoCallLink ?? "",
     videoCallVideoUrl: b.videoCallVideoUrl ?? "",
     videoCallCallerName: b.videoCallCallerName ?? b.name ?? "",
+    videoCallAvatarUrl: b.videoCallAvatarUrl ?? "",
     locale: b.locale === "en-US" ? "en-US" : "pt-BR",
     backupToken: b.backupToken,
     paymentMethod: b.paymentMethod === "laranjinha" ? "laranjinha" : "pix",
@@ -336,9 +341,9 @@ export async function upsertBot(bot: BotConfig) {
         meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
         follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
         price_table_image_url,
-        video_call_video_url, video_call_external_link, video_call_caller_name, locale,
+        video_call_video_url, video_call_external_link, video_call_caller_name, video_call_avatar_url, locale,
         ai_provider, ai_model, ai_api_key_encrypted)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45)
        ON CONFLICT (id) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          name = EXCLUDED.name,
@@ -379,6 +384,7 @@ export async function upsertBot(bot: BotConfig) {
          video_call_video_url = EXCLUDED.video_call_video_url,
          video_call_external_link = EXCLUDED.video_call_external_link,
          video_call_caller_name = EXCLUDED.video_call_caller_name,
+         video_call_avatar_url = EXCLUDED.video_call_avatar_url,
          locale = EXCLUDED.locale,
          ai_provider = EXCLUDED.ai_provider,
          ai_model = EXCLUDED.ai_model,
@@ -424,6 +430,7 @@ export async function upsertBot(bot: BotConfig) {
         bot.videoCallVideoUrl ?? "",
         bot.videoCallLink ?? "",
         bot.videoCallCallerName?.trim() || bot.name,
+        bot.videoCallAvatarUrl ?? "",
         bot.locale ?? "pt-BR",
         bot.aiProvider ?? "openai",
         bot.aiModel ?? null,

@@ -199,6 +199,7 @@ async function parseBotMultipart(request: FastifyRequest) {
   let newNamedAudioUrl = "";
   let priceTableUpload = "";
   let callVideoUpload = "";
+  let callAvatarUpload = "";
   const audioReplacements: Record<number, string> = {};
   const seedAudioReplacements: Record<string, string> = {};
 
@@ -221,6 +222,7 @@ async function parseBotMultipart(request: FastifyRequest) {
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
       if (part.fieldname === "priceTableImage") priceTableUpload = url;
       if (part.fieldname === "callVideoFile") callVideoUpload = url;
+      if (part.fieldname === "callAvatarFile") callAvatarUpload = url;
       const replaceMatch = /^replaceAudioFile_(\d+)$/.exec(part.fieldname);
       if (replaceMatch) {
         audioReplacements[Number(replaceMatch[1])] = url;
@@ -250,6 +252,7 @@ async function parseBotMultipart(request: FastifyRequest) {
     newNamedAudioUrl,
     priceTableUpload,
     callVideoUpload,
+    callAvatarUpload,
     audioReplacements,
     seedAudioReplacements
   };
@@ -273,6 +276,18 @@ function resolveCallVideoUrl(
 ): string {
   if (fields.removeCallVideo === "1") return "";
   if (uploaded) return uploaded;
+  return existing ?? "";
+}
+
+function resolveCallAvatarUrl(
+  existing: string | undefined,
+  fields: Record<string, string>,
+  uploaded: string
+): string {
+  if (fields.removeCallAvatar === "1") return "";
+  if (uploaded) return uploaded;
+  const fromField = String(fields.videoCallAvatarUrl || "").trim();
+  if (fromField) return fromField;
   return existing ?? "";
 }
 
@@ -374,6 +389,7 @@ const botFormFieldsSchema = z.object({
   deliveryLink: z.string().default(""),
   videoCallLink: z.string().default(""),
   videoCallCallerName: z.string().default(""),
+  videoCallAvatarUrl: z.string().default(""),
   locale: z.enum(["pt-BR", "en-US"]).default("pt-BR"),
   waApiProvider: z.enum(["whatsapp_web", "meta_cloud"]).default("whatsapp_web"),
   proxyEnabled: z.enum(["true", "false"]).default("false"),
@@ -812,7 +828,7 @@ export async function registerPanelRoutes(
         botId: bot.id,
         leadJid: body.leadJid || body.jid || "",
         callerName: bot.videoCallCallerName?.trim() || bot.name,
-        avatarUrl: bot.avatarUrl || "",
+        avatarUrl: bot.videoCallAvatarUrl || bot.avatarUrl || "",
         videoUrl,
         locale: bot.locale || "pt-BR"
       });
@@ -849,7 +865,7 @@ export async function registerPanelRoutes(
         if (!bot) return reply.code(404).send({ ok: false, error: "Instância não encontrada" });
         videoUrl = videoUrl || bot.videoCallVideoUrl || "";
         callerName = callerName || bot.videoCallCallerName || bot.name;
-        avatarUrl = avatarUrl || bot.avatarUrl || "";
+        avatarUrl = avatarUrl || bot.videoCallAvatarUrl || bot.avatarUrl || "";
         locale = bot.locale === "en-US" ? "en-US" : locale;
       }
 
@@ -897,6 +913,27 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/api/panel/call-avatar-upload", { bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      let avatarUrl = "";
+      for await (const part of request.parts()) {
+        if (part.type === "file" && part.filename) {
+          avatarUrl = await saveUploadedFile(part.file, part.filename);
+          break;
+        }
+      }
+      if (!avatarUrl) {
+        return reply.code(400).send({ ok: false, error: "Envie uma foto de perfil (JPG/PNG/WebP)." });
+      }
+      return reply.send({ ok: true, avatarUrl });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
   app.get("/call-assets/ringtone.mp3", async (_request, reply) => {
     const filePath = seedAudioPath("chamadavideo.mp3");
     if (!filePath) return reply.code(404).send("Audio nao encontrado.");
@@ -937,6 +974,12 @@ export async function registerPanelRoutes(
   app.post("/call/:token/decline", async (request, reply) => {
     const params = z.object({ token: z.string().min(8) }).parse(request.params);
     await updateCallSessionStatus(params.token, "declined");
+    return reply.send({ ok: true });
+  });
+
+  app.post("/call/:token/end", async (request, reply) => {
+    const params = z.object({ token: z.string().min(8) }).parse(request.params);
+    await updateCallSessionStatus(params.token, "ended");
     return reply.send({ ok: true });
   });
 
@@ -2012,6 +2055,7 @@ export async function registerPanelRoutes(
         newNamedAudioUrl,
         priceTableUpload,
         callVideoUpload,
+        callAvatarUpload,
         audioReplacements
       } = await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
@@ -2047,6 +2091,7 @@ export async function registerPanelRoutes(
           videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
           videoCallVideoUrl: resolveCallVideoUrl(existing.videoCallVideoUrl, fields, callVideoUpload),
           videoCallCallerName: body.videoCallCallerName?.trim() || existing.videoCallCallerName || body.name,
+          videoCallAvatarUrl: resolveCallAvatarUrl(existing.videoCallAvatarUrl, fields, callAvatarUpload),
           locale: body.locale === "en-US" ? "en-US" : "pt-BR",
           backupToken: body.backupToken?.trim() || existing.backupToken,
           followUpEnabled: body.followUpEnabled === "true",
@@ -2460,6 +2505,7 @@ export async function registerPanelRoutes(
         newNamedAudioUrl,
         priceTableUpload,
         callVideoUpload,
+        callAvatarUpload,
         seedAudioReplacements
       } = await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
@@ -2508,6 +2554,7 @@ export async function registerPanelRoutes(
               videoCallLink: body.videoCallLink?.trim() || "",
               videoCallVideoUrl: callVideoUpload || "",
               videoCallCallerName: body.videoCallCallerName?.trim() || body.name,
+              videoCallAvatarUrl: callAvatarUpload || body.videoCallAvatarUrl?.trim() || "",
               locale: body.locale === "en-US" ? "en-US" : "pt-BR",
               backupToken: body.backupToken?.trim() || undefined,
               followUpEnabled: body.followUpEnabled === "true",
