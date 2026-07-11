@@ -217,6 +217,14 @@ export async function initEventsSchema() {
     );
     CREATE INDEX IF NOT EXISTS panel_notifications_user_created_idx
       ON panel_notifications(user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS call_videos (
+      id UUID PRIMARY KEY,
+      mime TEXT NOT NULL DEFAULT 'video/mp4',
+      size BIGINT NOT NULL DEFAULT 0,
+      bytes BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 

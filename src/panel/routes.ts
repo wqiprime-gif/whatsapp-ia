@@ -82,6 +82,11 @@ import {
   clearPanelNotifications,
   listPanelNotifications
 } from "../db/panel-notifications.js";
+import {
+  saveCallVideoToDb,
+  getCallVideoMeta,
+  readCallVideoRange
+} from "../db/call-videos.js";
 import { renderCallPage } from "./call-page.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
 import {
@@ -196,6 +201,24 @@ async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: strin
   return `/uploads/${fileName}`;
 }
 
+/**
+ * Salva o vídeo da chamada no banco (BYTEA) quando há Postgres — sobrevive a deploy.
+ * Sem banco (dev local), cai para arquivo em /uploads.
+ */
+async function saveCallVideoUpload(file: AsyncIterable<Buffer>, originalName: string) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of file) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  if (useDatabase() && buf.length > 0) {
+    return saveCallVideoToDb(buf, originalName);
+  }
+  await fs.mkdir(uploadsDir, { recursive: true });
+  const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const fileName = `${Date.now()}-${randomUUID()}-${safeName}`;
+  await fs.writeFile(path.join(uploadsDir, fileName), buf);
+  return `/uploads/${fileName}`;
+}
+
 /** Converte /uploads/ em data URL para persistir no Postgres e sobreviver deploy. */
 async function normalizeAvatarForStorage(url: string): Promise<string> {
   const trimmed = String(url || "").trim();
@@ -236,6 +259,10 @@ async function parseBotMultipart(request: FastifyRequest) {
         callAvatarUpload = await saveProfileAvatar(part.file, part.filename);
         continue;
       }
+      if (part.fieldname === "callVideoFile") {
+        callVideoUpload = await saveCallVideoUpload(part.file, part.filename);
+        continue;
+      }
       const url = await saveUploadedFile(part.file, part.filename);
       if (
         part.fieldname === "previewFiles" ||
@@ -251,7 +278,6 @@ async function parseBotMultipart(request: FastifyRequest) {
       }
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
       if (part.fieldname === "priceTableImage") priceTableUpload = url;
-      if (part.fieldname === "callVideoFile") callVideoUpload = url;
       if (part.fieldname === "callAvatarFile") callAvatarUpload = url;
       const replaceMatch = /^replaceAudioFile_(\d+)$/.exec(part.fieldname);
       if (replaceMatch) {
@@ -944,14 +970,14 @@ export async function registerPanelRoutes(
     }
   });
 
-  app.post("/api/panel/call-video-upload", { bodyLimit: 80 * 1024 * 1024 }, async (request, reply) => {
+  app.post("/api/panel/call-video-upload", { bodyLimit: 100 * 1024 * 1024 }, async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
     try {
       let videoUrl = "";
       for await (const part of request.parts()) {
         if (part.type === "file" && part.filename) {
-          videoUrl = await saveUploadedFile(part.file, part.filename);
+          videoUrl = await saveCallVideoUpload(part.file, part.filename);
           break;
         }
       }
@@ -2612,6 +2638,49 @@ export async function registerPanelRoutes(
     }
     reply.header("Content-Length", String(total));
     return reply.type(mime).send(fsSync.createReadStream(filePath));
+  });
+
+  // Vídeo da chamada salvo no banco (sobrevive a deploy). Suporta Range (206).
+  app.get("/call-video/:id", async (request, reply) => {
+    const params = z.object({ id: z.string().min(8) }).parse(request.params);
+    const meta = await getCallVideoMeta(params.id);
+    if (!meta) return reply.code(404).send("Video nao encontrado.");
+    const total = meta.size;
+    reply.header("Accept-Ranges", "bytes");
+    reply.header("Cache-Control", "public, max-age=86400");
+    reply.header("Content-Disposition", "inline");
+    const rangeHeader = request.headers.range;
+    let start = 0;
+    let end = total - 1;
+    let partial = false;
+    if (rangeHeader && /^bytes=/i.test(rangeHeader)) {
+      const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+      if (match) {
+        start = match[1] ? parseInt(match[1], 10) : 0;
+        end = match[2] ? parseInt(match[2], 10) : total - 1;
+        if (Number.isNaN(start)) start = 0;
+        if (Number.isNaN(end) || end >= total) end = total - 1;
+        if (start > end || start >= total) {
+          reply.header("Content-Range", `bytes */${total}`);
+          return reply.code(416).send();
+        }
+        partial = true;
+      }
+    }
+    // Limita o tamanho de cada resposta para não estourar memória em arquivos grandes.
+    const MAX_CHUNK = 2 * 1024 * 1024;
+    if (end - start + 1 > MAX_CHUNK) {
+      end = start + MAX_CHUNK - 1;
+      partial = true;
+    }
+    const chunk = await readCallVideoRange(params.id, start, end);
+    if (!chunk) return reply.code(404).send("Video nao encontrado.");
+    if (partial) {
+      reply.code(206);
+      reply.header("Content-Range", `bytes ${start}-${end}/${total}`);
+    }
+    reply.header("Content-Length", String(chunk.length));
+    return reply.type(meta.mime).send(chunk);
   });
 
   app.get("/seed-audios/:file", async (request, reply) => {
