@@ -167,8 +167,8 @@ export const panelClientScript = `
           pushResult = await res.json();
         } catch (_) {}
         const localOk = await pushSystemNotify(
-          "OnlyChat — teste",
-          "Notificação local + push Web (se configurado)",
+          "OnlyChat — teste OK",
+          "Notificações no celular funcionando!",
           "onlychat-test",
           "/perfil"
         );

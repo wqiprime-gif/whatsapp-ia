@@ -1477,11 +1477,14 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply
         .type("image/png")
-        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .header("Cache-Control", "public, max-age=3600")
         .send(fsSync.createReadStream(file));
     }
     const buf = await renderWhatsappAppIconPng(192);
-    return reply.type("image/png").send(buf);
+    return reply
+      .type("image/png")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(buf);
   });
 
   app.get("/brand/pwa-512.png", async (_request, reply) => {
@@ -1489,11 +1492,14 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply
         .type("image/png")
-        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .header("Cache-Control", "public, max-age=3600")
         .send(fsSync.createReadStream(file));
     }
     const buf = await renderWhatsappAppIconPng(512);
-    return reply.type("image/png").send(buf);
+    return reply
+      .type("image/png")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(buf);
   });
 
   app.get("/api/push/vapid-public-key", async (request, reply) => {

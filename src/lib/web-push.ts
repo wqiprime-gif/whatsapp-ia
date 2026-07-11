@@ -191,8 +191,8 @@ export async function notifyAllUsersPush(payload: {
 export async function sendTestPush(userId: string) {
   return notifyUserPush(userId, {
     title: "OnlyChat — teste OK",
-    body: "Push Web funcionando! Você receberá alertas de vendas aqui.",
-    url: "/",
+    body: "Notificações no celular funcionando!",
+    url: "/perfil",
     tag: "onlychat-test"
   });
 }

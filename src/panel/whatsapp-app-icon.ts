@@ -1,4 +1,4 @@
-/** Ícone estilo app (squircle azul OnlyChat) — PWA na tela do celular. */
+/** Ícone squircle azul OnlyChat (bolha + 3 pontos) — PWA e notificações. */
 export function whatsappAppIconSvg(size = 48, className = "wa-app-icon", idSuffix = "wa") {
   const s = idSuffix.replace(/[^a-zA-Z0-9]/g, "");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="${size}" height="${size}" class="${className}" role="img" aria-label="OnlyChat">
@@ -14,18 +14,22 @@ export function whatsappAppIconSvg(size = 48, className = "wa-app-icon", idSuffi
   </defs>
   <g filter="url(#oc-sh-${s})">
     <rect x="3" y="3" width="42" height="42" rx="11" fill="url(#oc-sq-${s})"/>
-    <path fill="#fff" fill-opacity="0.95" d="M24 11c-7.2 0-13 5.4-13 12.1 0 2.1.6 4.1 1.6 5.9L10 37l8.2-2.2c1.7.9 3.6 1.4 5.6 1.4h.1c7.2 0 13-5.4 13-12.1S31.2 11 24 11zm-1.2 22.8h-.1c-1.5 0-3-.4-4.3-1.2l-.3-.2-4.9 1.3 1.3-4.8-.2-.3c-.9-1.4-1.4-3-1.4-4.7 0-4.9 4.1-8.9 9.1-8.9 2.4 0 4.7.9 6.4 2.6 1.7 1.7 2.6 4 2.6 6.4 0 4.9-4.1 8.9-9.2 8.9zm4.9-6.6c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.1-.7.1-.2.2-.8 1-1 1.2-.2.2-.4.2-.6.1-.3-.2-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.1-.3.2-.4.1-.2 0-.3 0-.4 0-.1-.6-1.5-.9-2.1-.3-.5-.5-.5-.7-.5h-.5c-.2 0-.5.1-.7.3-.2.2-.8.8-.8 1.9s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5.6.3 1 .4 1.4.5.5.2 1.1.2 1.5.1.4-.1 1.4-.5 1.6-1.1.2-.5.2-1 .1-1.1-.1-.1-.3-.2-.5-.3z"/>
+    <path fill="#fff" fill-opacity="0.96" d="M24 12c-7.4 0-13.2 5.2-13.2 11.8 0 4.1 2.3 7.7 5.8 9.8l-1.5 5.4 5.8-3.4c1 .3 2 .4 3.1.4 7.4 0 13.2-5.2 13.2-11.8S31.4 12 24 12z"/>
+    <circle cx="18.2" cy="23.6" r="2.1" fill="#1a56c4"/>
+    <circle cx="24" cy="23.6" r="2.1" fill="#1a56c4"/>
+    <circle cx="29.8" cy="23.6" r="2.1" fill="#1a56c4"/>
   </g>
 </svg>`;
 }
 
+/** PNG do ícone OnlyChat (bolha + 3 pontos) — usado em PWA e notificação. */
 export async function renderWhatsappAppIconPng(size: number): Promise<Buffer> {
-  const { createCanvas, Path2D } = await import("@napi-rs/canvas");
+  const { createCanvas } = await import("@napi-rs/canvas");
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext("2d");
 
-  const r = size * 0.22;
   const pad = size * 0.0625;
+  const r = size * 0.22;
   const grd = ctx.createLinearGradient(0, 0, size, size);
   grd.addColorStop(0, "#4db8ff");
   grd.addColorStop(0.5, "#2478f5");
@@ -35,17 +39,32 @@ export async function renderWhatsappAppIconPng(size: number): Promise<Buffer> {
   ctx.roundRect(pad, pad, size - pad * 2, size - pad * 2, r);
   ctx.fill();
 
-  ctx.fillStyle = "#ffffff";
-  ctx.save();
-  ctx.translate(size * 0.5, size * 0.48);
-  ctx.scale(size / 48, size / 48);
-  ctx.translate(-24, -24);
-  ctx.fill(
-    new Path2D(
-      "M24 11c-7.2 0-13 5.4-13 12.1 0 2.1.6 4.1 1.6 5.9L10 37l8.2-2.2c1.7.9 3.6 1.4 5.6 1.4h.1c7.2 0 13-5.4 13-12.1S31.2 11 24 11zm-1.2 22.8h-.1c-1.5 0-3-.4-4.3-1.2l-.3-.2-4.9 1.3 1.3-4.8-.2-.3c-.9-1.4-1.4-3-1.4-4.7 0-4.9 4.1-8.9 9.1-8.9 2.4 0 4.7.9 6.4 2.6 1.7 1.7 2.6 4 2.6 6.4 0 4.9-4.1 8.9-9.2 8.9zm4.9-6.6c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.1-.7.1-.2.2-.8 1-1 1.2-.2.2-.4.2-.6.1-.3-.2-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.1-.3.2-.4.1-.2 0-.3 0-.4 0-.1-.6-1.5-.9-2.1-.3-.5-.5-.5-.7-.5h-.5c-.2 0-.5.1-.7.3-.2.2-.8.8-.8 1.9s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5.6.3 1 .4 1.4.5.5.2 1.1.2 1.5.1.4-.1 1.4-.5 1.6-1.1.2-.5.2-1 .1-1.1-.1-.1-.3-.2-.5-.3z"
-    )
-  );
-  ctx.restore();
+  // Bolha branca
+  const cx = size * 0.5;
+  const cy = size * 0.46;
+  const brx = size * 0.28;
+  const bry = size * 0.24;
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, brx, bry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Cauda da bolha
+  ctx.beginPath();
+  ctx.moveTo(cx - brx * 0.35, cy + bry * 0.55);
+  ctx.lineTo(cx - brx * 0.7, cy + bry * 1.55);
+  ctx.lineTo(cx + brx * 0.05, cy + bry * 0.75);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3 pontos
+  const dotR = size * 0.045;
+  const dy = cy + size * 0.01;
+  ctx.fillStyle = "#1a56c4";
+  for (const dx of [-size * 0.12, 0, size * 0.12]) {
+    ctx.beginPath();
+    ctx.arc(cx + dx, dy, dotR, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   return canvas.toBuffer("image/png");
 }
