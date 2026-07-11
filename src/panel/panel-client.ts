@@ -126,30 +126,21 @@ export const panelClientScript = `
       }
       const reg = await ensureServiceWorker();
       if (reg && Notification.permission === "granted") {
-        // Android: sem "icon" → icone do app a ESQUERDA (igual instablack).
-        // Com "icon" o Android joga o largeIcon a DIREITA.
-        const opts = {
+        // Mesmo padrão do instablack: SVG compacto em icon + badge.
+        await reg.showNotification(title, {
           body: body,
+          icon: "/brand/favicon.svg",
+          badge: "/brand/favicon.svg",
           tag: tag || "onlychat",
-          badge: "/brand/pwa-192.png",
-          vibrate: [200, 100, 200],
-          renotify: true,
-          data: { url: url || "/" }
-        };
-        if (!/Android/i.test(navigator.userAgent || "")) {
-          opts.icon = "/brand/pwa-192.png";
-        }
-        await reg.showNotification(title, opts);
+          data: { url: url || "/" },
+          vibrate: [120, 60, 120]
+        });
         return true;
       }
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        const opts = { body: body };
-        if (!/Android/i.test(navigator.userAgent || "")) {
-          opts.icon = "/brand/pwa-192.png";
-        }
-        new Notification(title, opts);
+        new Notification(title, { body: body, icon: "/brand/favicon.svg" });
         return true;
       } catch (_) {}
     }

@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { onlyChatIconSvg, brandFaviconDataUri } from "./brand-icon.js";
+import { onlyChatIconSvg } from "./brand-icon.js";
+import { onlyChatFaviconSvg } from "./notify-icon.js";
 import { renderWhatsappAppIconPng, whatsappAppIconSvg } from "./whatsapp-app-icon.js";
 import { env, rootDir } from "../config.js";
 import { useDatabase } from "../db/index.js";
@@ -1436,7 +1437,15 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(png)) {
       return reply.type("image/png").send(fsSync.createReadStream(png));
     }
-    return reply.redirect(brandFaviconDataUri());
+    return reply.redirect("/brand/favicon.svg");
+  });
+
+  // Ícone compacto das notificações (mesmo padrão do instablack: SVG squircle).
+  app.get("/brand/favicon.svg", async (_request, reply) => {
+    return reply
+      .type("image/svg+xml")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(onlyChatFaviconSvg());
   });
 
   app.get("/brand/onlychat-mark.svg", async (_request, reply) => {

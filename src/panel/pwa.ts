@@ -1,6 +1,7 @@
 export function buildPwaManifest(baseUrl = "") {
   const base = (baseUrl || "").replace(/\/$/, "");
   const icon = (size: number) => (base ? `${base}/brand/pwa-${size}.png` : `/brand/pwa-${size}.png`);
+  const favicon = base ? `${base}/brand/favicon.svg` : "/brand/favicon.svg";
 
   return {
     id: base || "/",
@@ -18,6 +19,12 @@ export function buildPwaManifest(baseUrl = "") {
     prefer_related_applications: false,
     categories: ["business", "productivity"],
     icons: [
+      {
+        src: favicon,
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any"
+      },
       {
         src: icon(192),
         sizes: "192x192",
@@ -46,12 +53,13 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.12";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.13";
+const NOTIFY_ICON = "/brand/favicon.svg";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SW_VERSION).then((cache) =>
-      cache.addAll(["/brand/pwa-192.png", "/brand/pwa-512.png"]).catch(() => undefined)
+      cache.addAll([NOTIFY_ICON, "/brand/pwa-192.png", "/brand/pwa-512.png"]).catch(() => undefined)
     ).then(() => self.skipWaiting())
   );
 });
@@ -69,7 +77,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith("/brand/pwa-")) {
+  if (url.pathname.startsWith("/brand/")) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;
@@ -99,22 +107,16 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-function notifyOptions(title, body, tag, url) {
-  // No Android, "icon" vira largeIcon a DIREITA (feio).
-  // Sem "icon", o sistema usa o icone do app a ESQUERDA — igual ao instablack.
-  const opts = {
+// Igual ao instablack: icon + badge = SVG compacto (aparece a ESQUERDA no Android).
+function notifyOptions(body, tag, url) {
+  return {
     body: body || "",
+    icon: NOTIFY_ICON,
+    badge: NOTIFY_ICON,
     tag: tag || "onlychat",
-    badge: "/brand/pwa-192.png",
-    vibrate: [200, 100, 200],
-    renotify: true,
-    data: { url: url || "/" }
+    data: { url: url || "/" },
+    vibrate: [120, 60, 120]
   };
-  const ua = (self.navigator && self.navigator.userAgent) || "";
-  if (!/Android/i.test(ua)) {
-    opts.icon = "/brand/pwa-192.png";
-  }
-  return opts;
 }
 
 self.addEventListener("push", (event) => {
@@ -125,7 +127,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(
       data.title || "OnlyChat",
-      notifyOptions(data.title, data.body, data.tag, data.url)
+      notifyOptions(data.body, data.tag, data.url)
     )
   );
 });
@@ -136,7 +138,7 @@ self.addEventListener("message", (event) => {
   event.waitUntil(
     self.registration.showNotification(
       data.title || "OnlyChat",
-      notifyOptions(data.title, data.body, data.tag || "onlychat-alert", data.url)
+      notifyOptions(data.body, data.tag || "onlychat-alert", data.url)
     )
   );
 });
@@ -168,7 +170,8 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
-<link rel="apple-touch-icon" href="/brand/pwa-192.png" />
+<link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/brand/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;
