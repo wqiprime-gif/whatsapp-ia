@@ -29,12 +29,24 @@ export function buildPwaManifest(baseUrl = "") {
         sizes: "512x512",
         type: "image/png",
         purpose: "any"
+      },
+      {
+        src: icon(192),
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable"
+      },
+      {
+        src: icon(512),
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable"
       }
     ]
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.11";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.12";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -87,40 +99,45 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+function notifyOptions(title, body, tag, url) {
+  // No Android, "icon" vira largeIcon a DIREITA (feio).
+  // Sem "icon", o sistema usa o icone do app a ESQUERDA — igual ao instablack.
+  const opts = {
+    body: body || "",
+    tag: tag || "onlychat",
+    badge: "/brand/pwa-192.png",
+    vibrate: [200, 100, 200],
+    renotify: true,
+    data: { url: url || "/" }
+  };
+  const ua = (self.navigator && self.navigator.userAgent) || "";
+  if (!/Android/i.test(ua)) {
+    opts.icon = "/brand/pwa-192.png";
+  }
+  return opts;
+}
+
 self.addEventListener("push", (event) => {
   let data = { title: "OnlyChat", body: "", url: "/", tag: "onlychat" };
   try {
     if (event.data) data = Object.assign(data, event.data.json());
   } catch (_) {}
   event.waitUntil(
-    self.registration.showNotification(data.title || "OnlyChat", {
-      body: data.body || "",
-      tag: data.tag || "onlychat",
-      icon: "/brand/pwa-192.png",
-      badge: "/brand/pwa-192.png",
-      vibrate: [200, 100, 200],
-      renotify: true,
-      data: { url: data.url || "/" }
-    })
+    self.registration.showNotification(
+      data.title || "OnlyChat",
+      notifyOptions(data.title, data.body, data.tag, data.url)
+    )
   );
 });
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};
   if (data.type !== "SHOW_NOTIFICATION") return;
-  const title = data.title || "OnlyChat";
-  const body = data.body || "";
-  const tag = data.tag || "onlychat-alert";
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon: "/brand/pwa-192.png",
-      badge: "/brand/pwa-192.png",
-      vibrate: [180, 90, 180],
-      renotify: true,
-      data: { url: data.url || "/" }
-    })
+    self.registration.showNotification(
+      data.title || "OnlyChat",
+      notifyOptions(data.title, data.body, data.tag || "onlychat-alert", data.url)
+    )
   );
 });
 
