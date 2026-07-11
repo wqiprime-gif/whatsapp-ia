@@ -82,7 +82,8 @@ export function renderCallPage(session: CallPageSession) {
 
   const name = escapeHtml(session.callerName || "OnlyChat");
   const rawAvatar = session.avatarUrl?.trim() || "";
-  const avatarJs = JSON.stringify(rawAvatar || "/brand/pwa-192.png");
+  const hasAvatar = !!rawAvatar && rawAvatar !== "/brand/pwa-192.png";
+  const avatarAttr = hasAvatar ? escapeHtml(rawAvatar) : "";
   const videoUrl = JSON.stringify(session.videoUrl || "");
   const token = JSON.stringify(session.token);
   const callerNameJs = JSON.stringify(session.callerName || "OnlyChat");
@@ -197,7 +198,7 @@ export function renderCallPage(session: CallPageSession) {
       <div class="ring-pulse" aria-hidden="true"></div>
       <div class="ring-pulse2" aria-hidden="true"></div>
       <div class="avatar-fallback" aria-hidden="true">${initial}</div>
-      <img class="avatar" id="ringAvatar" src="/brand/pwa-192.png" alt="" />
+      <img class="avatar" id="ringAvatar" src="${avatarAttr}" alt="" ${hasAvatar ? "" : `style="display:none"`} onerror="this.style.display='none'" />
     </div>
     <div class="r-name">${name}</div>
     <div class="r-status">${ringingText}</div>
@@ -217,7 +218,7 @@ export function renderCallPage(session: CallPageSession) {
     <div class="stage">
       <div class="topbar">
         <div class="pill">
-          <img class="pill-avatar" id="pillAvatar" src="/brand/pwa-192.png" alt="" />
+          <img class="pill-avatar" id="pillAvatar" src="" alt="" style="display:none" onerror="this.style.display='none'" />
           <div class="pill-text">
             <span id="callerText">${escapeHtml(copy.inCall)}</span>
             <span id="timerText">00:00</span>
@@ -272,38 +273,25 @@ export function renderCallPage(session: CallPageSession) {
   (function(){
     var token = ${token};
     var videoSrc = ${videoUrl};
-    var avatarSrc = ${avatarJs};
     var callerName = ${callerNameJs};
+    // A foto ja e renderizada no HTML (img #ringAvatar) pelo servidor.
+    // Aqui apenas copiamos para o pill, o poster do video e o fundo do palco.
     function applyAvatar(){
-      var ring = document.getElementById("ringAvatar");
-      var pill = document.getElementById("pillAvatar");
-      var fb = document.querySelector(".avatar-fallback");
-      var stage = document.querySelector(".stage");
-      // Sem foto propria: mostra a inicial (fallback) e esconde o icone padrao.
-      if(!avatarSrc || avatarSrc === "/brand/pwa-192.png"){
-        if(ring) ring.style.display = "none";
-        if(fb) fb.style.display = "flex";
-        return;
-      }
-      var probe = new Image();
-      probe.onload = function(){
-        if(fb) fb.style.display = "none";
-        if(ring){ ring.style.display = "block"; ring.src = avatarSrc; }
-        if(pill) pill.src = avatarSrc;
+      try {
+        var ring = document.getElementById("ringAvatar");
+        var src = ring ? (ring.getAttribute("src") || "") : "";
+        if(!src) return;
+        var pill = document.getElementById("pillAvatar");
+        if(pill){ pill.src = src; pill.style.display = "block"; }
         var v = document.getElementById("mainVideo");
-        if(v){ try { v.setAttribute("poster", avatarSrc); } catch(_){} }
+        if(v){ try { v.setAttribute("poster", src); } catch(_){} }
+        var stage = document.querySelector(".stage");
         if(stage){
-          stage.style.backgroundImage = "url(\"" + avatarSrc.replace(/"/g, "%22") + "\")";
+          stage.style.backgroundImage = "url(\"" + src.replace(/"/g, "%22") + "\")";
           stage.style.backgroundSize = "cover";
           stage.style.backgroundPosition = "center";
         }
-      };
-      probe.onerror = function(){
-        // Foto salva sumiu (ex: arquivo antigo). Cai na inicial, nunca no icone do app.
-        if(ring) ring.style.display = "none";
-        if(fb) fb.style.display = "flex";
-      };
-      probe.src = avatarSrc;
+      } catch(_){}
     }
     applyAvatar();
     var ringing = document.getElementById("ringing-screen");

@@ -84,8 +84,7 @@ import {
 } from "../db/panel-notifications.js";
 import {
   saveCallVideoToDb,
-  getCallVideoMeta,
-  readCallVideoRange
+  getCallVideo
 } from "../db/call-videos.js";
 import { renderCallPage } from "./call-page.js";
 import { logMessage, logReceipt, logSale, upsertLead } from "../db/events.js";
@@ -2643,44 +2642,33 @@ export async function registerPanelRoutes(
   // Vídeo da chamada salvo no banco (sobrevive a deploy). Suporta Range (206).
   app.get("/call-video/:id", async (request, reply) => {
     const params = z.object({ id: z.string().min(8) }).parse(request.params);
-    const meta = await getCallVideoMeta(params.id);
-    if (!meta) return reply.code(404).send("Video nao encontrado.");
-    const total = meta.size;
+    const video = await getCallVideo(params.id);
+    if (!video) return reply.code(404).send("Video nao encontrado.");
+    const total = video.bytes.length;
     reply.header("Accept-Ranges", "bytes");
     reply.header("Cache-Control", "public, max-age=86400");
     reply.header("Content-Disposition", "inline");
     const rangeHeader = request.headers.range;
-    let start = 0;
-    let end = total - 1;
-    let partial = false;
     if (rangeHeader && /^bytes=/i.test(rangeHeader)) {
       const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
       if (match) {
-        start = match[1] ? parseInt(match[1], 10) : 0;
-        end = match[2] ? parseInt(match[2], 10) : total - 1;
+        let start = match[1] ? parseInt(match[1], 10) : 0;
+        let end = match[2] ? parseInt(match[2], 10) : total - 1;
         if (Number.isNaN(start)) start = 0;
         if (Number.isNaN(end) || end >= total) end = total - 1;
         if (start > end || start >= total) {
           reply.header("Content-Range", `bytes */${total}`);
           return reply.code(416).send();
         }
-        partial = true;
+        const slice = video.bytes.subarray(start, end + 1);
+        reply.code(206);
+        reply.header("Content-Range", `bytes ${start}-${end}/${total}`);
+        reply.header("Content-Length", String(slice.length));
+        return reply.type(video.mime).send(slice);
       }
     }
-    // Limita o tamanho de cada resposta para não estourar memória em arquivos grandes.
-    const MAX_CHUNK = 2 * 1024 * 1024;
-    if (end - start + 1 > MAX_CHUNK) {
-      end = start + MAX_CHUNK - 1;
-      partial = true;
-    }
-    const chunk = await readCallVideoRange(params.id, start, end);
-    if (!chunk) return reply.code(404).send("Video nao encontrado.");
-    if (partial) {
-      reply.code(206);
-      reply.header("Content-Range", `bytes ${start}-${end}/${total}`);
-    }
-    reply.header("Content-Length", String(chunk.length));
-    return reply.type(meta.mime).send(chunk);
+    reply.header("Content-Length", String(total));
+    return reply.type(video.mime).send(video.bytes);
   });
 
   app.get("/seed-audios/:file", async (request, reply) => {
