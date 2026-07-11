@@ -906,6 +906,19 @@ export async function registerPanelRoutes(
         });
       }
 
+      // Se o vídeo salvo era um arquivo em /uploads e sumiu (deploy limpou o disco),
+      // avisa para reenviar em vez de gerar um link que abre com tela preta.
+      if (videoUrl.startsWith("/uploads/")) {
+        const videoPath = path.join(uploadsDir, path.basename(videoUrl));
+        const exists = await fs.access(videoPath).then(() => true).catch(() => false);
+        if (!exists) {
+          return reply.code(400).send({
+            ok: false,
+            error: "O vídeo salvo não está mais disponível no servidor. Reenvie o MP4 e gere o link novamente."
+          });
+        }
+      }
+
       avatarUrl = await normalizeAvatarForStorage(avatarUrl);
 
       if (botId && avatarUrl) {
@@ -2568,17 +2581,36 @@ export async function registerPanelRoutes(
     const params = z.object({ file: z.string().min(1) }).parse(request.params);
     const fileName = path.basename(params.file);
     const filePath = path.join(uploadsDir, fileName);
-    try {
-      await fs.access(filePath);
-    } catch {
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!stat) {
       return reply.code(404).send("Arquivo nao encontrado.");
     }
     const mime = mimeTypeFromPath(filePath);
+    const total = stat.size;
     reply.header("Accept-Ranges", "bytes");
     reply.header("Cache-Control", "public, max-age=3600");
     if (mime.startsWith("video/") || mime.startsWith("audio/")) {
       reply.header("Content-Disposition", "inline");
     }
+    const rangeHeader = request.headers.range;
+    if (rangeHeader && /^bytes=/i.test(rangeHeader)) {
+      const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+      if (match) {
+        let start = match[1] ? parseInt(match[1], 10) : 0;
+        let end = match[2] ? parseInt(match[2], 10) : total - 1;
+        if (Number.isNaN(start)) start = 0;
+        if (Number.isNaN(end) || end >= total) end = total - 1;
+        if (start > end || start >= total) {
+          reply.header("Content-Range", `bytes */${total}`);
+          return reply.code(416).send();
+        }
+        reply.code(206);
+        reply.header("Content-Range", `bytes ${start}-${end}/${total}`);
+        reply.header("Content-Length", String(end - start + 1));
+        return reply.type(mime).send(fsSync.createReadStream(filePath, { start, end }));
+      }
+    }
+    reply.header("Content-Length", String(total));
     return reply.type(mime).send(fsSync.createReadStream(filePath));
   });
 

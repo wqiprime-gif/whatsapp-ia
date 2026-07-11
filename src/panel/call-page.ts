@@ -278,13 +278,32 @@ export function renderCallPage(session: CallPageSession) {
       var ring = document.getElementById("ringAvatar");
       var pill = document.getElementById("pillAvatar");
       var fb = document.querySelector(".avatar-fallback");
-      if(!avatarSrc || avatarSrc === "/brand/pwa-192.png") return;
-      if(ring){
-        ring.onload = function(){ if(fb) fb.style.display = "none"; };
-        ring.onerror = function(){ this.onerror = null; this.src = "/brand/pwa-192.png"; };
-        ring.src = avatarSrc;
+      var stage = document.querySelector(".stage");
+      // Sem foto propria: mostra a inicial (fallback) e esconde o icone padrao.
+      if(!avatarSrc || avatarSrc === "/brand/pwa-192.png"){
+        if(ring) ring.style.display = "none";
+        if(fb) fb.style.display = "flex";
+        return;
       }
-      if(pill) pill.src = avatarSrc;
+      var probe = new Image();
+      probe.onload = function(){
+        if(fb) fb.style.display = "none";
+        if(ring){ ring.style.display = "block"; ring.src = avatarSrc; }
+        if(pill) pill.src = avatarSrc;
+        var v = document.getElementById("mainVideo");
+        if(v){ try { v.setAttribute("poster", avatarSrc); } catch(_){} }
+        if(stage){
+          stage.style.backgroundImage = "url(\"" + avatarSrc.replace(/"/g, "%22") + "\")";
+          stage.style.backgroundSize = "cover";
+          stage.style.backgroundPosition = "center";
+        }
+      };
+      probe.onerror = function(){
+        // Foto salva sumiu (ex: arquivo antigo). Cai na inicial, nunca no icone do app.
+        if(ring) ring.style.display = "none";
+        if(fb) fb.style.display = "flex";
+      };
+      probe.src = avatarSrc;
     }
     applyAvatar();
     var ringing = document.getElementById("ringing-screen");
@@ -363,7 +382,42 @@ export function renderCallPage(session: CallPageSession) {
       endCall(false);
     });
 
+    var videoStarted = false;
+    video.addEventListener("playing", function(){ videoStarted = true; });
+    video.addEventListener("timeupdate", function(){ if(video.currentTime > 0.2) videoStarted = true; });
+
+    function startVideo(){
+      if(!videoSrc) return;
+      if(!video.getAttribute("src")){ video.setAttribute("src", videoSrc); video.load(); }
+      var kick = function(){
+        video.muted = false;
+        var p = video.play();
+        if(p && p.then){
+          p.catch(function(){
+            video.muted = true;
+            var p2 = video.play();
+            if(p2 && p2.then) p2.catch(function(){});
+          });
+        }
+      };
+      if(video.readyState >= 2) kick();
+      else {
+        video.addEventListener("loadeddata", kick, { once:true });
+        video.addEventListener("canplay", kick, { once:true });
+        setTimeout(kick, 120);
+      }
+      // Rede lenta / arquivo grande: tenta recarregar sem NUNCA encerrar a chamada.
+      var attempts = 0;
+      var retry = setInterval(function(){
+        if(callEnded || videoStarted){ clearInterval(retry); return; }
+        attempts++;
+        if(attempts > 6){ clearInterval(retry); return; }
+        try { video.load(); kick(); } catch(_){}
+      }, 1500);
+    }
+
     document.getElementById("btn-accept").addEventListener("click", function(){
+      if(callEnded || inCall) return;
       stopRing();
       inCall = true;
       fetch("/call/"+encodeURIComponent(token)+"/accept", { method:"POST" }).catch(function(){});
@@ -372,29 +426,16 @@ export function renderCallPage(session: CallPageSession) {
       if(callerText) callerText.textContent = callerName;
       timerSec = 0;
       timerId = setInterval(tick, 1000);
-      if(!videoSrc){ endCall(true); return; }
-      if(!video.src){ video.src = videoSrc; video.load(); }
-      try { video.currentTime = 0; } catch(_){}
-      var tryPlay = function(){
-        video.muted = false;
-        var p = video.play();
-        if(p && p.then){
-          p.catch(function(){
-            video.muted = true;
-            video.play().catch(function(){});
-          });
-        }
-      };
-      if(video.readyState >= 2) tryPlay();
-      else {
-        video.addEventListener("loadeddata", tryPlay, { once:true });
-        video.addEventListener("canplay", tryPlay, { once:true });
-        setTimeout(tryPlay, 80);
-      }
+      startVideo();
     });
 
-    video.addEventListener("ended", function(){ if(inCall) endCall(true); });
-    video.addEventListener("error", function(){});
+    // So encerra quando o video REALMENTE chega ao fim — ignora eventos espurios/erros.
+    video.addEventListener("ended", function(){
+      if(inCall && videoStarted && video.duration && video.currentTime >= video.duration - 1.2){
+        endCall(true);
+      }
+    });
+    video.addEventListener("error", function(){ /* mantem a chamada viva; mostra a foto/poster */ });
 
     document.getElementById("hangupBtn").addEventListener("click", function(){ endCall(true); });
 
