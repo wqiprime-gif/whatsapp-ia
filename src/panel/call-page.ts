@@ -381,7 +381,7 @@ export function renderCallPage(session: CallPageSession) {
         if(p && p.then){
           p.catch(function(){
             video.muted = true;
-            video.play().catch(function(){ endCall(true); });
+            video.play().catch(function(){});
           });
         }
       };
@@ -394,7 +394,7 @@ export function renderCallPage(session: CallPageSession) {
     });
 
     video.addEventListener("ended", function(){ if(inCall) endCall(true); });
-    video.addEventListener("error", function(){ if(inCall) endCall(true); });
+    video.addEventListener("error", function(){});
 
     document.getElementById("hangupBtn").addEventListener("click", function(){ endCall(true); });
 

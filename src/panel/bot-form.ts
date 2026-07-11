@@ -619,18 +619,15 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
             return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           }
           function syncSize() {
-            ta.style.height = "auto";
-            var h = Math.max(340, ta.scrollHeight);
-            ta.style.height = h + "px";
             ta.style.overflowY = "auto";
-            bd.style.height = h + "px";
+            bd.style.height = ta.clientHeight + "px";
             bd.style.width = ta.clientWidth + "px";
           }
           function render() {
             var html = esc(ta.value).replace(/\\[\\[.+?\\]\\]/g, function (m) {
               return '<mark class="prompt-tag-hl">' + m + "</mark>";
             });
-            bd.innerHTML = html + "\\n";
+            bd.innerHTML = html + "\\n\\n";
             syncSize();
             bd.scrollTop = ta.scrollTop;
             bd.scrollLeft = ta.scrollLeft;

@@ -1278,7 +1278,7 @@ button, input, textarea, select { font-family: inherit; }
   width: 100%;
   display: grid;
   grid-template-areas: "stack";
-  min-height: 340px;
+  min-height: 520px;
 }
 .prompt-editor .prompt-editor-backdrop,
 .prompt-editor .prompt-editor-input {
@@ -1296,8 +1296,9 @@ button, input, textarea, select { font-family: inherit; }
   word-break: break-word;
   letter-spacing: normal;
   tab-size: 2;
-  min-height: 340px;
-  max-height: none;
+  min-height: 520px;
+  height: 520px;
+  max-height: 520px;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1322,6 +1323,15 @@ button, input, textarea, select { font-family: inherit; }
   outline: none;
   overscroll-behavior: contain;
   transition: border-color var(--ease), box-shadow var(--ease);
+}
+@media (max-width: 900px) {
+  .prompt-editor,
+  .prompt-editor .prompt-editor-backdrop,
+  .prompt-editor .prompt-editor-input {
+    min-height: 60vh;
+    height: 60vh;
+    max-height: 60vh;
+  }
 }
 .prompt-editor .prompt-editor-input:focus {
   border-color: rgba(10, 92, 255, 0.55);

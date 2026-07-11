@@ -151,7 +151,7 @@ async function panelUserMeta(userId: string) {
   };
 }
 
-const AVATAR_MAX_DATA_BYTES = 600_000;
+const AVATAR_MAX_DATA_BYTES = 3_000_000;
 
 async function saveProfileAvatar(file: AsyncIterable<Buffer>, originalName: string) {
   const chunks: Buffer[] = [];
