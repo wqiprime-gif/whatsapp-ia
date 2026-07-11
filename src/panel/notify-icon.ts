@@ -1,10 +1,8 @@
-/** Favicon/notify icon — squircle compacto (mesmo padrão do instablack). */
+/** Favicon + ícone de notificação — WhatsApp azul (telefone), padrão compacto do instablack. */
 export function onlyChatFaviconSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#0a5cff"/>
-  <path fill="#fff" d="M32 14c-10.5 0-19 7.4-19 16.8 0 5.9 3.3 11.1 8.4 14.1l-2.2 7.7 8.4-4.9c1.4.4 2.9.6 4.4.6 10.5 0 19-7.4 19-16.8S42.5 14 32 14z"/>
-  <circle cx="24.5" cy="30.5" r="3.2" fill="#0a5cff"/>
-  <circle cx="32" cy="30.5" r="3.2" fill="#0a5cff"/>
-  <circle cx="39.5" cy="30.5" r="3.2" fill="#0a5cff"/>
+  <rect width="64" height="64" rx="14" fill="#0A5CFF"/>
+  <path fill="#fff" d="M32 12c-10.5 0-19 7.6-19 17.2 0 3 .8 5.8 2.2 8.3L12 52l15.2-4c2.1.6 4.4.9 6.8.9h.2c10.5 0 19-7.6 19-17.2S42.5 12 32 12z"/>
+  <path fill="#0A5CFF" d="M40.2 36.4c-.4-.2-2.5-1.2-2.9-1.4-.4-.1-.7-.2-1 .2-.3.3-1.1 1.4-1.4 1.6-.2.3-.5.3-.9.1-.4-.2-1.7-.6-3.2-2-.9-.8-1.9-2.2-2.2-2.7-.2-.4 0-.6.2-.8.2-.2.4-.4.5-.7.2-.2.1-.4.2-.6 0-.2-.9-2.1-1.2-2.9-.3-.7-.7-.7-1-.7h-.7c-.2 0-.7.1-1 .4-.4.4-1.2 1.1-1.2 2.8s1.1 3.2 1.3 3.4c.1.2 2.2 3.5 5.5 4.9.8.3 1.4.6 1.9.7.8.3 1.5.2 2.1.1.6-.1 2-.9 2.2-1.6.3-.7.3-1.4.2-1.5-.1-.2-.4-.3-.8-.5z"/>
 </svg>`;
 }

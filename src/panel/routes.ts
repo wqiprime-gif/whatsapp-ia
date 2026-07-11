@@ -1440,11 +1440,11 @@ export async function registerPanelRoutes(
     return reply.redirect("/brand/favicon.svg");
   });
 
-  // Ícone compacto das notificações (mesmo padrão do instablack: SVG squircle).
+  // Favicon WhatsApp azul (telefone) — SVG compacto estilo instablack.
   app.get("/brand/favicon.svg", async (_request, reply) => {
     return reply
       .type("image/svg+xml")
-      .header("Cache-Control", "public, max-age=3600")
+      .header("Cache-Control", "no-cache")
       .send(onlyChatFaviconSvg());
   });
 
@@ -1486,13 +1486,13 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply
         .type("image/png")
-        .header("Cache-Control", "public, max-age=3600")
+        .header("Cache-Control", "no-cache")
         .send(fsSync.createReadStream(file));
     }
     const buf = await renderWhatsappAppIconPng(192);
     return reply
       .type("image/png")
-      .header("Cache-Control", "public, max-age=3600")
+      .header("Cache-Control", "no-cache")
       .send(buf);
   });
 
@@ -1501,13 +1501,13 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply
         .type("image/png")
-        .header("Cache-Control", "public, max-age=3600")
+        .header("Cache-Control", "no-cache")
         .send(fsSync.createReadStream(file));
     }
     const buf = await renderWhatsappAppIconPng(512);
     return reply
       .type("image/png")
-      .header("Cache-Control", "public, max-age=3600")
+      .header("Cache-Control", "no-cache")
       .send(buf);
   });
 

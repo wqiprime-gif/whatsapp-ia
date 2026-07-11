@@ -20,12 +20,6 @@ export function buildPwaManifest(baseUrl = "") {
     categories: ["business", "productivity"],
     icons: [
       {
-        src: favicon,
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any"
-      },
-      {
         src: icon(192),
         sizes: "192x192",
         type: "image/png",
@@ -35,6 +29,12 @@ export function buildPwaManifest(baseUrl = "") {
         src: icon(512),
         sizes: "512x512",
         type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: favicon,
+        sizes: "any",
+        type: "image/svg+xml",
         purpose: "any"
       },
       {
@@ -53,13 +53,14 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.13";
-const NOTIFY_ICON = "/brand/favicon.svg";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.14";
+// PNG WhatsApp azul (telefone) — mesmo papel do favicon.svg do instablack.
+const NOTIFY_ICON = "/brand/pwa-192.png?v=1.24.14";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SW_VERSION).then((cache) =>
-      cache.addAll([NOTIFY_ICON, "/brand/pwa-192.png", "/brand/pwa-512.png"]).catch(() => undefined)
+      cache.addAll([NOTIFY_ICON, "/brand/favicon.svg", "/brand/pwa-512.png"]).catch(() => undefined)
     ).then(() => self.skipWaiting())
   );
 });
@@ -79,15 +80,12 @@ self.addEventListener("fetch", (event) => {
 
   if (url.pathname.startsWith("/brand/")) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((res) => {
-          if (!res || res.status !== 200) return res;
-          const copy = res.clone();
-          caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
-          return res;
-        });
-      })
+      fetch(event.request).then((res) => {
+        if (!res || res.status !== 200) return res;
+        const copy = res.clone();
+        caches.open(SW_VERSION).then((cache) => cache.put(event.request, copy));
+        return res;
+      }).catch(() => caches.match(event.request))
     );
     return;
   }
@@ -107,7 +105,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Igual ao instablack: icon + badge = SVG compacto (aparece a ESQUERDA no Android).
+// Igual ao instablack: mesmo arquivo em icon + badge (aparece esquerda e direita).
 function notifyOptions(body, tag, url) {
   return {
     body: body || "",
@@ -171,7 +169,8 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
 <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="/brand/favicon.svg" />
+<link rel="icon" href="/brand/pwa-192.png?v=1.24.14" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.24.14" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;
