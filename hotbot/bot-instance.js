@@ -135,6 +135,7 @@ function resolveChromiumPath() {
     process.env.CHROMIUM_PATH,
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
+    '/usr/lib/chromium/chromium',
     '/usr/bin/google-chrome-stable'
   ].filter(Boolean);
 
@@ -815,14 +816,19 @@ puppeteer.use(StealthPlugin());
 
 // Session Manager para persistência
 const { cleanChromiumProfileLocks } = require('./utils/wa-profile-locks');
+// Args essenciais p/ Chromium em Docker/Railway (sem /dev/shm e sem dbus).
+// --no-zygote + --single-process evitam crash "Failed to launch / Code: null".
 const puppeteerArgs = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-accelerated-2d-canvas',
   '--disable-gpu',
+  '--disable-software-rasterizer',
   '--disable-web-security',
   '--no-first-run',
+  '--no-zygote',
+  '--single-process',
   '--disable-extensions',
   '--disable-background-networking',
   '--disable-default-apps',
@@ -830,6 +836,7 @@ const puppeteerArgs = [
   '--disable-translate',
   '--mute-audio',
   '--no-default-browser-check',
+  '--disable-features=IsolateOrigins,site-per-process,TranslateUI,AudioServiceOutOfProcess',
   '--autoplay-policy=no-user-gesture-required',
   ...puppeteerProxyArgs(proxyUrl),
 ];
@@ -962,6 +969,12 @@ const client = new Client({
     ...(chromiumPath ? { executablePath: chromiumPath } : {}),
     headless: true,
     args: puppeteerArgs,
+    timeout: 120_000,
+    // Evita Chromium travar tentando falar com dbus inexistente no container.
+    env: {
+      ...process.env,
+      DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || 'unix:path=/dev/null',
+    },
   },
 });
 

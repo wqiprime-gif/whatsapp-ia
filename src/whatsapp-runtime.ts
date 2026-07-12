@@ -26,6 +26,7 @@ function resolveChromeExecutable() {
     process.env.CHROME_BIN,
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
+    "/usr/lib/chromium/chromium",
     "/usr/bin/google-chrome-stable"
   ].filter(Boolean) as string[];
   for (const candidate of candidates) {
@@ -396,7 +397,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     WA_INSTANCE_DIR: instDir,
     UPLOADS_DIR: uploadsDir,
     PUPPETEER_EXECUTABLE_PATH: resolveChromeExecutable(),
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true",
+    DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || "unix:path=/dev/null"
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
   if (forceQrOnSpawn.has(bot.id)) {

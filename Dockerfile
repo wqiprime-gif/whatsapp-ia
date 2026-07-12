@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     ca-certificates \
     chromium \
+    dbus \
     ffmpeg \
     fonts-liberation \
     libasound2 \
@@ -22,7 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     libxtst6 \
     xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/dbus
 
 WORKDIR /app
 
@@ -44,5 +46,7 @@ ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV CHROME_BIN=/usr/bin/chromium
+# Sem bus real no container — evita spam/crash do Chromium no Railway
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null
 
 CMD ["npm", "start"]
