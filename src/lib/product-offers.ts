@@ -23,15 +23,31 @@ export function halfPriceOfferReply(input: {
   products: Product[];
   alreadyOffered: boolean;
   hasSentInformacoes: boolean;
+  /** Pacote que o lead já escolheu (nunca inventar outro). */
+  selectedProduct?: Product | null;
+  /** Mensagens recentes do lead, da mais nova à mais antiga. */
+  recentUserMessages?: string[];
 }): HalfPriceOfferResult {
   if (input.alreadyOffered) return null;
   if (!cantPayIntent(input.text)) return null;
   if (!input.hasSentInformacoes) return null;
 
-  const eligible = input.products.filter((p) => p.active && p.allowHalfPrice);
+  const eligible = input.products.filter((p) => p.active !== false && p.allowHalfPrice);
   if (eligible.length === 0) return null;
 
-  const product = pickProductExplicit(input.text, eligible);
+  const fromText = pickProductExplicit(input.text, eligible);
+  const fromSelected =
+    input.selectedProduct && eligible.some((p) => p.name === input.selectedProduct!.name)
+      ? input.selectedProduct
+      : null;
+  let fromHistory: Product | null = null;
+  if (!fromText && !fromSelected && input.recentUserMessages?.length) {
+    for (const msg of input.recentUserMessages) {
+      fromHistory = pickProductExplicit(msg, eligible);
+      if (fromHistory) break;
+    }
+  }
+  const product = fromText || fromSelected || fromHistory;
   if (!product) {
     return { type: "ask_package", message: askWhichPackageMessage(eligible) };
   }

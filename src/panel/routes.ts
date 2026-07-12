@@ -795,13 +795,40 @@ export async function registerPanelRoutes(
       }
 
       if (body.type === "lead") {
-        await upsertLead({
+        const leadResult = await upsertLead({
           botId: body.botId,
           chatId,
           displayName: body.displayName,
           source: body.source
         });
-        request.log.info({ botId: body.botId, chatId, displayName: body.displayName }, "lead registrado");
+        request.log.info(
+          { botId: body.botId, chatId, displayName: body.displayName, isNew: leadResult.isNew },
+          "lead registrado"
+        );
+        if (leadResult.isNew) {
+          const leadBot = await getBotByIdAny(body.botId);
+          if (leadBot?.userId) {
+            const prefs = await getNotificationPrefs(leadBot.userId);
+            if (prefs.enabled && prefs.leads) {
+              const who = body.displayName || `Chat ${chatId}`;
+              const subtitle = `${who} · ${leadBot.name}`;
+              await addPanelNotification({
+                userId: leadBot.userId,
+                id: `lead-${leadResult.id || `${body.botId}-${chatId}`}`,
+                kind: "lead",
+                title: "Nova conversa",
+                subtitle
+              }).catch(() => null);
+              const { notifyUserPush } = await import("../lib/web-push.js");
+              void notifyUserPush(leadBot.userId, {
+                title: "Nova conversa",
+                body: subtitle,
+                url: "/",
+                tag: `lead-${leadResult.id || `${body.botId}-${chatId}`}`
+              }).catch(() => {});
+            }
+          }
+        }
       } else if (body.type === "message" && body.content) {
         await logMessage({
           botId: body.botId,
@@ -849,6 +876,22 @@ export async function registerPanelRoutes(
           confidence: body.confidence ?? 0,
           reason: body.reason ?? ""
         });
+        if (body.paid) {
+          const receiptBot = await getBotByIdAny(body.botId);
+          if (receiptBot?.userId) {
+            const prefs = await getNotificationPrefs(receiptBot.userId);
+            if (prefs.enabled && prefs.sales) {
+              const subtitle = `Pix validado · ${receiptBot.name}`;
+              const { notifyUserPush } = await import("../lib/web-push.js");
+              void notifyUserPush(receiptBot.userId, {
+                title: "Pagamento confirmado",
+                body: subtitle,
+                url: "/",
+                tag: `receipt-${body.botId}-${chatId}-${Date.now()}`
+              }).catch(() => {});
+            }
+          }
+        }
       }
       return reply.send({ ok: true });
     } catch (error) {

@@ -234,11 +234,11 @@ export async function upsertLead(input: {
   username?: string;
   displayName?: string;
   source?: string;
-}) {
+}): Promise<{ isNew: boolean; id?: string }> {
   const source = input.source?.trim() || undefined;
 
   if (useDatabase()) {
-    await getPool().query(
+    const { rows } = await getPool().query<{ id: string; is_new: boolean }>(
       `INSERT INTO leads (bot_id, chat_id, username, display_name, source)
        VALUES ($1,$2,$3,$4,COALESCE($5, 'unknown'))
        ON CONFLICT (bot_id, chat_id) DO UPDATE SET
@@ -248,10 +248,12 @@ export async function upsertLead(input: {
            WHEN leads.source IS NULL OR leads.source = 'unknown' THEN COALESCE(EXCLUDED.source, leads.source)
            ELSE leads.source
          END,
-         last_message_at = NOW()`,
+         last_message_at = NOW()
+       RETURNING id, (xmax = 0) AS is_new`,
       [input.botId, input.chatId, input.username ?? null, input.displayName ?? null, source ?? null]
     );
-    return;
+    const row = rows[0];
+    return { isNew: Boolean(row?.is_new), id: row?.id };
   }
 
   const store = await loadFileStore();
@@ -262,19 +264,22 @@ export async function upsertLead(input: {
     if (input.username) existing.username = input.username;
     if (input.displayName) existing.displayName = input.displayName;
     if (source && (!existing.source || existing.source === "unknown")) existing.source = source;
-  } else {
-    store.leads.push({
-      id: randomUUID(),
-      botId: input.botId,
-      chatId: input.chatId,
-      username: input.username,
-      displayName: input.displayName,
-      source: source ?? "unknown",
-      createdAt: now,
-      lastMessageAt: now
-    });
+    await saveFileStore(store);
+    return { isNew: false, id: existing.id };
   }
+  const id = randomUUID();
+  store.leads.push({
+    id,
+    botId: input.botId,
+    chatId: input.chatId,
+    username: input.username,
+    displayName: input.displayName,
+    source: source ?? "unknown",
+    createdAt: now,
+    lastMessageAt: now
+  });
   await saveFileStore(store);
+  return { isNew: true, id };
 }
 
 export async function setLeadSource(input: { botId: string; chatId: number; source: string }) {

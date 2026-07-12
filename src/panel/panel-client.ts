@@ -1276,12 +1276,19 @@ export const panelClientScript = `
       for (const item of data.bellItems) {
         if (!item || !item.id) continue;
         if (seen.has(item.id)) continue;
+        // 1ª carga: só marca como visto (não notifica histórico).
+        // Depois: todo evento novo dispara toast + notificação nativa.
+        if (!liveNotificationsReady) {
+          seen.add(item.id);
+          continue;
+        }
         seen.add(item.id);
-        if (liveNotificationsReady && item.kind === "lead" && canNotify("lead")) {
+        if (item.kind === "lead" && canNotify("lead")) {
           showToast("Nova conversa", item.subtitle, "lead");
           desktopNotify("Nova conversa", item.subtitle, "lead");
+          pushBellBadge();
         }
-        if (liveNotificationsReady && item.kind === "sale" && canNotify("sale")) {
+        if (item.kind === "sale" && canNotify("sale")) {
           const saleId = item.saleId || item.id;
           if (saleId && isSaleAlreadySeen(saleId)) continue;
           const saleTitle = item.amountCents != null
@@ -1292,9 +1299,10 @@ export const panelClientScript = `
           if (saleId) markSaleSeen(saleId);
           pushBellBadge();
         }
-        if (liveNotificationsReady && item.kind === "receipt" && canNotify("sale")) {
+        if (item.kind === "receipt" && canNotify("sale")) {
           showToast("Pagamento confirmado", item.subtitle, "receipt");
           desktopNotify("Pagamento confirmado", item.subtitle, "receipt");
+          pushBellBadge();
         }
       }
       lastBellItems = data.bellItems;

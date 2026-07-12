@@ -379,6 +379,8 @@ function loadBotConfig() {
 }
 
 const halfPriceOffered = {};
+/** Pacote escolhido pelo lead — desconto SEMPRE neste, nunca inventar outro. */
+const selectedProductByJid = {};
 
 const CANT_PAY_RE =
   /nao consigo|n[aã]o consigo|nao tenho|n[aã]o tenho|sem dinheiro|t[aá] caro|muito caro|caro demais|nao da|n[aã]o d[aá]|imposs[ií]vel|nao posso|n[aã]o posso|so tenho|s[oó] tenho|nao pago|n[aã]o pago/i;
@@ -400,17 +402,15 @@ function wantsDiscount(text) {
   return CANT_PAY_RE.test(t) || DISCOUNT_INTENT_RE.test(t);
 }
 
+/** Detecta pacote explícito no texto — básico antes de completo (nunca fallback pro de 20). */
 function pickProductForOffer(text, products) {
   const t = String(text || '').toLowerCase();
+  if (!t || !products.length) return null;
   const pkgNum = t.match(/pacote\s*#?\s*(\d+)/i);
   if (pkgNum) {
     const idx = Number(pkgNum[1]) - 1;
     const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
     if (sorted[idx]) return sorted[idx];
-  }
-  if (/complet/i.test(t)) {
-    const m = products.find((p) => /complet/i.test(p.name || ''));
-    if (m) return m;
   }
   if (/b[aá]sico|basico/i.test(t)) {
     const m = products.find((p) => /b[aá]sico|basico/i.test(p.name || ''));
@@ -420,10 +420,54 @@ function pickProductForOffer(text, products) {
     const m = products.find((p) => /chamada|v[ií]deo|video/i.test(p.name || ''));
     if (m) return m;
   }
+  if (/complet|combo/i.test(t)) {
+    const m = products.find((p) => /complet|combo/i.test(p.name || ''));
+    if (m) return m;
+  }
   const offer = parseOfferReais(text);
   if (offer !== null) {
-    const match = products.find((p) => Math.abs((p.priceCents || 0) / 100 - offer) < 2);
+    let best = null;
+    let bestDiff = Infinity;
+    for (const p of products) {
+      const diff = Math.abs((p.priceCents || 0) / 100 - offer);
+      if (diff < 2 && diff < bestDiff) {
+        best = p;
+        bestDiff = diff;
+      }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
+function rememberSelectedProduct(jid, text) {
+  const all = (loadBotConfig().products || []).filter((p) => p && p.active !== false);
+  const hit = pickProductForOffer(text, all);
+  if (hit) {
+    selectedProductByJid[jid] = { name: hit.name, priceCents: hit.priceCents, halfPricePercent: hit.halfPricePercent, allowHalfPrice: hit.allowHalfPrice };
+    console.log(`📦 Pacote escolhido por ${jid}: ${hit.name}`);
+  }
+}
+
+function resolveProductForDiscount(jid, text, eligible) {
+  // 1) Mensagem atual
+  const fromText = pickProductForOffer(text, eligible);
+  if (fromText) return fromText;
+  // 2) Pacote já memorizado nesta conversa
+  const remembered = selectedProductByJid[jid];
+  if (remembered) {
+    const match = eligible.find((p) => p.name === remembered.name)
+      || pickProductForOffer(remembered.name, eligible);
     if (match) return match;
+  }
+  // 3) Mensagens do lead do mais novo ao mais antigo (nunca concatenar — evita "completo" antigo vencer "básico" novo)
+  const recent = (userConversations[jid] || [])
+    .filter((m) => m.role === 'user')
+    .map((m) => String(m.content || ''))
+    .reverse();
+  for (const msg of recent) {
+    const hit = pickProductForOffer(msg, eligible);
+    if (hit) return hit;
   }
   return null;
 }
@@ -433,16 +477,19 @@ function tryHalfPriceOffer(jid, text) {
   if (!wantsDiscount(text)) return null;
   if (!hasSentInformacoes[jid]) return null;
 
+  rememberSelectedProduct(jid, text);
+
   const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
   if (products.length === 0) return null;
 
-  const product = pickProductForOffer(text, products);
+  const product = resolveProductForDiscount(jid, text, products);
   if (!product) {
     const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
     const list = sorted.map((p, i) => `${i + 1}) ${p.name}`).join(', ');
     return `qual pacote vc quer amor? ${list} 😊`;
   }
 
+  selectedProductByJid[jid] = product;
   const pct = product.halfPricePercent ?? 50;
   const halfCents = Math.round((product.priceCents || 0) * (pct / 100));
   const half = (halfCents / 100).toFixed(2).replace('.', ',');
@@ -707,7 +754,8 @@ function buildDiscountAppendix() {
   block += 'NUNCA ofereca desconto por iniciativa propria — so se o lead pedir desconto, disser que esta caro ou nao tiver dinheiro.\n';
   block += 'So negocie desconto DEPOIS que o lead viu a tabela E escolheu um pacote especifico.\n';
   block += 'Se pedir desconto sem escolher pacote, pergunte qual pacote quer (basico, chamada, completo).\n';
-  block += 'Quando o lead pedir desconto, o sistema aplica automaticamente — NAO calcule nem anuncie valores com desconto antes disso.\n';
+  block += 'Quando o lead pedir desconto, o sistema aplica automaticamente no pacote QUE ELE ESCOLHEU — NAO troque de pacote, NAO ofereca o completo/20 se ele pediu o basico.\n';
+  block += 'NUNCA invente desconto no pacote de 20 ou em outro pacote diferente do escolhido.\n';
   block += 'Pergunte quanto ele tem e respeite os minimos do seu prompt.\n';
   block += `Pacotes negociaveis (so apos pedido explicito de desconto): ${products.map((p) => p.name).join(', ')}.\n`;
   return block;
@@ -1191,6 +1239,7 @@ function loadConversationsStore() {
       Object.assign(userConversations, data.conversations);
     }
     if (data.halfPriceOffered) Object.assign(halfPriceOffered, data.halfPriceOffered);
+    if (data.selectedProductByJid) Object.assign(selectedProductByJid, data.selectedProductByJid);
     if (data.hasSentInformacoes) Object.assign(hasSentInformacoes, data.hasSentInformacoes);
     if (data.hasSentNaoSouFake) Object.assign(hasSentNaoSouFake, data.hasSentNaoSouFake);
     if (data.sentAudios) Object.assign(sentAudios, data.sentAudios);
@@ -1214,6 +1263,7 @@ function scheduleSaveConversations() {
       fs.writeFileSync(conversationsStorePath, JSON.stringify({
         conversations: trimmed,
         halfPriceOffered,
+        selectedProductByJid,
         hasSentInformacoes,
         hasSentNaoSouFake,
         sentAudios,
@@ -2148,24 +2198,38 @@ async function sendChamadaVideo(client, messageFrom, conversation) {
     const mensagensLead = todasMensagensLead.slice(-5);
     const textoLead = mensagensLead.map(m => m.content).join(' ').toLowerCase();
 
+    // Percorre do mais novo ao mais antigo — o último pacote escolhido vence.
+    for (let i = mensagensLead.length - 1; i >= 0; i--) {
+      const msg = String(mensagensLead[i].content || '').toLowerCase();
+      if (/b[aá]sico|basico|9[,.]90/.test(msg) && !/complet|combo|20[,.]00/.test(msg)) {
+        console.log(`   Pacote: BASICO (msg recente)`); return 'basico';
+      }
+      if (/chamada|videochamada|15[,.]00/.test(msg) && !/complet|combo/.test(msg)) {
+        console.log(`   Pacote: CHAMADA (msg recente)`); return 'chamada';
+      }
+      if (/complet|combo|20[,.]00/.test(msg)) {
+        console.log(`   Pacote: COMPLETO (msg recente)`); return 'completo';
+      }
+    }
+
     // --- PRIORIDADE 1: preço exato mencionado (mais confiável) ---
     const temPreco990  = /9[,.]90/.test(textoLead);
     const temPreco1500 = /15[,.]00/.test(textoLead);
     const temPreco2000 = /20[,.]00/.test(textoLead);
 
-    if (temPreco2000) { console.log(`   Pacote: COMPLETO (preço exato 20,00)`); return 'completo'; }
-    if (temPreco1500) { console.log(`   Pacote: CHAMADA (preço exato 15,00)`); return 'chamada'; }
-    if (temPreco990)  { console.log(`   Pacote: BASICO (preço exato 9,90)`);   return 'basico'; }
+    // Se citou mais de um preço, preferir o da mensagem mais recente (já tratado acima).
+    if (temPreco990 && !temPreco2000 && !temPreco1500) { console.log(`   Pacote: BASICO (preço exato 9,90)`); return 'basico'; }
+    if (temPreco1500 && !temPreco2000) { console.log(`   Pacote: CHAMADA (preço exato 15,00)`); return 'chamada'; }
+    if (temPreco2000 && !temPreco990) { console.log(`   Pacote: COMPLETO (preço exato 20,00)`); return 'completo'; }
 
-    // --- PRIORIDADE 2: keyword clara de pacote nas últimas mensagens ---
-    const temCombo   = /completo|combo|tudo|os.?dois|ambos/i.test(textoLead);
+    // --- PRIORIDADE 2: keyword clara (básico antes de completo; sem \b20\b solto) ---
+    const temCombo   = /completo|combo|os.?dois|ambos/i.test(textoLead);
     const temChamada = /chamada|videochamada|video.?chamada|liga[çc][ãa]o/i.test(textoLead);
-    const temVal20   = /\b20\b|vinte/i.test(textoLead);
-    const temVal15   = /\b15\b|quinze/i.test(textoLead);
-    const temBasico  = /b[aá]sico|pack|9[,.]90|\b9\b|nove/i.test(textoLead);
+    const temBasico  = /b[aá]sico|basico/i.test(textoLead);
 
-    if (temCombo || temVal20)  { console.log(`   Pacote: COMPLETO (keyword)`); return 'completo'; }
-    if (temBasico && !temChamada && !temVal15) { console.log(`   Pacote: BASICO (keyword)`); return 'basico'; }
+    if (temBasico && !temCombo && !temChamada) { console.log(`   Pacote: BASICO (keyword)`); return 'basico'; }
+    if (temChamada && !temCombo) { console.log(`   Pacote: CHAMADA (keyword)`); return 'chamada'; }
+    if (temCombo) { console.log(`   Pacote: COMPLETO (keyword)`); return 'completo'; }
 
     // --- PRIORIDADE 3: GPT com contexto completo das últimas 5 mensagens ---
     try {
@@ -2668,6 +2732,8 @@ client.on("message", async (message) => {
       console.log(`⏳ Gerando resposta...`);
       console.log('─'.repeat(60) + '\n');
       try {
+        rememberSelectedProduct(from, combinedMessage);
+
         // Saudação em ÁUDIO no primeiro contato (substitui o "oi tudo bem" em texto)
         if (isGreetingText(combinedMessage) && isFirstUserMessage(from)) {
           const saudacaoAudio = resolveSaudacaoAudio();
@@ -2694,6 +2760,7 @@ client.on("message", async (message) => {
 
         const halfReply = tryHalfPriceOffer(from, combinedMessage);
         if (halfReply) {
+          rememberSelectedProduct(from, combinedMessage);
           await sendTextHuman(client, from, halfReply);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: halfReply });
           onBotOutbound(from);

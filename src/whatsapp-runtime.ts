@@ -437,6 +437,24 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     processes.delete(bot.id);
     lastExitCodes.set(bot.id, code ?? null);
     console.log(`[wa-web] ${bot.name} encerrou (code ${code ?? "?"})`);
+    if (bot.userId) {
+      void (async () => {
+        try {
+          const { getNotificationPrefs } = await import("./db/notification-prefs.js");
+          const prefs = await getNotificationPrefs(bot.userId);
+          if (!prefs.enabled || !prefs.instances) return;
+          const { notifyUserPush } = await import("./lib/web-push.js");
+          await notifyUserPush(bot.userId, {
+            title: "Instância offline",
+            body: `${bot.name} desconectou`,
+            url: "/instances",
+            tag: `wa-down-${bot.id}`
+          });
+        } catch {
+          // ignore
+        }
+      })();
+    }
   });
 
   processes.set(bot.id, { child, port, botId: bot.id });
