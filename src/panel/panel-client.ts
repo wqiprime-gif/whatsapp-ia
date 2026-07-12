@@ -129,9 +129,10 @@ export const panelClientScript = `
         // Mesmo padrão do instablack: SVG compacto em icon + badge.
         await reg.showNotification(title, {
           body: body,
-          icon: "/brand/pwa-192.png?v=1.24.14",
-          badge: "/brand/pwa-192.png?v=1.24.14",
-          tag: tag || "onlychat",
+          icon: "/brand/pwa-192.png?v=1.24.15",
+          badge: "/brand/pwa-192.png?v=1.24.15",
+          tag: (tag || "onlychat") + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          renotify: true,
           data: { url: url || "/" },
           vibrate: [120, 60, 120]
         });
@@ -140,7 +141,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.24.14" });
+        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.24.15" });
         return true;
       } catch (_) {}
     }

@@ -53,9 +53,9 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.14";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.15";
 // PNG WhatsApp azul (telefone) — mesmo papel do favicon.svg do instablack.
-const NOTIFY_ICON = "/brand/pwa-192.png?v=1.24.14";
+const NOTIFY_ICON = "/brand/pwa-192.png?v=1.24.15";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -105,20 +105,26 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Igual ao instablack: mesmo arquivo em icon + badge (aparece esquerda e direita).
+// Mesmo padrão do instablack: icon + badge + tag única (não apaga a anterior).
+function uniqueTag(base) {
+  var prefix = String(base || "onlychat").trim() || "onlychat";
+  return prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+}
+
 function notifyOptions(body, tag, url) {
   return {
     body: body || "",
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
-    tag: tag || "onlychat",
+    tag: uniqueTag(tag),
+    renotify: true,
     data: { url: url || "/" },
     vibrate: [120, 60, 120]
   };
 }
 
 self.addEventListener("push", (event) => {
-  let data = { title: "OnlyChat", body: "", url: "/", tag: "onlychat" };
+  let data = { title: "OnlyChat", body: "", url: "/", tag: "" };
   try {
     if (event.data) data = Object.assign(data, event.data.json());
   } catch (_) {}
@@ -169,8 +175,8 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="OnlyChat" />
 <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="/brand/pwa-192.png?v=1.24.14" type="image/png" sizes="192x192" />
-<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.24.14" />
+<link rel="icon" href="/brand/pwa-192.png?v=1.24.15" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.24.15" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;

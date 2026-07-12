@@ -118,6 +118,8 @@ export async function sendPushToSubscription(
   payload: { title: string; body: string; url?: string; tag?: string }
 ) {
   if (!ensureVapid()) throw new Error("Web Push não configurado (VAPID).");
+  // Tag única por evento — mesma tag no Android/iOS substitui a notificação anterior.
+  const tag = uniquePushTag(payload.tag);
   await webpush.sendNotification(
     {
       endpoint: sub.endpoint,
@@ -127,9 +129,18 @@ export async function sendPushToSubscription(
       title: payload.title,
       body: payload.body,
       url: payload.url || "/",
-      tag: payload.tag || "onlychat"
+      tag
     })
   );
+}
+
+/** Prefixo + timestamp + id curto — cada push vira notificação nova (não apaga a anterior). */
+export function uniquePushTag(base?: string) {
+  const prefix = String(base || "onlychat")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 48) || "onlychat";
+  return `${prefix}-${Date.now()}-${randomUUID().slice(0, 8)}`;
 }
 
 export async function notifyUserPush(
