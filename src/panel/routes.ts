@@ -1031,6 +1031,9 @@ export async function registerPanelRoutes(
         title: body.title,
         subtitle: body.subtitle
       });
+      if (!item) {
+        return reply.send({ ok: true, skipped: true });
+      }
       return reply.send({
         ok: true,
         item: {

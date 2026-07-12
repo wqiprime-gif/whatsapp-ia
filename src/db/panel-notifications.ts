@@ -17,6 +17,36 @@ type FileStore = { items: PanelNotification[] };
 
 const storeFile = path.join(env.DATA_DIR, "panel-notifications.json");
 
+const EPHEMERAL_TITLES = new Set([
+  "nenhum dispositivo",
+  "gerando link",
+  "copiado!",
+  "selecione o mp4",
+  "sem link",
+  "limpo",
+  "instalar app",
+  "notificação local ok",
+  "permissão bloqueada",
+  "teste parcial",
+  "push enviado!",
+  "não gerou",
+  "foto",
+  "vídeo",
+  "erro"
+]);
+
+/** Toasts de UI que não devem ficar no sino. */
+export function isEphemeralPanelTitle(title: string, id?: string) {
+  const tid = String(id || "");
+  if (tid.startsWith("toast-")) return true;
+  const t = String(title || "").trim().toLowerCase();
+  if (!t) return true;
+  if (EPHEMERAL_TITLES.has(t)) return true;
+  if (t.startsWith("push:")) return true;
+  if (t.startsWith("link pronto!")) return true;
+  return false;
+}
+
 async function loadFileStore(): Promise<FileStore> {
   try {
     const raw = await fs.readFile(storeFile, "utf8");
@@ -32,18 +62,37 @@ async function saveFileStore(store: FileStore) {
   await fs.writeFile(storeFile, JSON.stringify(store, null, 2));
 }
 
+function dedupeItems(items: PanelNotification[]) {
+  const out: PanelNotification[] = [];
+  const seenId = new Set<string>();
+  const seenKey = new Set<string>();
+  for (const item of items) {
+    if (!item || isEphemeralPanelTitle(item.title, item.id)) continue;
+    if (seenId.has(item.id)) continue;
+    const key = `${item.title}|${item.subtitle}`.toLowerCase();
+    if (seenKey.has(key)) continue;
+    seenId.add(item.id);
+    seenKey.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 export async function addPanelNotification(input: {
   userId: string;
   kind?: string;
   title: string;
   subtitle?: string;
   id?: string;
-}): Promise<PanelNotification> {
+}): Promise<PanelNotification | null> {
+  const title = input.title.trim() || "Notificação";
+  if (isEphemeralPanelTitle(title, input.id)) return null;
+
   const item: PanelNotification = {
     id: input.id || `pn-${randomUUID()}`,
     userId: input.userId,
     kind: input.kind || "daily",
-    title: input.title.trim() || "Notificação",
+    title,
     subtitle: (input.subtitle || "").trim(),
     at: new Date().toISOString()
   };
@@ -60,7 +109,7 @@ export async function addPanelNotification(input: {
 
   const store = await loadFileStore();
   store.items.unshift(item);
-  store.items = store.items.slice(0, 200);
+  store.items = dedupeItems(store.items).slice(0, 200);
   await saveFileStore(store);
   return item;
 }
@@ -73,9 +122,9 @@ export async function listPanelNotifications(userId: string, limit = 24): Promis
        WHERE user_id = $1
        ORDER BY created_at DESC
        LIMIT $2`,
-      [userId, limit]
+      [userId, Math.max(limit * 3, 48)]
     );
-    return rows.map((r) => ({
+    const mapped = rows.map((r) => ({
       id: String(r.id),
       userId: String(r.user_id),
       kind: String(r.kind || "daily"),
@@ -83,9 +132,20 @@ export async function listPanelNotifications(userId: string, limit = 24): Promis
       subtitle: String(r.subtitle || ""),
       at: new Date(r.created_at).toISOString()
     }));
+    const clean = dedupeItems(mapped).slice(0, limit);
+    const spamIds = mapped.filter((i) => isEphemeralPanelTitle(i.title, i.id)).map((i) => i.id);
+    if (spamIds.length) {
+      await getPool().query(`DELETE FROM panel_notifications WHERE id = ANY($1::text[])`, [spamIds]);
+    }
+    return clean;
   }
 
   const store = await loadFileStore();
+  const before = store.items.length;
+  store.items = dedupeItems(store.items.filter((i) => i.userId === userId)).concat(
+    store.items.filter((i) => i.userId !== userId)
+  );
+  if (store.items.length !== before) await saveFileStore(store);
   return store.items.filter((i) => i.userId === userId).slice(0, limit);
 }
 

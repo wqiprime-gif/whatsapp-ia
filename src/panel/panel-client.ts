@@ -968,15 +968,19 @@ export const panelClientScript = `
     try {
       const fromLs = JSON.parse(localStorage.getItem(LS_EXTRA_BELL) || "[]");
       if (Array.isArray(fromLs) && fromLs.length) {
-        memoryExtraBell = fromLs;
-        return fromLs;
+        const cleaned = dedupeBellItems(fromLs);
+        memoryExtraBell = cleaned;
+        if (cleaned.length !== fromLs.length) {
+          try { localStorage.setItem(LS_EXTRA_BELL, JSON.stringify(cleaned)); } catch (_) {}
+        }
+        return cleaned.slice();
       }
     } catch (_) {}
-    return memoryExtraBell.slice();
+    return dedupeBellItems(memoryExtraBell).slice();
   }
 
   function saveExtraBell(items) {
-    memoryExtraBell = (items || []).slice(0, 24);
+    memoryExtraBell = dedupeBellItems(items || []).slice(0, 24);
     try {
       localStorage.setItem(LS_EXTRA_BELL, JSON.stringify(memoryExtraBell));
     } catch (_) {}
@@ -1003,7 +1007,9 @@ export const panelClientScript = `
     el.querySelector("button").addEventListener("click", () => el.remove());
     setTimeout(() => el.classList.add("show"), 10);
     setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 8000);
-    if (!skipBell) {
+    // Toast de UI NÃO entra no sino (evita spam de "Nenhum dispositivo", "Copiado!", etc.).
+    // Eventos reais usam prependExtraBell / bellItems do servidor.
+    if (skipBell === false) {
       pushBellBadge();
       prependExtraBell({
         id: "toast-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
@@ -1014,6 +1020,36 @@ export const panelClientScript = `
         at: new Date().toISOString()
       });
     }
+  }
+
+  function isEphemeralBellItem(item) {
+    if (!item) return true;
+    const id = String(item.id || "");
+    if (id.indexOf("toast-") === 0) return true;
+    const t = String(item.title || "").trim();
+    if (!t) return true;
+    if (/^(Nenhum dispositivo|Gerando link|Copiado!|Selecione o MP4|Sem link|Limpo|Instalar app|Notificação local OK|Permissão bloqueada|Teste parcial|Push enviado!|Não gerou|Foto|Vídeo|Erro)$/i.test(t)) {
+      return true;
+    }
+    if (/^Push:/i.test(t) || /^Link pronto!/i.test(t)) return true;
+    return false;
+  }
+
+  function dedupeBellItems(items) {
+    const out = [];
+    const seenKey = new Set();
+    const seenId = new Set();
+    for (const item of items || []) {
+      if (!item || isEphemeralBellItem(item)) continue;
+      const id = String(item.id || "");
+      if (id && seenId.has(id)) continue;
+      const key = (String(item.title || "") + "|" + String(item.subtitle || "")).toLowerCase();
+      if (seenKey.has(key)) continue;
+      if (id) seenId.add(id);
+      seenKey.add(key);
+      out.push(item);
+    }
+    return out;
   }
 
   function desktopNotify(title, body, kind) {
@@ -1111,10 +1147,15 @@ export const panelClientScript = `
       if (!res.ok) return;
       const data = await res.json();
       if (data.bellItems && data.bellItems.length) {
-        lastBellItems = data.bellItems;
-        // Servidor já inclui extras da conta — não duplicar local em cima
+        const spamOnServer = (data.bellItems || []).filter(isEphemeralBellItem);
+        lastBellItems = dedupeBellItems(data.bellItems);
+        // Limpa spam antigo gravado no banco (toasts de UI) sem apagar o resto.
+        if (spamOnServer.length && spamOnServer.length === data.bellItems.length) {
+          fetch("/api/panel/bell", { method: "DELETE", credentials: "same-origin" }).catch(function () {});
+          lastBellItems = [];
+        }
         const localOnly = loadExtraBell().filter(function (x) {
-          return !(data.bellItems || []).some(function (s) { return s && x && s.id === x.id; });
+          return !(lastBellItems || []).some(function (s) { return s && x && s.id === x.id; });
         });
         updateBellMenu(localOnly.concat(lastBellItems).slice(0, 16));
       } else if (data.bellSales && data.bellSales.length) {
@@ -1164,7 +1205,7 @@ export const panelClientScript = `
 
   function updateBellMenu(items) {
     if (!bellMenu) return;
-    const merged = filterBellItems(items || []).slice(0, 12);
+    const merged = dedupeBellItems(filterBellItems(items || [])).slice(0, 12);
     if (merged.length === 0) {
       bellMenu.innerHTML =
         '<div class="bell-menu-head"><strong>Notificações</strong></div>' +
@@ -1286,14 +1327,18 @@ export const panelClientScript = `
               seen.add(eventKey);
             }
           } else if (!waConnected(was) && waConnected(st) && canNotify("wa_up")) {
-            showToast("Instância online", name + " reconectou", "wa_up");
-            prependExtraBell({
-              id: "wa-up-" + id + "-" + Date.now(),
-              kind: "wa_up",
-              title: "Instância online",
-              subtitle: name + " reconectou",
-              time: "agora"
-            });
+            const upKey = "wa-up-" + id;
+            if (!seen.has(upKey)) {
+              showToast("Instância online", name + " reconectou", "wa_up");
+              prependExtraBell({
+                id: upKey,
+                kind: "wa_up",
+                title: "Instância online",
+                subtitle: name + " reconectou",
+                time: "agora"
+              });
+              seen.add(upKey);
+            }
           }
         }
       });
