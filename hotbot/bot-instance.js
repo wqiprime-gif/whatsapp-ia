@@ -472,22 +472,73 @@ function resolveProductForDiscount(jid, text, eligible) {
   return null;
 }
 
+/** Mínimos do prompt: Básico 5 · Chamada 10 · Completo 15 */
+function minimumReaisForProduct(product) {
+  const n = String(product?.name || '').toLowerCase();
+  if (/b[aá]sico|basico/i.test(n)) return 5;
+  if (/chamada|v[ií]deo|video/i.test(n)) return 10;
+  if (/complet|combo/i.test(n)) return 15;
+  const half = Math.round((product?.priceCents || 0) * 0.5) / 100;
+  return Math.max(5, half);
+}
+
+function allActiveProducts() {
+  const list = (loadBotConfig().products || []).filter((p) => p && p.active !== false);
+  if (list.length) return list;
+  return [
+    { name: 'Pacote Básico', priceCents: 990, allowHalfPrice: true, halfPricePercent: 50 },
+    { name: 'Chamada Vídeo', priceCents: 1500, allowHalfPrice: true, halfPricePercent: 50 },
+    { name: 'Pacote Completo', priceCents: 2000, allowHalfPrice: true, halfPricePercent: 50 }
+  ];
+}
+
+function askWhichPackage(products) {
+  const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+  const list = sorted.map((p, i) => `${i + 1}) ${p.name}`).join(', ');
+  return `qual pacote vc quer amor? ${list} 😊`;
+}
+
+/** "só tenho 7" / "faz por 10" — negocia no pacote ESCOLHIDO, com mínimos do prompt. */
+function tryCustomAmountOffer(jid, text) {
+  if (!hasSentInformacoes[jid]) return null;
+  const amount = parseOfferReais(text);
+  if (amount === null) return null;
+  if (!/(tenho|consigo|pago|ofere|desconto|faz\s+por|por\s+\d|r\$|reais|barato|caro|metade|menos|nao tenho|n[aã]o tenho)/i.test(text)) {
+    return null;
+  }
+
+  rememberSelectedProduct(jid, text);
+  const products = allActiveProducts();
+  const product = resolveProductForDiscount(jid, text, products);
+  if (!product) return askWhichPackage(products);
+
+  selectedProductByJid[jid] = product;
+  const min = minimumReaisForProduct(product);
+  if (amount >= min) {
+    halfPriceOffered[jid] = true;
+    const formatted = amount.toFixed(2).replace('.', ',');
+    console.log(`💰 Negociação aceita ${jid}: ${product.name} por R$${formatted} (mín R$${min})`);
+    return `dessa vez consigo fazer o ${product.name} por R$ ${formatted} sim, manda o pix 😘`;
+  }
+  const minStr = min.toFixed(2).replace('.', ',');
+  console.log(`💰 Negociação recusada ${jid}: ${product.name} pediu R$${amount} < mín R$${min}`);
+  return `por esse valor nao da nao amor, o minimo que consigo no ${product.name} e R$ ${minStr}`;
+}
+
 function tryHalfPriceOffer(jid, text) {
   if (halfPriceOffered[jid]) return null;
   if (!wantsDiscount(text)) return null;
   if (!hasSentInformacoes[jid]) return null;
+  // Se já veio valor ("só tenho 7"), a negociação custom trata — não forçar 50%.
+  if (parseOfferReais(text) !== null) return null;
 
   rememberSelectedProduct(jid, text);
 
-  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
+  const products = allActiveProducts().filter((p) => p.allowHalfPrice !== false);
   if (products.length === 0) return null;
 
   const product = resolveProductForDiscount(jid, text, products);
-  if (!product) {
-    const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
-    const list = sorted.map((p, i) => `${i + 1}) ${p.name}`).join(', ');
-    return `qual pacote vc quer amor? ${list} 😊`;
-  }
+  if (!product) return askWhichPackage(products);
 
   selectedProductByJid[jid] = product;
   const pct = product.halfPricePercent ?? 50;
@@ -748,16 +799,17 @@ function buildPixAppendix() {
 }
 
 function buildDiscountAppendix() {
-  const products = (loadBotConfig().products || []).filter((p) => p && p.allowHalfPrice === true);
+  const products = allActiveProducts().filter((p) => p.allowHalfPrice !== false);
   if (products.length === 0) return '';
   let block = '\n\n--- NEGOCIACAO (OBRIGATORIO) ---\n';
   block += 'NUNCA ofereca desconto por iniciativa propria — so se o lead pedir desconto, disser que esta caro ou nao tiver dinheiro.\n';
   block += 'So negocie desconto DEPOIS que o lead viu a tabela E escolheu um pacote especifico.\n';
   block += 'Se pedir desconto sem escolher pacote, pergunte qual pacote quer (basico, chamada, completo).\n';
-  block += 'Quando o lead pedir desconto, o sistema aplica automaticamente no pacote QUE ELE ESCOLHEU — NAO troque de pacote, NAO ofereca o completo/20 se ele pediu o basico.\n';
-  block += 'NUNCA invente desconto no pacote de 20 ou em outro pacote diferente do escolhido.\n';
-  block += 'Pergunte quanto ele tem e respeite os minimos do seu prompt.\n';
-  block += `Pacotes negociaveis (so apos pedido explicito de desconto): ${products.map((p) => p.name).join(', ')}.\n`;
+  block += 'O sistema aplica desconto/negociacao AUTOMATICAMENTE no pacote QUE ELE ESCOLHEU — basico, chamada OU completo.\n';
+  block += 'NUNCA troque de pacote na negociacao. Se ele escolheu basico, desconto e no basico. Se escolheu chamada, na chamada. Se escolheu completo, no completo.\n';
+  block += 'NUNCA invente desconto no pacote de 20 se ele pediu outro.\n';
+  block += 'Minimos: Basico R$5,00 | Chamada R$10,00 | Completo R$15,00.\n';
+  block += `Pacotes negociaveis: ${products.map((p) => p.name).join(', ')}.\n`;
   return block;
 }
 
@@ -2758,9 +2810,16 @@ client.on("message", async (message) => {
           return;
         }
 
+        const customOffer = tryCustomAmountOffer(from, combinedMessage);
+        if (customOffer) {
+          await sendTextHuman(client, from, customOffer);
+          void panelLog({ type: 'message', jid: from, role: 'assistant', content: customOffer });
+          onBotOutbound(from);
+          return;
+        }
+
         const halfReply = tryHalfPriceOffer(from, combinedMessage);
         if (halfReply) {
-          rememberSelectedProduct(from, combinedMessage);
           await sendTextHuman(client, from, halfReply);
           void panelLog({ type: 'message', jid: from, role: 'assistant', content: halfReply });
           onBotOutbound(from);
