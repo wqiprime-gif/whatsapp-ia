@@ -9,6 +9,10 @@ railway.json.bak
 .wwebjs_auth/
 .wwebjs_cache/
 
+# Telegram MTProto sessions
+telegram/.tg_data/
+data/tg-instances/
+
 # Logs e dados locais sensíveis
 *.log
 npm-debug.log*

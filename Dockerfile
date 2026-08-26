@@ -30,6 +30,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY hotbot/package.json hotbot/package-lock.json ./hotbot/
+COPY telegram/package.json telegram/package-lock.json ./telegram/
 COPY tsconfig.json tsconfig.base.json ./
 
 RUN npm ci --include=dev
@@ -37,6 +38,7 @@ RUN npm ci --include=dev
 COPY src ./src
 COPY scripts ./scripts
 COPY hotbot ./hotbot
+COPY telegram ./telegram
 COPY public ./public
 COPY assets ./assets
 

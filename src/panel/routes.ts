@@ -430,6 +430,10 @@ function mergeDeliveryUrls(
 const botFormFieldsSchema = z.object({
   name: z.string().min(1),
   token: z.string().optional(),
+  platform: z.enum(["whatsapp", "telegram"]).default("whatsapp"),
+  tgApiId: z.string().optional(),
+  tgApiHash: z.string().optional(),
+  tgPhone: z.string().optional(),
   waPhoneNumber: z.string().optional(),
   prompt: z.string().min(1),
   pixKey: z.string().default(""),
@@ -465,6 +469,36 @@ const botFormFieldsSchema = z.object({
   aiModel: z.string().optional(),
   aiApiKey: z.string().optional()
 });
+
+function applyTelegramFieldsFromForm<T extends Record<string, unknown>>(
+  bot: T,
+  body: {
+    platform?: string;
+    tgApiId?: string;
+    tgApiHash?: string;
+    tgPhone?: string;
+  }
+): T {
+  const platform = body.platform === "telegram" ? "telegram" : "whatsapp";
+  const next = { ...bot, platform } as T & {
+    tgApiId?: number;
+    tgApiHashEncrypted?: string;
+    tgPhone?: string;
+    token?: string;
+    id?: string;
+  };
+  if (platform === "telegram") {
+    const apiId = Number(String(body.tgApiId || "").trim());
+    if (Number.isFinite(apiId) && apiId > 0) next.tgApiId = apiId;
+    const hash = String(body.tgApiHash || "").trim();
+    if (hash) next.tgApiHashEncrypted = encryptSecret(hash);
+    if (body.tgPhone !== undefined) next.tgPhone = String(body.tgPhone || "").trim();
+    if (next.id && (!next.token || String(next.token).startsWith("wa-"))) {
+      next.token = `tg-${next.id}`;
+    }
+  }
+  return next;
+}
 
 function messageDelayMsFromForm(input: { messageDelayMinutes: number; messageDelaySeconds: number }) {
   const totalSeconds = input.messageDelayMinutes * 60 + input.messageDelaySeconds;
@@ -1613,7 +1647,84 @@ export async function registerPanelRoutes(
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
     const bot = await getBotById(params.id, user.id);
     if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    if (bot.platform === "telegram") {
+      return reply.redirect(`/instances/${bot.id}/tg`);
+    }
     return reply.type("text/html").send(waQrPage(bot, isPartial(request), panelUserLabel(user)));
+  });
+
+  app.get("/instances/:id/tg", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(params.id, user.id);
+    if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    const { telegramLoginPage } = await import("./tg-login-page.js");
+    return reply.type("text/html").send(telegramLoginPage(bot, panelUserLabel(user), isPartial(request)));
+  });
+
+  app.get("/api/instances/:id/tg", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(params.id, user.id);
+    if (!bot) return reply.code(404).send({ ok: false });
+    const { getTelegramStatusPayload } = await import("../telegram-runtime.js");
+    return reply.send(await getTelegramStatusPayload(bot.id));
+  });
+
+  app.post("/api/instances/:id/tg/code", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      const body = z.object({ code: z.string().min(3) }).parse(request.body ?? {});
+      const bot = await getBotById(params.id, user.id);
+      if (!bot) return reply.code(404).send({ ok: false, error: "Instância não encontrada" });
+      const { submitTelegramCode } = await import("../telegram-runtime.js");
+      await submitTelegramCode(bot.id, body.code);
+      return reply.send({ ok: true });
+    } catch (error) {
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
+  app.post("/api/instances/:id/tg/password", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    try {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      const body = z.object({ password: z.string().min(1) }).parse(request.body ?? {});
+      const bot = await getBotById(params.id, user.id);
+      if (!bot) return reply.code(404).send({ ok: false, error: "Instância não encontrada" });
+      const { submitTelegramPassword } = await import("../telegram-runtime.js");
+      await submitTelegramPassword(bot.id, body.password);
+      return reply.send({ ok: true });
+    } catch (error) {
+      return reply.code(400).send({ ok: false, error: errorMessage(error) });
+    }
+  });
+
+  app.post("/instances/:id/tg/restart", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(params.id, user.id);
+    if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    hooks.restartBot(bot.id);
+    return reply.redirect(flashRedirect(`/instances/${bot.id}/tg`, "Motor Telegram reiniciando..."));
+  });
+
+  app.post("/instances/:id/tg/logout", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(params.id, user.id);
+    if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    const { logoutTelegramSession } = await import("../telegram-runtime.js");
+    await logoutTelegramSession(bot.id);
+    hooks.restartBot(bot.id);
+    return reply.redirect(flashRedirect(`/instances/${bot.id}/tg`, "Sessão Telegram encerrada."));
   });
 
   app.get("/api/instances/:id/qr", async (request, reply) => {
@@ -2256,46 +2367,49 @@ export async function registerPanelRoutes(
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
-      const merged = applyAIFieldsFromForm(
-        applyWaFieldsFromForm(
-          {
-          ...existing,
-          name: body.name,
-          token: existing.token,
-          platform: "whatsapp",
-          prompt: body.prompt,
-          pixKey: body.pixKey || existing.pixKey,
-          pixRecipientName: body.pixRecipientName?.trim() || body.name,
-          messageDelayMs: messageDelayMsFromForm(body),
-          previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
-          deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
-          audioLibrary: mergeAudioLibrary(
-            existing.audioLibrary ?? [],
-            fields,
-            newNamedAudioUrl,
-            audioReplacements
+      const merged = applyTelegramFieldsFromForm(
+        applyAIFieldsFromForm(
+          applyWaFieldsFromForm(
+            {
+              ...existing,
+              name: body.name,
+              token: existing.token,
+              platform: existing.platform || "whatsapp",
+              prompt: body.prompt,
+              pixKey: body.pixKey || existing.pixKey,
+              pixRecipientName: body.pixRecipientName?.trim() || body.name,
+              messageDelayMs: messageDelayMsFromForm(body),
+              previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
+              deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
+              audioLibrary: mergeAudioLibrary(
+                existing.audioLibrary ?? [],
+                fields,
+                newNamedAudioUrl,
+                audioReplacements
+              ),
+              active: body.active === "true",
+              paymentMethod: body.paymentMethod,
+              laranjinhaApiKeyEncrypted: laranjinhaKey
+                ? encryptSecret(laranjinhaKey)
+                : existing.laranjinhaApiKeyEncrypted,
+              productName: body.productName,
+              productPriceCents: Math.round(body.productPrice * 100),
+              deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
+              videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
+              videoCallVideoUrl: resolveCallVideoUrl(existing.videoCallVideoUrl, fields, callVideoUpload),
+              videoCallCallerName: body.videoCallCallerName?.trim() || existing.videoCallCallerName || body.name,
+              videoCallAvatarUrl: resolveCallAvatarUrl(existing.videoCallAvatarUrl, fields, callAvatarUpload),
+              locale: body.locale === "en-US" ? "en-US" : "pt-BR",
+              backupToken: body.backupToken?.trim() || existing.backupToken,
+              followUpEnabled: body.followUpEnabled === "true",
+              followUpAfterMinutes: body.followUpAfterMinutes,
+              followUpMaxPerLead: body.followUpMaxPerLead,
+              followUpSteps: followUpStepsFromForm(fieldArrays),
+              priceTableImageUrl: resolvePriceTableImageUrl(existing.priceTableImageUrl, fields, priceTableUpload)
+            },
+            body
           ),
-          active: body.active === "true",
-          paymentMethod: body.paymentMethod,
-          laranjinhaApiKeyEncrypted: laranjinhaKey
-            ? encryptSecret(laranjinhaKey)
-            : existing.laranjinhaApiKeyEncrypted,
-          productName: body.productName,
-          productPriceCents: Math.round(body.productPrice * 100),
-          deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
-          videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
-          videoCallVideoUrl: resolveCallVideoUrl(existing.videoCallVideoUrl, fields, callVideoUpload),
-          videoCallCallerName: body.videoCallCallerName?.trim() || existing.videoCallCallerName || body.name,
-          videoCallAvatarUrl: resolveCallAvatarUrl(existing.videoCallAvatarUrl, fields, callAvatarUpload),
-          locale: body.locale === "en-US" ? "en-US" : "pt-BR",
-          backupToken: body.backupToken?.trim() || existing.backupToken,
-          followUpEnabled: body.followUpEnabled === "true",
-          followUpAfterMinutes: body.followUpAfterMinutes,
-          followUpMaxPerLead: body.followUpMaxPerLead,
-          followUpSteps: followUpStepsFromForm(fieldArrays),
-          priceTableImageUrl: resolvePriceTableImageUrl(existing.priceTableImageUrl, fields, priceTableUpload)
-        },
-        body
+          body
         ),
         body
       );
@@ -2305,9 +2419,10 @@ export async function registerPanelRoutes(
       hooks.syncBots();
       if (botNeedsMotorRestart(existing, updated)) {
         hooks.restartBot(updated.id);
-        return reply.redirect(flashRedirect("/instances", "Instância atualizada! Reiniciando conexão WhatsApp..."));
+        const channel = updated.platform === "telegram" ? "Telegram" : "WhatsApp";
+        return reply.redirect(flashRedirect("/instances", `Instância atualizada! Reiniciando conexão ${channel}...`));
       }
-      const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar o WhatsApp." : "";
+      const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar." : "";
       return reply.redirect(flashRedirect("/instances", `Instância salva!${aiMsg}`));
     } catch (error) {
       request.log.error(error);
@@ -2757,7 +2872,7 @@ export async function registerPanelRoutes(
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body);
       const botId = randomUUID();
-      const platform: BotPlatform = "whatsapp";
+      const platform = body.platform === "telegram" ? "telegram" : "whatsapp";
       const { DEFAULT_PROMPT_WHATSAPP, DEFAULT_PROMPT_WHATSAPP_EN } = await import("../lib/prompt-default.js");
       const defaultPrompt = body.locale === "en-US" ? DEFAULT_PROMPT_WHATSAPP_EN : DEFAULT_PROMPT_WHATSAPP;
       const promptText = body.prompt?.trim() || defaultPrompt;
@@ -2768,47 +2883,50 @@ export async function registerPanelRoutes(
       const initialAudioLibrary = mergeAudioLibrary(withSeedReplacements, fields, newNamedAudioUrl);
 
       await upsertBot(
-        applyAIFieldsFromForm(
-          applyWaFieldsFromForm(
-            {
-              id: botId,
-              userId: user.id,
-              name: body.name,
-              token: `wa-${botId}`,
-              platform,
-              waPort: waPortForBot(botId),
-              waApiProvider: "whatsapp_web",
-              proxyEnabled: false,
-              metaPhoneNumberId: "",
-              metaVerifyToken: defaultMetaVerifyToken(),
-              prompt: promptText,
-              pixKey: body.pixKey || "nao-configurado",
-              pixRecipientName: body.pixRecipientName?.trim() || body.name,
-              messageDelayMs: messageDelayMsFromForm(body),
-              previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
-              deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
-              audioLibrary: initialAudioLibrary,
-              avatarUrl: "",
-              active: body.active === "true",
-              paymentMethod: body.paymentMethod,
-              laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
-                ? encryptSecret(body.laranjinhaApiKey.trim())
-                : undefined,
-              productName: body.productName,
-              productPriceCents: Math.round(body.productPrice * 100),
-              deliveryLink: body.deliveryLink?.trim() || "",
-              videoCallLink: body.videoCallLink?.trim() || "",
-              videoCallVideoUrl: callVideoUpload || "",
-              videoCallCallerName: body.videoCallCallerName?.trim() || body.name,
-              videoCallAvatarUrl: callAvatarUpload || body.videoCallAvatarUrl?.trim() || "",
-              locale: body.locale === "en-US" ? "en-US" : "pt-BR",
-              backupToken: body.backupToken?.trim() || undefined,
-              followUpEnabled: body.followUpEnabled === "true",
-              followUpAfterMinutes: body.followUpAfterMinutes,
-              followUpMaxPerLead: body.followUpMaxPerLead,
-              followUpSteps: followUpStepsFromForm(fieldArrays),
-              priceTableImageUrl: priceTableUpload || ""
-            },
+        applyTelegramFieldsFromForm(
+          applyAIFieldsFromForm(
+            applyWaFieldsFromForm(
+              {
+                id: botId,
+                userId: user.id,
+                name: body.name,
+                token: platform === "telegram" ? `tg-${botId}` : `wa-${botId}`,
+                platform,
+                waPort: platform === "telegram" ? undefined : waPortForBot(botId),
+                waApiProvider: "whatsapp_web",
+                proxyEnabled: false,
+                metaPhoneNumberId: "",
+                metaVerifyToken: defaultMetaVerifyToken(),
+                prompt: promptText,
+                pixKey: body.pixKey || "nao-configurado",
+                pixRecipientName: body.pixRecipientName?.trim() || body.name,
+                messageDelayMs: messageDelayMsFromForm(body),
+                previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
+                deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
+                audioLibrary: initialAudioLibrary,
+                avatarUrl: "",
+                active: body.active === "true",
+                paymentMethod: body.paymentMethod,
+                laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
+                  ? encryptSecret(body.laranjinhaApiKey.trim())
+                  : undefined,
+                productName: body.productName,
+                productPriceCents: Math.round(body.productPrice * 100),
+                deliveryLink: body.deliveryLink?.trim() || "",
+                videoCallLink: body.videoCallLink?.trim() || "",
+                videoCallVideoUrl: callVideoUpload || "",
+                videoCallCallerName: body.videoCallCallerName?.trim() || body.name,
+                videoCallAvatarUrl: callAvatarUpload || body.videoCallAvatarUrl?.trim() || "",
+                locale: body.locale === "en-US" ? "en-US" : "pt-BR",
+                backupToken: body.backupToken?.trim() || undefined,
+                followUpEnabled: body.followUpEnabled === "true",
+                followUpAfterMinutes: body.followUpAfterMinutes,
+                followUpMaxPerLead: body.followUpMaxPerLead,
+                followUpSteps: followUpStepsFromForm(fieldArrays),
+                priceTableImageUrl: priceTableUpload || ""
+              },
+              body
+            ),
             body
           ),
           body
@@ -2818,6 +2936,14 @@ export async function registerPanelRoutes(
       await syncProductsFromPrompt(botId, body.prompt);
       hooks.syncBots();
       hooks.ensureBots();
+      if (platform === "telegram") {
+        return reply.redirect(
+          flashRedirect(
+            `/instances/${botId}/tg`,
+            "Instância Telegram criada! Informe o código quando o app pedir."
+          )
+        );
+      }
       return reply.redirect(
         flashRedirect(
           `/instances/${botId}/qr`,

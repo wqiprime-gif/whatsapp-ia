@@ -14,20 +14,34 @@ import {
   shutdownWhatsAppBots,
   syncWhatsAppBotConfigs
 } from "./whatsapp-runtime.js";
+import {
+  ensureTelegramBotsRunning,
+  restartSingleTelegramBot,
+  restartTelegramBots,
+  shutdownTelegramBots,
+  syncTelegramBotConfigs
+} from "./telegram-runtime.js";
+import { getBotByIdAny } from "./bots.js";
+import { isTelegramBot } from "./lib/platform-types.js";
 
 export async function restartBots() {
-  await restartWhatsAppBots();
+  await Promise.all([restartWhatsAppBots(), restartTelegramBots()]);
 }
 
 export async function ensureBots() {
-  await ensureWhatsAppBotsRunning();
+  await Promise.all([ensureWhatsAppBotsRunning(), ensureTelegramBotsRunning()]);
 }
 
 export async function syncBots() {
-  await syncWhatsAppBotConfigs();
+  await Promise.all([syncWhatsAppBotConfigs(), syncTelegramBotConfigs()]);
 }
 
 export async function restartBot(botId: string) {
+  const bot = await getBotByIdAny(botId);
+  if (bot && isTelegramBot(bot)) {
+    await restartSingleTelegramBot(botId);
+    return;
+  }
   await restartSingleWhatsAppBot(botId);
 }
 
@@ -185,9 +199,9 @@ let appShuttingDown = false;
 async function onShutdownSignal(signal: string) {
   if (appShuttingDown) return;
   appShuttingDown = true;
-  console.log(`[shutdown] ${signal} — salvando sessões WhatsApp antes de encerrar...`);
+  console.log(`[shutdown] ${signal} — salvando sessões antes de encerrar...`);
   try {
-    await shutdownWhatsAppBots();
+    await Promise.all([shutdownWhatsAppBots(), shutdownTelegramBots()]);
   } catch (error) {
     console.error("[shutdown] Erro ao encerrar bots:", error);
   }

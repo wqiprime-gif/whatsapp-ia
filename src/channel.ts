@@ -1,6 +1,10 @@
-/** Canal deste deploy — painel e runtime são WhatsApp. */
-export const APP_CHANNEL = "whatsapp" as const;
+/** Canal deste deploy — WhatsApp + Telegram (conta real MTProto). */
+export const APP_CHANNEL = "multi" as const;
 
 export function isWhatsAppChannel() {
-  return APP_CHANNEL === "whatsapp";
+  return true;
+}
+
+export function supportsTelegram() {
+  return true;
 }

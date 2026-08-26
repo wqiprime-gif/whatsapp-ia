@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { loadBots, uploadsDir, type BotConfig, isWhatsAppBot } from "./bots.js";
+import { loadBots, uploadsDir, type BotConfig, isWhatsAppBot, isTelegramBot } from "./bots.js";
 import { listProducts } from "./db/events.js";
 import { getUserById } from "./db/users.js";
 import { env, rootDir } from "./config.js";
@@ -205,6 +205,10 @@ async function requestWaLogout(botId: string, port: number) {
 
 function chatIdFromWaJid(jid: string) {
   const raw = String(jid || "");
+  if (raw.startsWith("tg:")) {
+    const n = Number(raw.slice(3).replace(/\D/g, ""));
+    if (Number.isSafeInteger(n) && n > 0) return n;
+  }
   const bare = raw.split("@")[0] || "";
   const digits = bare.replace(/\D/g, "");
   if (digits.length >= 10 && digits.length <= 15) {
@@ -703,7 +707,9 @@ export type WaLiveStatus =
   | "auth_failure"
   | "error"
   | "meta_ready"
-  | "meta_missing";
+  | "meta_missing"
+  | "need_code"
+  | "need_password";
 
 type WaRuntimeState = {
   state: string;
@@ -795,6 +801,17 @@ async function fetchWebBotState(botId: string): Promise<WaRuntimeState> {
 
 export async function getWaLiveStatus(bot: BotConfig): Promise<WaLiveStatus> {
   if (!bot.active) return "paused";
+
+  if (isTelegramBot(bot)) {
+    const { getTelegramLiveStatus } = await import("./telegram-runtime.js");
+    const st = getTelegramLiveStatus(bot.id);
+    if (st === "online") return "connected";
+    if (st === "need_code") return "need_code";
+    if (st === "need_password") return "need_password";
+    if (st === "error") return "error";
+    if (st === "starting" || st === "connecting" || st === "authenticating") return "starting";
+    return "offline";
+  }
 
   if (isMetaBot(bot)) {
     return bot.metaPhoneNumberId?.trim() && bot.metaAccessTokenEncrypted ? "meta_ready" : "meta_missing";

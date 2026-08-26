@@ -7,10 +7,10 @@ import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
 import { parseFollowUpSteps, type FollowUpStep } from "./lib/follow-up.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
-import { parseBotPlatform, type BotPlatform, isWhatsAppBot } from "./lib/platform-types.js";
+import { parseBotPlatform, type BotPlatform, isWhatsAppBot, isTelegramBot, platformLabel } from "./lib/platform-types.js";
 
 export type { BotPlatform };
-export { isWhatsAppBot, parseBotPlatform };
+export { isWhatsAppBot, isTelegramBot, parseBotPlatform, platformLabel };
 
 const dataDir = env.DATA_DIR;
 const uploadsDir = path.join(dataDir, "uploads");
@@ -97,6 +97,10 @@ export type BotConfig = {
   aiProvider?: AIProviderId;
   aiModel?: string;
   aiApiKeyEncrypted?: string;
+  /** Telegram MTProto (conta real) */
+  tgApiId?: number;
+  tgApiHashEncrypted?: string;
+  tgPhone?: string;
 };
 
 function parseAudioLibrary(value: unknown): NamedAudio[] {
@@ -249,7 +253,10 @@ function rowToBot(row: {
     priceTableImageUrl: row.price_table_image_url ?? "",
     aiProvider: normalizeAIProvider(row.ai_provider),
     aiModel: sanitizeAIModel(normalizeAIProvider(row.ai_provider), row.ai_model),
-    aiApiKeyEncrypted: row.ai_api_key_encrypted ?? undefined
+    aiApiKeyEncrypted: row.ai_api_key_encrypted ?? undefined,
+    tgApiId: Number((row as { tg_api_id?: number }).tg_api_id || 0) || undefined,
+    tgApiHashEncrypted: (row as { tg_api_hash_encrypted?: string }).tg_api_hash_encrypted ?? undefined,
+    tgPhone: String((row as { tg_phone?: string }).tg_phone || "").trim() || undefined
   };
 }
 
@@ -261,7 +268,8 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   meta_phone_number_id, meta_access_token_encrypted, meta_verify_token,
   follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
   price_table_image_url, video_call_video_url, video_call_external_link, video_call_caller_name, video_call_avatar_url, locale,
-  ai_provider, ai_model, ai_api_key_encrypted
+  ai_provider, ai_model, ai_api_key_encrypted,
+  tg_api_id, tg_api_hash_encrypted, tg_phone
   FROM bots`;
 
 /** Carrega bots. Sem userId = todos (runtime). Com userId = painel do cliente. */
@@ -313,7 +321,10 @@ export async function loadBots(userId?: string) {
     productPresentationEnabled: Boolean(b.productPresentationEnabled),
     productPresentationMediaUrls: b.productPresentationMediaUrls ?? [],
     followUpSteps: parseFollowUpSteps(b.followUpSteps),
-    priceTableImageUrl: b.priceTableImageUrl ?? ""
+    priceTableImageUrl: b.priceTableImageUrl ?? "",
+    tgApiId: b.tgApiId,
+    tgApiHashEncrypted: b.tgApiHashEncrypted,
+    tgPhone: b.tgPhone
   })) as BotConfig[];
 
   return userId ? normalized.filter((b) => b.userId === userId) : normalized;
@@ -436,6 +447,14 @@ export async function upsertBot(bot: BotConfig) {
         bot.aiModel ?? null,
         bot.aiApiKeyEncrypted ?? null
       ]
+    );
+    await getPool().query(
+      `UPDATE bots SET
+         tg_api_id = $2,
+         tg_api_hash_encrypted = COALESCE($3, tg_api_hash_encrypted),
+         tg_phone = $4
+       WHERE id = $1`,
+      [bot.id, bot.tgApiId ?? null, bot.tgApiHashEncrypted ?? null, bot.tgPhone ?? ""]
     );
     return;
   }

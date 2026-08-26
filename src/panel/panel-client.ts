@@ -406,6 +406,21 @@ export const panelClientScript = `
 
     const proxySel = scope.querySelector("#proxy-enabled");
     const proxyBlock = scope.querySelector("#proxy-fields-block");
+    const platformSel = scope.querySelector("#bot-platform-select");
+    const waBlocks = scope.querySelector("#wa-platform-blocks");
+    const tgBlocks = scope.querySelector("#tg-platform-blocks");
+
+    function syncPlatform() {
+      const isTg = platformSel && platformSel.value === "telegram";
+      if (waBlocks) waBlocks.style.display = isTg ? "none" : "";
+      if (tgBlocks) tgBlocks.style.display = isTg ? "" : "none";
+    }
+    if (platformSel) {
+      platformSel.addEventListener("change", syncPlatform);
+      syncPlatform();
+    } else if (tgBlocks) {
+      tgBlocks.style.display = "none";
+    }
 
     function syncProxy() {
       const on = proxySel && proxySel.value === "true";

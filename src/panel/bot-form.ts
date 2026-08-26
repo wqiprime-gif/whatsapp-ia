@@ -233,8 +233,58 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
     </div>`;
 }
 
-function platformConnectionBlock(_isEdit: boolean, _bot?: BotConfig) {
-  return `<div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>`;
+function platformConnectionBlock(isEdit: boolean, bot?: BotConfig) {
+  const platform = bot?.platform === "telegram" ? "telegram" : "whatsapp";
+  return `
+        <div id="wa-form-init-marker" data-wa-form-init="1" hidden></div>
+        <div class="form-section span-2">
+          <div class="form-section-head">
+            <span class="form-section-icon">${icons.layers}</span>
+            <div>
+              <h4>Canal</h4>
+              <p>WhatsApp (QR) ou Telegram conta real (MTProto — sem Bot API).</p>
+            </div>
+          </div>
+          <label class="field span-2">Plataforma
+            <select name="platform" id="bot-platform-select">
+              <option value="whatsapp" ${platform === "whatsapp" ? "selected" : ""}>WhatsApp</option>
+              <option value="telegram" ${platform === "telegram" ? "selected" : ""}>Telegram (número pessoal)</option>
+            </select>
+          </label>
+        </div>`;
+}
+
+function telegramConnectionBlock(isEdit: boolean, bot?: BotConfig) {
+  const apiId = bot?.tgApiId ? String(bot.tgApiId) : "";
+  const phone = bot?.tgPhone || "";
+  const hasHash = Boolean(bot?.tgApiHashEncrypted);
+  return `
+        <div class="form-section span-2" id="tg-web-block">
+          <div class="form-section-head">
+            <span class="form-section-icon">${icons.chat}</span>
+            <div>
+              <h4>Telegram · conta real (MTProto)</h4>
+              <p>Credenciais em <a href="https://my.telegram.org/apps" target="_blank" rel="noopener">my.telegram.org/apps</a>.</p>
+            </div>
+          </div>
+          <label class="field">
+            <span>API ID</span>
+            <input name="tgApiId" type="number" inputmode="numeric" value="${escapeHtml(apiId)}" placeholder="12345678" />
+          </label>
+          <label class="field">
+            <span>API Hash</span>
+            <input name="tgApiHash" type="password" autocomplete="off" placeholder="${hasHash ? "•••• (vazio = manter)" : "cole o api_hash"}" />
+          </label>
+          <label class="field span-2">
+            <span>Telefone (com DDI)</span>
+            <input name="tgPhone" type="tel" value="${escapeHtml(phone)}" placeholder="+5511999999999" />
+          </label>
+          ${
+            isEdit && bot
+              ? `<a href="/instances/${bot.id}/tg" class="btn btn-primary btn-sm">Conectar / código Telegram</a>`
+              : `<p class="form-hint">Após salvar, abra Conectar Telegram e digite o código.</p>`
+          }
+        </div>`;
 }
 
 /** Entrega automática após comprovante aprovado (link e/ou mídias). */
@@ -534,6 +584,9 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         <div id="wa-platform-blocks">
         ${waConnectionBlock(isEdit, bot)}
         </div>
+        <div id="tg-platform-blocks">
+        ${telegramConnectionBlock(isEdit, bot)}
+        </div>
         <label class="field">Chave Pix
           <input name="pixKey" value="${isEdit ? escapeHtml(bot.pixKey) : ""}" placeholder="CPF, email ou telefone" required />
         </label>
@@ -714,6 +767,10 @@ function waStatusBadge(status: WaLiveStatus) {
       return { cls: "badge-offline", label: "Offline" };
     case "auth_failure":
       return { cls: "badge-offline", label: "Erro auth" };
+    case "need_code":
+      return { cls: "badge-paused", label: "Código TG" };
+    case "need_password":
+      return { cls: "badge-paused", label: "2FA TG" };
     case "error":
       return { cls: "badge-offline", label: "Erro motor" };
     case "meta_missing":
@@ -740,9 +797,11 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
     <tbody>
     ${bots
       .map((bot) => {
+        const isTg = bot.platform === "telegram";
         const live = statuses[bot.id] ?? (bot.active ? "starting" : "paused");
         const badge = waStatusBadge(live);
         const showQr =
+          !isTg &&
           bot.waApiProvider !== "meta_cloud" &&
           bot.active &&
           (live === "qr_pending" ||
@@ -750,6 +809,10 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
             live === "disconnected" ||
             live === "auth_failure" ||
             live === "error");
+        const showTgConnect = isTg && bot.active;
+        const channelLabel = isTg
+          ? `Telegram${bot.tgPhone ? ` · ${escapeHtml(bot.tgPhone)}` : ""}`
+          : `${escapeHtml(bot.waApiProvider === "meta_cloud" ? "WhatsApp Web (legado)" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}${bot.waPhoneNumber ? ` · ${escapeHtml(bot.waPhoneNumber)}` : ""}`;
         return `
       <tr>
         <td>
@@ -757,7 +820,7 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
             ${botAvatarHtml(bot)}
             <div>
               <div class="title">${escapeHtml(bot.name)}</div>
-              <div class="sub">${escapeHtml(bot.waApiProvider === "meta_cloud" ? "WhatsApp Web (legado)" : "WhatsApp Web")}${bot.proxyEnabled ? " · Proxy" : ""}${bot.waPhoneNumber ? ` · ${escapeHtml(bot.waPhoneNumber)}` : ""}</div>
+              <div class="sub">${channelLabel}</div>
             </div>
           </div>
         </td>
@@ -775,6 +838,13 @@ export function instancesTableHtml(bots: BotConfig[], statuses: Record<string, W
               showQr
                 ? `<a href="/instances/${bot.id}/qr" class="action-btn" title="Escanear QR Code">
               <span class="action-btn__label">QR Code</span>
+            </a>`
+                : ""
+            }
+            ${
+              showTgConnect
+                ? `<a href="/instances/${bot.id}/tg" class="action-btn" title="Conectar Telegram">
+              <span class="action-btn__label">Telegram</span>
             </a>`
                 : ""
             }

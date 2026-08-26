@@ -191,6 +191,9 @@ export async function initEventsSchema() {
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_caller_name TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS video_call_avatar_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE bots ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'pt-BR';
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS tg_api_id INTEGER;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS tg_api_hash_encrypted TEXT;
+    ALTER TABLE bots ADD COLUMN IF NOT EXISTS tg_phone TEXT NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS call_sessions (
       token TEXT PRIMARY KEY,
