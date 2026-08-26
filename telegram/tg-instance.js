@@ -4,6 +4,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const { execFile } = require("child_process");
 const express = require("express");
 const axios = require("axios");
 const { TelegramClient } = require("telegram");
@@ -126,6 +127,20 @@ function buildSystemPrompt() {
     "Você está no Telegram (conta pessoal). Responda só em chats privados.\n" +
     "NUNCA diga que é bot ou IA.\n" +
     "Máximo 2 frases por mensagem.\n";
+
+  const library = getAudioLibrary();
+  if (library.length) {
+    prompt +=
+      "\nÁUDIOS (notas de voz): quando for mandar áudio, responda SOMENTE com a tag, sem texto junto " +
+      '(ex: só "[[audio:nao_sou_fake]]"). NUNCA anuncie o áudio.\n';
+    for (const a of library) {
+      const slug = audioItemSlug(a);
+      if (!slug) continue;
+      const triggers = String(a.triggers || a.keywords || "").trim();
+      prompt += `- [[audio:${slug}]] → ${a.label || slug}` + (triggers ? ` (gatilhos: ${triggers})` : "") + "\n";
+    }
+  }
+
   if (pixKey) {
     prompt += `\nChave Pix real: ${pixKey}` + (pixName ? ` (nome: ${pixName})` : "") + "\n";
     prompt += "Quando o lead quiser pagar, envie a chave Pix completa na mensagem.\n";
@@ -165,6 +180,258 @@ function getOpenAI() {
   return openai;
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ── Áudios / notas de voz (mesmo padrão do WhatsApp: OGG Opus + voice note) ──
+const sentAudios = {};
+const AUDIO_STOP_WORDS = new Set(["amor", "bebe", "bb", "oi", "oie", "ola", "hey", "sim", "nao", "ok"]);
+
+function normalizeAudioKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9,\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeAudioSlug(value) {
+  return normalizeAudioKey(value).replace(/\s+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+}
+
+function audioItemSlug(item) {
+  return normalizeAudioSlug((item && (item.slug || item.label)) || "");
+}
+
+function audioItemTriggers(item) {
+  const raw = ((item && (item.triggers || item.keywords)) || "").trim();
+  return raw
+    .split(",")
+    .map((k) => normalizeAudioKey(k))
+    .filter((k) => k.length >= 4 && !AUDIO_STOP_WORDS.has(k));
+}
+
+function getAudioLibrary() {
+  return (loadBotConfig().audioLibrary || []).filter((a) => a && a.url);
+}
+
+function resolveAudioBySlug(slug, library) {
+  const norm = normalizeAudioSlug(slug);
+  if (!norm || !Array.isArray(library)) return null;
+  return library.find((it) => audioItemSlug(it) === norm) || null;
+}
+
+function parseAudioTagSlugs(text) {
+  const slugs = [];
+  const re = /\[\[audio:([a-z0-9_]+)\]\]|\[\[audio_([a-z0-9_]+)\]\]/gi;
+  let m;
+  while ((m = re.exec(String(text || ""))) !== null) {
+    const s = normalizeAudioSlug(m[1] || m[2] || "");
+    if (s) slugs.push(s);
+  }
+  return [...new Set(slugs)];
+}
+
+function audioAlreadySent(chatId, slug) {
+  const key = String(chatId);
+  return Array.isArray(sentAudios[key]) && sentAudios[key].includes(slug);
+}
+
+function markAudioSent(chatId, slug) {
+  const key = String(chatId);
+  if (!Array.isArray(sentAudios[key])) sentAudios[key] = [];
+  if (!sentAudios[key].includes(slug)) sentAudios[key].push(slug);
+}
+
+function isGreetingText(text) {
+  return /^(oi+|oii+|oie+|ol[aá]|bom dia|boa tarde|boa noite|e ai|eai|hey|hi|hello)[\s!.?😊🙂❤️]*$/i.test(
+    String(text || "").trim()
+  );
+}
+
+function isFirstUserMessage(chatId) {
+  const conv = conversations[String(chatId)] || [];
+  return conv.filter((m) => m.role === "user").length <= 1;
+}
+
+function resolveSaudacaoAudio() {
+  return resolveAudioBySlug("saudacao", getAudioLibrary());
+}
+
+function findContextualLeadAudio(text, library) {
+  if (!Array.isArray(library) || !library.length) return null;
+  const norm = normalizeAudioKey(text);
+  if (!norm) return null;
+  let best = null;
+  for (const item of library) {
+    for (const trigger of audioItemTriggers(item)) {
+      let score = 0;
+      if (norm === trigger) score = 100;
+      else if (norm.includes(trigger)) score = 70 + Math.min(trigger.length, 25);
+      if (score > (best ? best.score : 0)) best = { item, score };
+    }
+  }
+  if (best && best.score >= 60) return best.item;
+  if (/fake|golpe|golp|é bot|e bot|rob[oô]|\bia\b|desconfi|scam|fraude/i.test(String(text || ""))) {
+    return (
+      library.find(
+        (a) =>
+          /nao.?sou.?fake|naosou_fake|fake|golpe/.test(audioItemSlug(a)) ||
+          /fake|golpe|bot|desconfi/.test(((a.triggers || a.keywords) || "").toLowerCase())
+      ) || null
+    );
+  }
+  return null;
+}
+
+function pickFunnelAudios(input) {
+  const library = input.library || [];
+  const picks = [];
+  const seen = new Set();
+  const add = (item) => {
+    if (!item) return;
+    const slug = audioItemSlug(item);
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
+    picks.push(item);
+  };
+  for (const slug of input.audioSlugs || []) add(resolveAudioBySlug(slug, library));
+  if (picks.length === 0) add(findContextualLeadAudio(input.userText, library));
+  return picks.slice(0, 1);
+}
+
+function resolveMediaLocalPath(url) {
+  const clean = String(url || "").trim();
+  if (!clean) return null;
+  if (fs.existsSync(clean)) return clean;
+
+  if (clean.includes("/seed-audios/")) {
+    const seedName = path.basename(clean.split("?")[0]);
+    const candidates = [
+      path.join(__dirname, "..", "assets", "seed-audios", seedName),
+      path.join(__dirname, "..", "hotbot", seedName),
+      path.join(process.cwd(), "..", "assets", "seed-audios", seedName),
+      path.join(process.cwd(), "assets", "seed-audios", seedName)
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+  }
+
+  const baseName = path.basename(clean.split("?")[0]);
+  const uploadsDir = process.env.UPLOADS_DIR;
+  const candidates = [];
+  if (uploadsDir) {
+    candidates.push(path.join(uploadsDir, baseName));
+    if (clean.includes("/uploads/")) {
+      candidates.push(path.join(uploadsDir, clean.split("/uploads/")[1].split("?")[0]));
+    }
+  }
+  candidates.push(path.join(instancesDataDir, "uploads", baseName));
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
+let ffmpegAvailable = null;
+function hasFfmpeg() {
+  if (ffmpegAvailable !== null) return ffmpegAvailable;
+  try {
+    execFile("ffmpeg", ["-version"], { timeout: 5000 }, (err) => {
+      ffmpegAvailable = !err;
+    });
+  } catch (_) {
+    ffmpegAvailable = false;
+  }
+  try {
+    require("child_process").execFileSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 5000 });
+    ffmpegAvailable = true;
+  } catch (_) {
+    ffmpegAvailable = false;
+  }
+  return ffmpegAvailable;
+}
+
+function toVoiceOgg(localPath) {
+  return new Promise((resolve) => {
+    try {
+      const ext = path.extname(localPath).toLowerCase();
+      if (ext === ".ogg" || ext === ".opus") return resolve(localPath);
+      if (!hasFfmpeg()) return resolve(null);
+
+      const cacheDir = path.join(instancesDataDir, "voice-cache");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const base = path.basename(localPath).replace(/[^a-zA-Z0-9._-]/g, "-");
+      const outPath = path.join(cacheDir, `${base}.ogg`);
+      if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) return resolve(outPath);
+
+      execFile(
+        "ffmpeg",
+        ["-y", "-i", localPath, "-vn", "-c:a", "libopus", "-b:a", "64k", "-ar", "48000", "-ac", "1", outPath],
+        { timeout: 30000 },
+        (err) => {
+          if (err) {
+            console.error(`❌ ffmpeg TG: ${err.message}`);
+            return resolve(null);
+          }
+          if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) return resolve(outPath);
+          resolve(null);
+        }
+      );
+    } catch (error) {
+      console.error(`❌ toVoiceOgg TG: ${error.message}`);
+      resolve(null);
+    }
+  });
+}
+
+/** Envia nota de voz no Telegram (voice_note) — equivalente ao PTT do WhatsApp. */
+async function sendNamedAudioVoiceOnce(peer, chatId, item) {
+  if (!item || !item.url) return false;
+  const slug = audioItemSlug(item);
+  if (audioAlreadySent(chatId, slug)) {
+    console.log(`⏩ Áudio TG "${slug}" já enviado — ignorando`);
+    return false;
+  }
+
+  const localPath = resolveMediaLocalPath(item.url);
+  if (!localPath || !fs.existsSync(localPath)) {
+    console.error(`❌ Áudio TG não encontrado: ${item.url}`);
+    return false;
+  }
+
+  const oggPath = (await toVoiceOgg(localPath)) || localPath;
+
+  try {
+    await client.invoke(
+      new Api.messages.SetTyping({
+        peer,
+        action: new Api.SendMessageRecordAudioAction()
+      })
+    );
+  } catch (_) {}
+
+  await sleep(1800 + Math.random() * 1800);
+
+  try {
+    await client.sendFile(peer, {
+      file: oggPath,
+      voiceNote: true,
+      forceDocument: false
+    });
+    markAudioSent(chatId, slug);
+    console.log(`✅ Nota de voz TG "${slug}" enviada`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Falha ao enviar voz TG "${slug}":`, error?.message || error);
+    return false;
+  }
+}
+
 async function generateReply(chatId, userText) {
   const conv = getConversation(chatId);
   if (conv[0]?.role === "system") conv[0].content = buildSystemPrompt();
@@ -176,16 +443,12 @@ async function generateReply(chatId, userText) {
     max_tokens: 280,
     temperature: 0.85
   });
-  let text = String(completion.choices[0]?.message?.content || "").trim();
-  text = text.replace(/\[\[.*?\]\]/g, "").trim();
-  if (!text) text = "oii amor, me fala melhor o que você quer? 💕";
-  conv.push({ role: "assistant", content: text });
+  let raw = String(completion.choices[0]?.message?.content || "").trim();
+  const audioSlugs = parseAudioTagSlugs(raw);
+  let text = raw.replace(/\[\[.*?\]\]/g, "").trim();
+  conv.push({ role: "assistant", content: raw || text });
   saveConversations();
-  return text;
-}
-
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return { text, audioSlugs, raw };
 }
 
 const apiId = Number(process.env.TG_API_ID || 0);
@@ -292,26 +555,68 @@ client.addEventHandler(async (event) => {
       content: text
     });
 
-    await client.invoke(
-      new Api.messages.SetTyping({
-        peer: await event.getInputChat(),
-        action: new Api.SendMessageTypingAction()
-      })
-    );
-
+    const peer = await event.getInputChat();
     const delay = Number(loadBotConfig().messageDelayMs) || 2500;
     await sleep(Math.round(delay * (0.85 + Math.random() * 0.3)));
 
-    const reply = await generateReply(chatId, text);
-    await event.respond(reply);
-    void panelLog({
-      type: "message",
-      jid: `tg:${chatId}`,
-      chatId,
-      role: "assistant",
-      content: reply
+    // Saudação em áudio no primeiro "oi" (igual WhatsApp)
+    if (isGreetingText(text) && isFirstUserMessage(chatId)) {
+      const conv = getConversation(chatId);
+      conv.push({ role: "user", content: text });
+      const saudacao = resolveSaudacaoAudio();
+      if (saudacao) {
+        const ok = await sendNamedAudioVoiceOnce(peer, chatId, saudacao);
+        if (ok) {
+          conv.push({ role: "system", content: "Áudio de saudação já enviado. Não repita; siga o funil." });
+          saveConversations();
+          return;
+        }
+      }
+    }
+
+    const result = await generateReply(chatId, text);
+    const library = getAudioLibrary();
+    const audioPicks = pickFunnelAudios({
+      audioSlugs: result.audioSlugs,
+      userText: text,
+      library
     });
-    console.log(`✅ Resposta: ${reply}`);
+
+    let anyAudio = false;
+    for (const item of audioPicks) {
+      const ok = await sendNamedAudioVoiceOnce(peer, chatId, item);
+      if (ok) anyAudio = true;
+    }
+
+    // Se mandou áudio, não manda texto robótico junto (mesmo padrão do WhatsApp)
+    const replyText = anyAudio ? "" : result.text || "oii amor, me fala melhor o que você quer? 💕";
+    if (replyText) {
+      try {
+        await client.invoke(
+          new Api.messages.SetTyping({
+            peer,
+            action: new Api.SendMessageTypingAction()
+          })
+        );
+      } catch (_) {}
+      await event.respond(replyText);
+      void panelLog({
+        type: "message",
+        jid: `tg:${chatId}`,
+        chatId,
+        role: "assistant",
+        content: replyText
+      });
+      console.log(`✅ Resposta TG: ${replyText}`);
+    } else if (anyAudio) {
+      void panelLog({
+        type: "message",
+        jid: `tg:${chatId}`,
+        chatId,
+        role: "assistant",
+        content: `[audio:${audioPicks.map((a) => audioItemSlug(a)).join(",")}]`
+      });
+    }
   } catch (error) {
     console.error("Erro ao processar mensagem TG:", error?.message || error);
   }

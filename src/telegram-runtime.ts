@@ -54,6 +54,14 @@ async function writeInstanceFiles(bot: BotConfig) {
           allowHalfPrice: p.allowHalfPrice,
           halfPricePercent: p.halfPricePercent
         })),
+        audioLibrary: (bot.audioLibrary ?? []).map((a) => ({
+          label: a.label,
+          url: a.url,
+          slug: a.slug ?? "",
+          triggers: a.triggers ?? "",
+          keywords: a.keywords ?? ""
+        })),
+        previewMediaUrls: bot.previewMediaUrls ?? [],
         platform: "telegram",
         updatedAt: new Date().toISOString()
       },
