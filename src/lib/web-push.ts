@@ -136,10 +136,10 @@ export async function sendPushToSubscription(
 
 /** Prefixo + timestamp + id curto — cada push vira notificação nova (não apaga a anterior). */
 export function uniquePushTag(base?: string) {
-  const prefix = String(base || "onlychat")
+  const prefix = String(base || "x1black")
     .trim()
     .replace(/\s+/g, "-")
-    .slice(0, 48) || "onlychat";
+    .slice(0, 48) || "x1black";
   return `${prefix}-${Date.now()}-${randomUUID().slice(0, 8)}`;
 }
 
@@ -201,9 +201,9 @@ export async function notifyAllUsersPush(payload: {
 
 export async function sendTestPush(userId: string) {
   return notifyUserPush(userId, {
-    title: "OnlyChat — teste OK",
+    title: "X1 BLACK — teste OK",
     body: "Notificações no celular funcionando!",
     url: "/perfil",
-    tag: "onlychat-test"
+    tag: "x1black-test"
   });
 }

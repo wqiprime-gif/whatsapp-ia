@@ -334,7 +334,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
       </label>
       <label class="field">Nome na chamada
         <input name="videoCallCallerName" value="${escapeHtml(callerName)}" placeholder="Ex: Bia" />
-        <span class="form-hint">Aparece na tela &quot;está te ligando...&quot; do link OnlyChat.</span>
+        <span class="form-hint">Aparece na tela &quot;está te ligando...&quot; do link X1 BLACK.</span>
       </label>
       <label class="field">Foto de perfil na chamada
         <div class="dropzone dropzone-neon" style="padding:12px">
@@ -356,7 +356,7 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         <span class="form-hint">Escolha o MP4 e clique em <strong>Gerar link</strong> abaixo — não precisa salvar a instância antes para testar.</span>
       </label>
       <div class="field span-2" data-call-link-box data-bot-id="${escapeHtml(botId)}" data-has-video="${videoCallVideoUrl ? "1" : "0"}" data-saved-video="${escapeHtml(videoCallVideoUrl)}" data-saved-avatar="${escapeHtml(callAvatarUrl)}">
-        <label>Link OnlyChat da chamada (para testar)
+        <label>Link X1 BLACK da chamada (para testar)
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
             <input type="text" id="call-link-output" readonly value="${escapeHtml(videoCallLink && videoCallLink.includes("/call/") ? videoCallLink : "")}" placeholder="Clique em Gerar link para montar" style="flex:1;min-width:200px" />
             <button type="button" class="btn btn-primary" id="btn-generate-call-link">Gerar link</button>
@@ -367,8 +367,8 @@ export function deliveryConfigBlock(bot: BotConfig | undefined, formId = "bot-pr
         <span class="form-hint">1) Escolha o MP4 · 2) Gere o link · 3) Copie e abra no celular. Pode fazer isso <strong>antes de salvar</strong> a instância.</span>
       </div>
       <label class="field span-2">Link externo da chamada (opcional)
-        <input name="videoCallLink" id="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="Cole aqui o link OnlyChat gerado, ou um Meet externo" />
-        <span class="form-hint">Cole o link gerado acima neste campo se quiser fixar. Se o MP4 estiver salvo, o bot gera link OnlyChat automaticamente no pagamento.</span>
+        <input name="videoCallLink" id="videoCallLink" value="${escapeHtml(videoCallLink)}" placeholder="Cole aqui o link X1 BLACK gerado, ou um Meet externo" />
+        <span class="form-hint">Cole o link gerado acima neste campo se quiser fixar. Se o MP4 estiver salvo, o bot gera link X1 BLACK automaticamente no pagamento.</span>
       </label>
       ${list}
       <label class="field">
@@ -413,7 +413,7 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
           <p>Escolha o provedor, modelo e API Key usados para responder os leads desta instância.</p>
         </div>
       </div>
-      ${isEdit && hasKey ? `<p class="form-hint" style="color:#3b82f6;margin-bottom:10px">Chave ativa: <code style="color:#93c5fd">${escapeHtml(maskedKey)}</code> — deixe o campo abaixo vazio para manter.</p>` : ""}
+      ${isEdit && hasKey ? `<p class="form-hint" style="color:#d4d4d4;margin-bottom:10px">Chave ativa: <code style="color:#93c5fd">${escapeHtml(maskedKey)}</code> — deixe o campo abaixo vazio para manter.</p>` : ""}
       <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
         <label class="field">
           <span>Provedor de IA</span>

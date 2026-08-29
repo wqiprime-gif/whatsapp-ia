@@ -131,7 +131,7 @@ export const panelClientScript = `
           body: body,
           icon: "/brand/pwa-192.png?v=1.24.15",
           badge: "/brand/pwa-192.png?v=1.24.15",
-          tag: (tag || "onlychat") + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          tag: (tag || "x1black") + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
           renotify: true,
           data: { url: url || "/" },
           vibrate: [120, 60, 120]
@@ -168,9 +168,9 @@ export const panelClientScript = `
           pushResult = await res.json();
         } catch (_) {}
         const localOk = await pushSystemNotify(
-          "OnlyChat — teste OK",
+          "X1 BLACK — teste OK",
           "Notificações no celular funcionando!",
-          "onlychat-test",
+          "x1black-test",
           "/perfil"
         );
         if (pushResult && pushResult.ok && pushResult.sent > 0) {
@@ -477,7 +477,7 @@ export const panelClientScript = `
     if (path.startsWith("/instances/new")) return "Nova Instância";
     if (/^\\/instances\\/[^/]+\\/edit$/.test(path)) return "Editar instância";
     const hit = NAV_PATHS.find(([p]) => p === path);
-    return hit ? hit[1] : "OnlyChat";
+    return hit ? hit[1] : "X1 BLACK";
   }
 
   function normPath(p) {
@@ -570,7 +570,7 @@ export const panelClientScript = `
 
   function applyContent(html, path) {
     main.innerHTML = html;
-    document.title = "OnlyChat";
+    document.title = "X1 BLACK";
     setActiveNav(path);
     syncDashboardTopbar(main);
     bindForms(main);
@@ -848,7 +848,7 @@ export const panelClientScript = `
       const doc = new DOMParser().parseFromString(html, "text/html");
       const next = doc.querySelector(".content");
       if (!next) throw new Error("no content");
-      document.title = "OnlyChat";
+      document.title = "X1 BLACK";
       return next.innerHTML;
     }
     return html;

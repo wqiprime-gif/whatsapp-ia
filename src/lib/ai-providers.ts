@@ -83,6 +83,6 @@ export function sanitizeAIModel(provider: AIProviderId, model?: string | null): 
 export function openRouterDefaultHeaders(siteUrl?: string) {
   return {
     "HTTP-Referer": siteUrl || "https://zapmanager.app",
-    "X-Title": "OnlyChat"
+    "X-Title": "X1 BLACK"
   };
 }

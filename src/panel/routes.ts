@@ -5,9 +5,9 @@ import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { onlyChatIconSvg } from "./brand-icon.js";
-import { onlyChatFaviconSvg } from "./notify-icon.js";
-import { renderWhatsappAppIconPng, whatsappAppIconSvg } from "./whatsapp-app-icon.js";
+import { x1SpiderSvg } from "./brand-icon.js";
+import { x1BlackFaviconSvg } from "./notify-icon.js";
+import { renderX1BlackAppIconPng, x1BlackAppIconSvg } from "./whatsapp-app-icon.js";
 import { env, rootDir } from "../config.js";
 import { useDatabase } from "../db/index.js";
 import {
@@ -1034,7 +1034,7 @@ export async function registerPanelRoutes(
       const session = await createCallSession({
         botId: botId || undefined,
         leadJid: "preview-test",
-        callerName: callerName || "OnlyChat",
+        callerName: callerName || "X1 BLACK",
         avatarUrl,
         videoUrl,
         locale
@@ -1463,7 +1463,7 @@ export async function registerPanelRoutes(
       convGaugeHtml: conversionGaugeSvg(convPct, `${stats.salesCount} pagos de ${stats.leads} leads`),
       messagesChartSvg: messagesChartSvgFromData(messagesChart),
       sparkSalesHtml: sparklineSvg(chartDayValues(chart, (p) => p.totalCents / 100)),
-      sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#00b4ff"),
+      sparkMessagesHtml: sparklineSvg(chartDayValues(messagesChart, (p) => p.count), "#e5e5e5"),
       latestSale: latestSale
         ? {
             id: latestSale.id,
@@ -1520,12 +1520,23 @@ export async function registerPanelRoutes(
     return reply.redirect("/brand/favicon.svg");
   });
 
-  // Favicon WhatsApp azul (telefone) — SVG compacto estilo instablack.
+  // Favicon X1 BLACK — aranha branca em squircle preto.
   app.get("/brand/favicon.svg", async (_request, reply) => {
     return reply
       .type("image/svg+xml")
       .header("Cache-Control", "no-cache")
-      .send(onlyChatFaviconSvg());
+      .send(x1BlackFaviconSvg());
+  });
+
+  app.get("/brand/x1black-logo.jpg", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "x1black-logo.jpg");
+    if (fsSync.existsSync(file)) {
+      return reply
+        .type("image/jpeg")
+        .header("Cache-Control", "public, max-age=604800")
+        .send(fsSync.createReadStream(file));
+    }
+    return reply.type("image/svg+xml").send(x1SpiderSvg(512, "", "logo"));
   });
 
   app.get("/brand/onlychat-mark.svg", async (_request, reply) => {
@@ -1541,7 +1552,7 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply.type("image/svg+xml").send(fsSync.createReadStream(file));
     }
-    return reply.type("image/svg+xml").send(onlyChatIconSvg(120, "", "file"));
+    return reply.type("image/svg+xml").send(x1SpiderSvg(120, "", "file"));
   });
 
   app.get("/brand/onlychat.png", async (_request, reply) => {
@@ -1554,11 +1565,11 @@ export async function registerPanelRoutes(
         return reply.type("image/png").send(fsSync.createReadStream(file));
       }
     }
-    return reply.type("image/svg+xml").send(onlyChatIconSvg(120, "", "png"));
+    return reply.type("image/svg+xml").send(x1SpiderSvg(120, "", "png"));
   });
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {
-    return reply.type("image/svg+xml").send(whatsappAppIconSvg(48));
+    return reply.type("image/svg+xml").send(x1BlackAppIconSvg(48));
   });
 
   app.get("/brand/pwa-192.png", async (_request, reply) => {
@@ -1569,7 +1580,7 @@ export async function registerPanelRoutes(
         .header("Cache-Control", "no-cache")
         .send(fsSync.createReadStream(file));
     }
-    const buf = await renderWhatsappAppIconPng(192);
+    const buf = await renderX1BlackAppIconPng(192);
     return reply
       .type("image/png")
       .header("Cache-Control", "no-cache")
@@ -1584,7 +1595,7 @@ export async function registerPanelRoutes(
         .header("Cache-Control", "no-cache")
         .send(fsSync.createReadStream(file));
     }
-    const buf = await renderWhatsappAppIconPng(512);
+    const buf = await renderX1BlackAppIconPng(512);
     return reply
       .type("image/png")
       .header("Cache-Control", "no-cache")
@@ -2256,19 +2267,19 @@ export async function registerPanelRoutes(
     const link = await getWaRedirectLinkBySlug(slug);
     if (!link) {
       return reply.code(404).type("text/html").send(
-        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Link não encontrado</h1></body></html>"
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#000000;color:#fff'><h1>Link não encontrado</h1></body></html>"
       );
     }
     const pick = pickTargetForRedirect(link);
     if (!pick) {
       return reply.code(503).type("text/html").send(
-        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum número configurado neste rodízio. Edite o link no painel.</p></body></html>"
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#000000;color:#fff'><h1>Indisponível</h1><p>Nenhum número configurado neste rodízio. Edite o link no painel.</p></body></html>"
       );
     }
     const phone = phoneForTargetInLink(link, pick.id);
     if (!phone) {
       return reply.code(503).type("text/html").send(
-        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Número inválido no rodízio.</p></body></html>"
+        "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#000000;color:#fff'><h1>Indisponível</h1><p>Número inválido no rodízio.</p></body></html>"
       );
     }
     void recordRedirectClick(link.id, pick.id);
@@ -2288,7 +2299,7 @@ export async function registerPanelRoutes(
         .code(503)
         .type("text/html")
         .send(
-          "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#050505;color:#fff'><h1>Indisponível</h1><p>Nenhum WhatsApp conectado no momento. Tente novamente em instantes.</p></body></html>"
+          "<!doctype html><html lang='pt-BR'><body style='font-family:system-ui;padding:40px;background:#000000;color:#fff'><h1>Indisponível</h1><p>Nenhum WhatsApp conectado no momento. Tente novamente em instantes.</p></body></html>"
         );
     }
     const url = buildWaMeUrl(pick, query.text || "");

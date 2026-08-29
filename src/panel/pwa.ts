@@ -5,16 +5,16 @@ export function buildPwaManifest(baseUrl = "") {
 
   return {
     id: base || "/",
-    name: "OnlyChat",
-    short_name: "OnlyChat",
+    name: "X1 BLACK",
+    short_name: "X1 BLACK",
     description: "Painel WhatsApp IA — vendas, leads e instâncias",
     lang: "pt-BR",
     dir: "ltr",
     start_url: "/?source=pwa",
     scope: "/",
     display: "standalone",
-    background_color: "#050505",
-    theme_color: "#0a5cff",
+    background_color: "#000000",
+    theme_color: "#000000",
     orientation: "portrait-primary",
     prefer_related_applications: false,
     categories: ["business", "productivity"],
@@ -53,9 +53,9 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "onlychat-v1.24.15";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "x1black-v1.26.0";
 // PNG WhatsApp azul (telefone) — mesmo papel do favicon.svg do instablack.
-const NOTIFY_ICON = "/brand/pwa-192.png?v=1.24.15";
+const NOTIFY_ICON = "/brand/pwa-192.png?v=1.26.0";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -105,9 +105,9 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Mesmo padrão do instablack: icon + badge + tag única (não apaga a anterior).
+// Mesmo padrão do instablack: icon + badge. Tag única para não apagar notificação anterior.
 function uniqueTag(base) {
-  var prefix = String(base || "onlychat").trim() || "onlychat";
+  var prefix = String(base || "x1black").trim() || "x1black";
   return prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
@@ -116,7 +116,7 @@ function notifyOptions(body, tag, url) {
     body: body || "",
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
-    tag: uniqueTag(tag),
+    tag: tag || uniqueTag("x1black"),
     renotify: true,
     data: { url: url || "/" },
     vibrate: [120, 60, 120]
@@ -124,13 +124,13 @@ function notifyOptions(body, tag, url) {
 }
 
 self.addEventListener("push", (event) => {
-  let data = { title: "OnlyChat", body: "", url: "/", tag: "" };
+  let data = { title: "X1 BLACK", body: "", url: "/", tag: "" };
   try {
     if (event.data) data = Object.assign(data, event.data.json());
   } catch (_) {}
   event.waitUntil(
     self.registration.showNotification(
-      data.title || "OnlyChat",
+      data.title || "X1 BLACK",
       notifyOptions(data.body, data.tag, data.url)
     )
   );
@@ -141,8 +141,8 @@ self.addEventListener("message", (event) => {
   if (data.type !== "SHOW_NOTIFICATION") return;
   event.waitUntil(
     self.registration.showNotification(
-      data.title || "OnlyChat",
-      notifyOptions(data.body, data.tag || "onlychat-alert", data.url)
+      data.title || "X1 BLACK",
+      notifyOptions(data.body, data.tag || "x1black-alert", data.url)
     )
   );
 });
@@ -169,14 +169,14 @@ self.addEventListener("notificationclick", (event) => {
 
 export const PWA_HEAD_TAGS = `
 <link rel="manifest" href="/manifest.webmanifest" />
-<meta name="theme-color" content="#0a5cff" />
+<meta name="theme-color" content="#000000" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="OnlyChat" />
+<meta name="apple-mobile-web-app-title" content="X1 BLACK" />
 <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="/brand/pwa-192.png?v=1.24.15" type="image/png" sizes="192x192" />
-<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.24.15" />
+<link rel="icon" href="/brand/pwa-192.png?v=1.26.0" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.26.0" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;

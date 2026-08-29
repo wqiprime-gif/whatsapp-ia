@@ -54,7 +54,7 @@ export function loginLightningScript() {
   function loop(){
     ctx.clearRect(0,0,w,h);
     if (flash > 0){
-      ctx.fillStyle = "rgba(200,255,220," + (flash * 0.08) + ")";
+      ctx.fillStyle = "rgba(255, 255, 255," + (flash * 0.08) + ")";
       ctx.fillRect(0,0,w,h);
       flash *= 0.86;
     }
@@ -65,7 +65,7 @@ export function loginLightningScript() {
       var alpha = b.life * 0.82;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.strokeStyle = "rgba(200,255,220," + alpha + ")";
+      ctx.strokeStyle = "rgba(255, 255, 255," + alpha + ")";
       ctx.lineWidth = b.width * b.life;
       ctx.beginPath();
       for (var j = 0; j < b.pts.length; j++){
@@ -73,7 +73,7 @@ export function loginLightningScript() {
         else ctx.lineTo(b.pts[j].x, b.pts[j].y);
       }
       ctx.stroke();
-      ctx.strokeStyle = "rgba(10, 92, 255," + (alpha*0.5) + ")";
+      ctx.strokeStyle = "rgba(255, 255, 255," + (alpha*0.5) + ")";
       ctx.lineWidth = (b.width * 0.45) * b.life;
       ctx.stroke();
     }

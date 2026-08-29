@@ -99,7 +99,7 @@ export function adminUsersPage(
         <div class="card-body">
           <form method="post" action="/admin/broadcast" class="form-grid" style="gap:12px">
             <label class="field span-2">Título
-              <input name="title" required maxlength="80" placeholder="Ex: Atualização do OnlyChat" />
+              <input name="title" required maxlength="80" placeholder="Ex: Atualização do X1 BLACK" />
             </label>
             <label class="field span-2">Mensagem
               <textarea name="body" required maxlength="240" rows="3" placeholder="Ex: Vamos atualizar o sistema hoje às 22h. Pode ficar offline por alguns minutos."></textarea>

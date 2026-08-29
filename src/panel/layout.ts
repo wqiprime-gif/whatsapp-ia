@@ -6,6 +6,7 @@ import { brandLockupHtml, brandMarkHtml, FAVICON_LINK, SUPPORT_WHATSAPP_URL } fr
 import { mobileDrawerScript } from "./mobile-drawer.js";
 import { PWA_HEAD_TAGS } from "./pwa.js";
 import { panelSceneScript } from "./panel-scene.js";
+import { sidebarPinScript } from "./sidebar-pin.js";
 
 export type NavId =
   | "dashboard"
@@ -154,7 +155,7 @@ export function appLayout(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
   ${PWA_HEAD_TAGS}
-  <title>OnlyChat</title>
+  <title>X1 BLACK</title>
   <style>${globalStyles}</style>
 </head>
 <body>
@@ -163,7 +164,7 @@ export function appLayout(
   <canvas id="panel-scene-canvas" aria-hidden="true"></canvas>
   <div class="mesh-blob mesh-blob--app" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
-  <header class="mobile-topbar mobile-topbar--account" aria-label="OnlyChat">
+  <header class="mobile-topbar mobile-topbar--account" aria-label="X1 BLACK">
     ${brandLockupHtml("mobile")}
     <div class="mobile-account-shell">
       <a href="/perfil" class="mobile-account-head" data-nav>
@@ -177,7 +178,7 @@ export function appLayout(
     </div>
   </header>
   <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" aria-hidden="true"></div>
-  <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu OnlyChat">
+  <aside id="mobile-menu-drawer" class="mobile-menu-drawer" aria-hidden="true" aria-label="Menu X1 BLACK">
     <div class="mobile-menu-head">
       <div class="mobile-menu-brand">
         ${brandLockupHtml("drawer")}
@@ -246,7 +247,11 @@ export function appLayout(
       <form method="post" action="/logout" style="margin-top:12px">
         <button type="submit" class="nav-btn" style="width:100%">${icons.logout}<span class="nav-text"> Sair</span></button>
       </form>
+      <button type="button" class="sidebar-pin" id="sidebar-pin" aria-pressed="false" aria-label="Fixar sidebar" title="Fixar sidebar">
+        ${icons.sidebarPanel}<span class="nav-text">Fixar sidebar</span>
+      </button>
     </aside>
+${sidebarPinScript}
     <div class="main-wrap">
       <header class="topbar${topbarCls}">
         <div class="topbar-left">
@@ -264,7 +269,7 @@ export function appLayout(
         </div>
       </header>
       <main class="content">${body}</main>
-      <footer class="footer">© 2026 OnlyChat · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
+      <footer class="footer">X1 BLACK © 2026 · v${APP_VERSION} · <a href="/health" target="_blank" rel="noopener" style="color:var(--muted)">status</a></footer>
     </div>
   </div>
   <nav class="mobile-tabbar" aria-label="Navegação mobile">

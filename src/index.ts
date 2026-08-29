@@ -94,7 +94,7 @@ try {
   console.error("[startup] Erro ao carregar bots (painel segue online):", error);
 }
 const localBase = `http://127.0.0.1:${env.PORT}`;
-console.log("[startup] OnlyChat online na porta", env.PORT);
+console.log("[startup] X1 BLACK online na porta", env.PORT);
 console.log("[startup] DATA_DIR:", env.DATA_DIR);
 const markerPath = path.join(env.DATA_DIR, ".zap-volume-marker");
 let hadPreviousBoot = false;

@@ -52,7 +52,7 @@ export function kpiTrendLabel(values: number[]) {
   return { text: `${pct >= 0 ? "+" : ""}${pct}%`, positive: pct >= 0 };
 }
 
-export function sparklineSvg(values: number[], color = "#0a5cff") {
+export function sparklineSvg(values: number[], color = "#ffffff") {
   if (values.length === 0) values = [0, 0];
   const gid = `sp${Math.random().toString(36).slice(2, 9)}`;
   const w = 112;
@@ -105,18 +105,18 @@ export function channelDonutSvg(stats: { label: string; value: number; color: st
 export function salesFunnelHtml(input: { leads: number; sales: number; messages: number }) {
   const leadCount = Math.max(input.leads, 1);
   const stages = [
-    { label: "Leads", value: input.leads, pct: 100, color: "#3b82f6" },
+    { label: "Leads", value: input.leads, pct: 100, color: "#d4d4d4" },
     {
       label: "Conversas",
       value: input.messages,
       pct: input.leads ? Math.min(100, Math.round((input.messages / leadCount) * 100)) : 0,
-      color: "#3b82f6"
+      color: "#d4d4d4"
     },
     {
       label: "Vendas",
       value: input.sales,
       pct: input.leads ? Math.round((input.sales / leadCount) * 100) : 0,
-      color: "#0a5cff"
+      color: "#ffffff"
     }
   ];
   return `<div class="funnel-pro">${stages
@@ -161,7 +161,7 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
   const bars = coords
     .map(
       (c, i) =>
-        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#0a5cff" class="chart-dot" style="animation-delay:${i * 0.08}s">
+        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#ffffff" class="chart-dot" style="animation-delay:${i * 0.08}s">
       <title>R$ ${(c.v / 100).toFixed(2).replace(".", ",")}</title></circle>`
     )
     .join("");
@@ -177,13 +177,13 @@ export function salesChartSvgFromData(points: { day: string; totalCents: number 
     <svg class="chart-svg chart-svg--pro" viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(10, 92, 255,0.4)"/>
-          <stop offset="100%" stop-color="rgba(10, 92, 255,0)"/>
+          <stop offset="0%" stop-color="rgba(255, 255, 255,0.4)"/>
+          <stop offset="100%" stop-color="rgba(255, 255, 255,0)"/>
         </linearGradient>
       </defs>
       ${grid}
       <path d="${area}" fill="url(#${gradId})"/>
-      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#0a5cff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline class="chart-line-anim" points="${line}" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       ${bars}
       ${labels}
     </svg>
@@ -208,7 +208,7 @@ export function messagesChartSvgFromData(points: { day: string; count: number }[
       const bh = (v / max) * (h - pad * 2);
       const x = pad + i * ((w - pad * 2) / 7) + 4;
       const y = h - pad - bh;
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(10, 92, 255,0.75)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="rgba(255, 255, 255,0.75)" class="chart-bar-anim" style="animation-delay:${i * 0.06}s">
         <title>${v} msgs</title></rect>`;
     })
     .join("");
@@ -256,8 +256,8 @@ export function conversionGaugeSvg(pct: number, subtitle: string) {
     <svg class="conv-gauge-svg" viewBox="0 0 140 88" aria-hidden="true">
       <defs>
         <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#0a5cff"/>
-          <stop offset="100%" stop-color="#3b82f6"/>
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#d4d4d4"/>
         </linearGradient>
       </defs>
       <path d="M 16 76 A ${r} ${r} 0 0 1 124 76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14" stroke-linecap="round"/>
@@ -289,7 +289,7 @@ function smoothChartPath(points: { x: number; y: number }[], tension = 0.35) {
   return path;
 }
 
-const SHARK_CHART_BLUE = "#3B82F6";
+const SHARK_CHART_BLUE = "#d4d4d4";
 
 export function sharkPerformanceChartHtml(
   points: { day: string; totalCents: number }[],
@@ -326,7 +326,7 @@ export function sharkPerformanceChartHtml(
   const dots = coords
     .map(
       (c, i) =>
-        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="0" fill="#3B82F6" stroke="#fff" stroke-width="2" pointer-events="none" opacity="0"/>`
+        `<circle class="shark-chart-dot" data-idx="${i}" cx="${c.x}" cy="${c.y}" r="0" fill="#d4d4d4" stroke="#fff" stroke-width="2" pointer-events="none" opacity="0"/>`
     )
     .join("");
   const hitW = Math.max((chartW / Math.max(dayCount - 1, 1)) * 1.15, 24);

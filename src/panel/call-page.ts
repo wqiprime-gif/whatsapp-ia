@@ -80,14 +80,14 @@ export function renderCallPage(session: CallPageSession) {
     return endedOnlyPage(loc, copy);
   }
 
-  const name = escapeHtml(session.callerName || "OnlyChat");
+  const name = escapeHtml(session.callerName || "X1 BLACK");
   const rawAvatar = session.avatarUrl?.trim() || "";
   const hasAvatar = !!rawAvatar && rawAvatar !== "/brand/pwa-192.png";
   const avatarAttr = hasAvatar ? escapeHtml(rawAvatar) : "";
   const videoUrl = JSON.stringify(session.videoUrl || "");
   const token = JSON.stringify(session.token);
-  const callerNameJs = JSON.stringify(session.callerName || "OnlyChat");
-  const ringingText = escapeHtml(copy.ringing(session.callerName || "OnlyChat"));
+  const callerNameJs = JSON.stringify(session.callerName || "X1 BLACK");
+  const ringingText = escapeHtml(copy.ringing(session.callerName || "X1 BLACK"));
   const initial = escapeHtml((session.callerName || "O").trim().charAt(0).toUpperCase() || "O");
 
   return `<!doctype html>
@@ -115,7 +115,7 @@ export function renderCallPage(session: CallPageSession) {
       position:absolute;inset:0;border-radius:50%;border:2px solid rgba(52,199,89,.35);
       animation:ringPulse 2.2s ease-out infinite;pointer-events:none;
     }
-    .ring-pulse2{animation-delay:.7s;border-color:rgba(10,92,255,.3)}
+    .ring-pulse2{animation-delay:.7s;border-color:rgba(255, 255, 255,.3)}
     @keyframes ringPulse{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.55);opacity:0}}
     .avatar-fallback{
       position:absolute;inset:0;z-index:0;border-radius:50%;
@@ -160,8 +160,8 @@ export function renderCallPage(session: CallPageSession) {
     .btn svg{width:16px;height:16px;fill:currentColor}
     .btn-danger{background:#ff3b30}
     .btn-active{background:#fff;color:#000}
-    .btn-chat{background:rgba(139,92,246,.8)}
-    .btn-chat.active{background:rgba(139,92,246,1)}
+    .btn-chat{background:rgba(255, 255, 255,.8)}
+    .btn-chat.active{background:rgba(255, 255, 255,1)}
     .small{
       position:absolute;right:16px;bottom:90px;width:110px;height:160px;border-radius:14px;overflow:hidden;
       border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);display:none;z-index:25;
@@ -178,12 +178,12 @@ export function renderCallPage(session: CallPageSession) {
     .chat-close{background:none;border:none;color:#fff;cursor:pointer;font-size:20px}
     .chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:160px}
     .chat-message{padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:85%;word-wrap:break-word}
-    .chat-message.user{background:rgba(139,92,246,.3);border:1px solid rgba(139,92,246,.5);align-self:flex-end}
+    .chat-message.user{background:rgba(255, 255, 255,.3);border:1px solid rgba(255, 255, 255,.5);align-self:flex-end}
     .chat-message.other{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);align-self:flex-start}
     .chat-empty{text-align:center;color:rgba(255,255,255,.5);font-size:14px;padding:40px 20px}
     .chat-input-container{padding:14px 16px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:10px}
     .chat-input{flex:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:10px 16px;color:#fff;font-size:14px;outline:none}
-    .chat-send{background:rgba(139,92,246,.8);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+    .chat-send{background:rgba(255, 255, 255,.8);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
     .chat-send svg{width:20px;height:20px;fill:#fff}
     .overlay{position:absolute;inset:0;display:grid;place-items:center;background:#000;z-index:40}
     .overlay.hidden{display:none !important}

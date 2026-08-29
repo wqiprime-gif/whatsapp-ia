@@ -44,12 +44,12 @@ export function loginParticlesScript() {
       }
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(220,235,255," + fade + ")";
+      ctx.fillStyle = "rgba(255, 255, 255," + fade + ")";
       ctx.fill();
       if (p.r > 1.2){
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r * 0.4, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(10,92,255," + (fade * 0.35) + ")";
+        ctx.fillStyle = "rgba(255, 255, 255," + (fade * 0.35) + ")";
         ctx.fill();
       }
     }

@@ -251,7 +251,7 @@ export function loginPage(message = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>Login · OnlyChat v${APP_VERSION}</title>
+  <title>Login · X1 BLACK v${APP_VERSION}</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
@@ -828,7 +828,7 @@ export function registerPage(message = "") {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${FAVICON_LINK}
-  <title>Criar conta · OnlyChat</title>
+  <title>Criar conta · X1 BLACK</title>
   <style>${globalStyles}</style>
 </head>
 <body class="auth-body">
