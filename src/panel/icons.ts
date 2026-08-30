@@ -32,6 +32,7 @@ export const icons = {
   sidebarPanel: lucide(
     '<rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path>'
   ),
+  chevronDown: lucide('<path d="m6 9 6 6 6-6"></path>', 16),
   phone: s("M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3"),
   calendar: lucide(
     '<path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path>'

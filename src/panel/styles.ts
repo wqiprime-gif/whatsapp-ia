@@ -40,8 +40,18 @@ ${premiumStyles}
   --font: ${ds.fonts.sans};
   --font-mono: ${ds.fonts.mono};
   --ease: ${ds.motion};
-  --radius: 14px;
-  --radius-lg: 20px;
+  --radius: 16px;
+  --radius-lg: 22px;
+  /* Raio dos cards do dashboard — pontas arredondadas. */
+  --radius-card: 20px;
+}
+
+/* Ângulo animado da listra que orbita a borda dos cards.
+   Sem @property o navegador não interpola a var e a listra fica estática. */
+@property --card-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -566,6 +576,15 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 .nav-section { margin-bottom: 8px; }
+.nav-section-label {
+  padding: 0 12px;
+  margin: 14px 0 6px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+.nav-section-label:first-child { margin-top: 0; }
 .nav a, .nav button.nav-btn {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 12px; border-radius: 0;
@@ -601,6 +620,82 @@ button, input, textarea, select { font-family: inherit; }
   font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.45);
   padding: 8px 12px 6px;
+}
+
+/* Card de conta no topo da sidebar: avatar + nome + sair + gerenciar. */
+.sidebar-account {
+  margin-bottom: 16px;
+  padding: 10px;
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+}
+.sidebar-account-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sidebar-account-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-account-power button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  cursor: pointer;
+  transition: background var(--ease), border-color var(--ease);
+}
+.sidebar-account-power button:hover {
+  background: rgba(239, 68, 68, 0.24);
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.sidebar-account-power svg { width: 16px; height: 16px; }
+.sidebar-account-manage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-2);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  transition: background var(--ease), color var(--ease);
+}
+.sidebar-account-manage:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+.sidebar-account-manage svg { flex-shrink: 0; }
+/* Recolhida: sobra só o avatar centralizado. */
+.sidebar:not(:hover):not(.is-pinned) .sidebar-account {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+}
+.sidebar:not(:hover):not(.is-pinned) .sidebar-account-power,
+.sidebar:not(:hover):not(.is-pinned) .sidebar-account-manage {
+  display: none;
 }
 
 .sidebar-plan {

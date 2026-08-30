@@ -1,5 +1,5 @@
-/** X1 BLACK: preto absoluto + branco (monocrom�tico) + raios CSS.
- *  As vars --blue-* mant�m o nome por compatibilidade, mas carregam tons de cinza. */
+﻿/** X1 BLACK: preto absoluto + branco (monocromï¿½tico) + raios CSS.
+ *  As vars --blue-* mantï¿½m o nome por compatibilidade, mas carregam tons de cinza. */
 export const premiumStyles = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500&family=Orbitron:wght@700;800;900&display=swap');
 
@@ -1164,55 +1164,88 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   overflow: hidden;
   isolation: isolate;
 }
+/* Listra branca correndo em volta da borda inteira do card.
+   O conic-gradient gira e a máscara deixa visível só o anel de 1px. */
 .dash-glow-card::before,
 .card-premium::before,
 .shark-kpi-card::before,
 .shark-fat-pill::before {
   content: "";
   position: absolute;
-  left: 0; right: 0; top: 0;
-  height: 1px;
+  inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    #ffffff 40%,
-    #d4d4d4 50%,
-    #ffffff 60%,
-    rgba(255, 255, 255, 0.2) 80%,
-    transparent 100%
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--card-angle),
+    #ffffff 0deg,
+    rgba(255, 255, 255, 0.45) 16deg,
+    rgba(255, 255, 255, 0) 70deg,
+    rgba(255, 255, 255, 0) 290deg,
+    rgba(255, 255, 255, 0.45) 344deg,
+    #ffffff 360deg
   );
-  background-size: 200% 100%;
-  animation: shark-line-sweep 4s linear infinite, shark-edge-pulse 3s ease-in-out infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: card-orbit 5.5s linear infinite;
 }
+/* Mesmo anel desfocado por baixo = o brilho da listra. */
 .dash-glow-card::after,
 .card-premium::after,
 .shark-kpi-card::after,
 .shark-fat-pill::after {
   content: "";
   position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 1px;
-  z-index: 2;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    #ffffff 40%,
-    #d4d4d4 50%,
-    #ffffff 60%,
-    rgba(255, 255, 255, 0.2) 80%,
-    transparent 100%
+  border-radius: inherit;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--card-angle),
+    #ffffff 0deg,
+    rgba(255, 255, 255, 0.4) 22deg,
+    rgba(255, 255, 255, 0) 80deg,
+    rgba(255, 255, 255, 0) 280deg,
+    rgba(255, 255, 255, 0.4) 338deg,
+    #ffffff 360deg
   );
-  background-size: 200% 100%;
-  animation: shark-line-sweep 4s linear infinite reverse, shark-edge-pulse 3s ease-in-out infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: blur(8px);
+  opacity: 0.95;
+  animation: card-orbit 5.5s linear infinite;
+}
+@keyframes card-orbit {
+  to { --card-angle: 360deg; }
+}
+/* Listras fora de sincronia entre os cards. */
+.shark-kpi-grid > *:nth-child(2n)::before,
+.shark-kpi-grid > *:nth-child(2n)::after { animation-delay: -1.4s; }
+.shark-kpi-grid > *:nth-child(3n)::before,
+.shark-kpi-grid > *:nth-child(3n)::after { animation-delay: -2.8s; }
+.shark-kpi-grid > *:nth-child(4n)::before,
+.shark-kpi-grid > *:nth-child(4n)::after { animation-delay: -4.1s; }
+@media (prefers-reduced-motion: reduce) {
+  .dash-glow-card::before,
+  .card-premium::before,
+  .shark-kpi-card::before,
+  .shark-fat-pill::before,
+  .dash-glow-card::after,
+  .card-premium::after,
+  .shark-kpi-card::after,
+  .shark-fat-pill::after {
+    animation: none;
+  }
 }
 
 .dash-glow-card {
-  border-radius: 0;
+  border-radius: var(--radius-card);
   background: #0b0b0b;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -1720,7 +1753,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
     radial-gradient(ellipse 50% 42% at 100% 100%, rgba(255, 255, 255, 0.04) 0%, transparent 52%);
   box-shadow: inset 0 -56px 72px -48px rgba(255, 255, 255, 0.04);
   overflow: hidden;
-  border-radius: 0;
+  border-radius: var(--radius-card);
   position: relative;
   isolation: isolate;
 }
@@ -1732,14 +1765,10 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
     radial-gradient(ellipse 50% 42% at 100% 100%, rgba(255, 255, 255, 0.04) 0%, transparent 52%);
   box-shadow: inset 0 -56px 72px -48px rgba(255, 255, 255, 0.04);
 }
-.shark-dash .dash-glow-card::before,
-.shark-dash .dash-glow-card::after,
-.shark-dash .shark-kpi-card::before,
-.shark-dash .shark-kpi-card::after,
-.shark-dash .dash-glow-card.card-premium::before,
-.shark-dash .dash-glow-card.card-premium::after {
-  display: none !important;
-  content: none !important;
+/* No dash a borda é a listra orbital (::before/::after), então as
+   hairlines estáticas sairiam por cima dela. */
+.shark-dash .shark-edge-glow {
+  display: none;
 }
 .shark-edge-glow {
   position: absolute;
@@ -1854,13 +1883,13 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow: inset 0 -56px 72px -48px rgba(255, 255, 255, 0.04) !important;
   backdrop-filter: none !important;
-  border-radius: 0 !important;
+  border-radius: var(--radius-card) !important;
 }
 .shark-dash .shark-kpi-card {
-  border-radius: 0;
+  border-radius: var(--radius-card);
 }
 .shark-dash .shark-chart-card--pro.dash-glow-card {
-  border-radius: 0;
+  border-radius: var(--radius-card);
 }
 .shark-dash .shark-period-bar {
   border-radius: 16px;

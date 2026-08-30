@@ -217,9 +217,22 @@ export function appLayout(
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">${brandMarkHtml()}</div>
+      <div class="sidebar-account">
+        <div class="sidebar-account-head">
+          ${userAvatarHtml(userAvatar, userName)}
+          <span class="sidebar-account-name nav-text">${escapeHtml(userName)}</span>
+          <form method="post" action="/logout" class="sidebar-account-power">
+            <button type="submit" aria-label="Sair" title="Sair">${icons.logout}</button>
+          </form>
+        </div>
+        <a href="/perfil" class="sidebar-account-manage nav-text" data-nav>
+          <span>GERENCIAR CONTA</span>${icons.chevronDown}
+        </a>
+      </div>
       <a href="/instances/new" class="btn-new">${icons.plus}<span class="btn-new-label"> Nova Instância</span></a>
       <nav class="nav">
         <div class="nav-section">
+          <div class="nav-section-label nav-text">PRINCIPAL</div>
           ${navItem("/", "Dashboard", icons.dashboard, is("dashboard"))}
           ${navItem("/instances", "Instâncias", icons.layers, is("instances"))}
           ${navItem("/maturador", "Maturador", icons.flame, is("maturador"))}
@@ -230,23 +243,11 @@ export function appLayout(
           ${navItem("/payments", "Pagamentos", icons.card, is("payments"))}
           ${navItem("/products", "Produtos", icons.box, is("products"))}
           ${navItem("/media", "Mídias", icons.image, is("media"))}
-          ${showAdminNav ? `<div class="nav-section-label" style="margin-top:12px">ADMIN</div>${navItem("/admin/usuarios", "Usuários", icons.crown, is("admin"))}${navItem("/admin/maturador", "Maturador", icons.flame, false)}` : ""}
+          ${showAdminNav ? `<div class="nav-section-label nav-text">ADMIN</div>${navItem("/admin/usuarios", "Usuários", icons.crown, is("admin"))}${navItem("/admin/maturador", "Maturador", icons.flame, false)}` : ""}
           ${navItem("/perfil", "Minha conta", icons.users, is("profile"))}
           <a href="${SUPPORT_WHATSAPP_URL}" class="nav-support" target="_blank" rel="noopener">${icons.help}<span class="nav-text"> Suporte WhatsApp</span></a>
         </div>
       </nav>
-      <div class="sidebar-plan">
-        <strong>Seu plano: Pro</strong>
-        <span>IA + vendas + remarketing</span>
-        <div class="plan-usage">
-          <div class="plan-usage-head"><span>Capacidade</span><span class="plan-usage-pct">72%</span></div>
-          <div class="plan-usage-bar" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><span style="width:72%"></span></div>
-        </div>
-        <a href="/perfil">Minha conta</a>
-      </div>
-      <form method="post" action="/logout" style="margin-top:12px">
-        <button type="submit" class="nav-btn" style="width:100%">${icons.logout}<span class="nav-text"> Sair</span></button>
-      </form>
       <button type="button" class="sidebar-pin" id="sidebar-pin" aria-pressed="false" aria-label="Fixar sidebar" title="Fixar sidebar">
         ${icons.sidebarPanel}<span class="nav-text">Fixar sidebar</span>
       </button>
