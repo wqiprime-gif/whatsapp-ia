@@ -87,7 +87,37 @@ function loadSessionString() {
 }
 
 function saveSessionString(value) {
-  fs.writeFileSync(sessionFilePath, String(value || ""), "utf8");
+  const session = String(value || "").trim();
+  fs.writeFileSync(sessionFilePath, session, "utf8");
+  if (session) void uploadTgSessionBackupToPanel(session);
+}
+
+async function uploadTgSessionBackupToPanel(session) {
+  const panelUrl = process.env.PANEL_URL;
+  const secret = process.env.INTERNAL_SECRET;
+  const botId = process.env.BOT_ID || sessionId;
+  const trimmed = String(session || "").trim();
+  if (!panelUrl || !secret || !trimmed) return false;
+  try {
+    const res = await axios.post(
+      `${panelUrl}/internal/tg-session-backup`,
+      { botId, session: trimmed },
+      {
+        headers: { "x-internal": secret, "content-type": "application/json" },
+        timeout: 15000,
+        validateStatus: () => true
+      }
+    );
+    if (res.data?.ok) {
+      console.log("💾 Backup sessão Telegram enviado ao PostgreSQL");
+      return true;
+    }
+    console.warn("⚠️ PostgreSQL rejeitou backup TG:", res.data?.error || res.status);
+    return false;
+  } catch (e) {
+    console.warn("⚠️ Falha ao enviar backup TG ao PostgreSQL:", e?.message || e);
+    return false;
+  }
 }
 
 const conversations = {};
@@ -526,12 +556,17 @@ app.post("/api/logout", async (_req, res) => {
 client.addEventHandler(async (event) => {
   try {
     if (event.isGroup || event.isChannel) return;
-    if (!event.isPrivate) return;
     const msg = event.message;
     if (!msg || msg.out) return;
 
+    const peerChatId = Number(msg.chatId || msg.peerId?.userId || 0);
+    // isPrivate pode ser undefined em alguns updates — confiar em chatId negativo para grupos/canais
+    if (peerChatId < 0) return;
+    if (event.isPrivate === false) return;
+
     const sender = await event.getSender();
-    const chatId = Number(msg.chatId || sender?.id || 0);
+    const chatId = Number(peerChatId || sender?.id || 0);
+    if (!chatId) return;
     const displayName =
       [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
       sender?.username ||
@@ -599,7 +634,12 @@ client.addEventHandler(async (event) => {
           })
         );
       } catch (_) {}
-      await event.respond(replyText);
+      try {
+        await event.respond(replyText);
+      } catch (respondErr) {
+        console.warn("event.respond falhou, tentando sendMessage:", respondErr?.message || respondErr);
+        await client.sendMessage(peer, { message: replyText });
+      }
       void panelLog({
         type: "message",
         jid: `tg:${chatId}`,
@@ -618,7 +658,19 @@ client.addEventHandler(async (event) => {
       });
     }
   } catch (error) {
-    console.error("Erro ao processar mensagem TG:", error?.message || error);
+    const errMsg = error?.message || String(error);
+    console.error("Erro ao processar mensagem TG:", errMsg);
+    if (/OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)) {
+      console.error("❌ IA não configurada — configure a chave OpenAI no painel");
+    }
+    try {
+      const peer = await event.getInputChat();
+      if (peer) {
+        await client.sendMessage(peer, {
+          message: "oii amor, travou um pouquinho aqui… manda de novo? 💕"
+        });
+      }
+    } catch (_) {}
   }
 }, new NewMessage({ incoming: true }));
 

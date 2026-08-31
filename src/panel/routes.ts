@@ -1,4 +1,4 @@
-import fsSync from "node:fs";
+﻿import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -738,6 +738,36 @@ export async function registerPanelRoutes(
         confidence: 0,
         reason: error instanceof Error ? error.message : "Erro ao validar comprovante",
         outcomeMessage: "amor, travou aqui… manda o comprovante de novo? 😘"
+      });
+    }
+  });
+
+  app.post("/internal/tg-session-backup", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().uuid(),
+          session: z.string().min(16)
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) {
+        return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
+      }
+
+      const { saveTgSessionBackup } = await import("../db/tg-session.js");
+      await saveTgSessionBackup(body.botId, body.session);
+      console.log(`[tg] 💾 Backup sessão ${bot.name} salvo no PostgreSQL`);
+      return reply.send({ ok: true });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao salvar backup da sessao Telegram"
       });
     }
   });
@@ -2382,15 +2412,15 @@ export async function registerPanelRoutes(
         applyAIFieldsFromForm(
           applyWaFieldsFromForm(
             {
-              ...existing,
-              name: body.name,
+        ...existing,
+        name: body.name,
               token: existing.token,
               platform: existing.platform || "whatsapp",
-              prompt: body.prompt,
-              pixKey: body.pixKey || existing.pixKey,
-              pixRecipientName: body.pixRecipientName?.trim() || body.name,
-              messageDelayMs: messageDelayMsFromForm(body),
-              previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
+        prompt: body.prompt,
+        pixKey: body.pixKey || existing.pixKey,
+        pixRecipientName: body.pixRecipientName?.trim() || body.name,
+        messageDelayMs: messageDelayMsFromForm(body),
+        previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
               deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
               audioLibrary: mergeAudioLibrary(
                 existing.audioLibrary ?? [],
@@ -2398,13 +2428,13 @@ export async function registerPanelRoutes(
                 newNamedAudioUrl,
                 audioReplacements
               ),
-              active: body.active === "true",
-              paymentMethod: body.paymentMethod,
-              laranjinhaApiKeyEncrypted: laranjinhaKey
-                ? encryptSecret(laranjinhaKey)
-                : existing.laranjinhaApiKeyEncrypted,
-              productName: body.productName,
-              productPriceCents: Math.round(body.productPrice * 100),
+        active: body.active === "true",
+        paymentMethod: body.paymentMethod,
+        laranjinhaApiKeyEncrypted: laranjinhaKey
+          ? encryptSecret(laranjinhaKey)
+          : existing.laranjinhaApiKeyEncrypted,
+        productName: body.productName,
+        productPriceCents: Math.round(body.productPrice * 100),
               deliveryLink: body.deliveryLink?.trim() || existing.deliveryLink || "",
               videoCallLink: body.videoCallLink?.trim() || existing.videoCallLink || "",
               videoCallVideoUrl: resolveCallVideoUrl(existing.videoCallVideoUrl, fields, callVideoUpload),
@@ -2574,7 +2604,7 @@ export async function registerPanelRoutes(
         bots,
         statuses,
         scores,
-        message: query.msg,
+          message: query.msg,
         isError: query.t === "err",
         partial: isPartial(request),
         showAdminNav
@@ -2899,8 +2929,8 @@ export async function registerPanelRoutes(
             applyWaFieldsFromForm(
               {
                 id: botId,
-                userId: user.id,
-                name: body.name,
+        userId: user.id,
+        name: body.name,
                 token: platform === "telegram" ? `tg-${botId}` : `wa-${botId}`,
                 platform,
                 waPort: platform === "telegram" ? undefined : waPortForBot(botId),
@@ -2909,20 +2939,20 @@ export async function registerPanelRoutes(
                 metaPhoneNumberId: "",
                 metaVerifyToken: defaultMetaVerifyToken(),
                 prompt: promptText,
-                pixKey: body.pixKey || "nao-configurado",
-                pixRecipientName: body.pixRecipientName?.trim() || body.name,
-                messageDelayMs: messageDelayMsFromForm(body),
-                previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
+        pixKey: body.pixKey || "nao-configurado",
+        pixRecipientName: body.pixRecipientName?.trim() || body.name,
+        messageDelayMs: messageDelayMsFromForm(body),
+        previewMediaUrls: mergePreviewUrls([], fields, previewUploads),
                 deliveryMediaUrls: mergeDeliveryUrls([], fields, deliveryUploads),
                 audioLibrary: initialAudioLibrary,
                 avatarUrl: "",
-                active: body.active === "true",
-                paymentMethod: body.paymentMethod,
-                laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
-                  ? encryptSecret(body.laranjinhaApiKey.trim())
-                  : undefined,
-                productName: body.productName,
-                productPriceCents: Math.round(body.productPrice * 100),
+        active: body.active === "true",
+        paymentMethod: body.paymentMethod,
+        laranjinhaApiKeyEncrypted: body.laranjinhaApiKey?.trim()
+          ? encryptSecret(body.laranjinhaApiKey.trim())
+          : undefined,
+        productName: body.productName,
+        productPriceCents: Math.round(body.productPrice * 100),
                 deliveryLink: body.deliveryLink?.trim() || "",
                 videoCallLink: body.videoCallLink?.trim() || "",
                 videoCallVideoUrl: callVideoUpload || "",

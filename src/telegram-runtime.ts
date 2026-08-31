@@ -35,6 +35,31 @@ export function tgPortForBot(botId: string, index = 0) {
   return stablePort(botId, index);
 }
 
+async function restoreTgSessionFromDb(botId: string, instDir: string): Promise<boolean> {
+  const sessionFile = path.join(instDir, "session.txt");
+  try {
+    if (fsSync.existsSync(sessionFile) && fsSync.readFileSync(sessionFile, "utf8").trim()) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { getTgSessionBackup } = await import("./db/tg-session.js");
+    const backup = await getTgSessionBackup(botId);
+    if (!backup?.session) return false;
+    await fs.mkdir(instDir, { recursive: true });
+    await fs.writeFile(sessionFile, backup.session, "utf8");
+    const when = backup.backedUpAt.toISOString();
+    console.log(`[tg] ♻️ Sessão restaurada do PostgreSQL (${when}) → ${sessionFile}`);
+    return true;
+  } catch (err) {
+    console.warn(`[tg] Falha ao restaurar sessão do PostgreSQL (${botId}):`, err);
+    return false;
+  }
+}
+
 async function writeInstanceFiles(bot: BotConfig) {
   const instDir = instanceDataDir(bot.id);
   await fs.mkdir(instDir, { recursive: true });
@@ -122,9 +147,16 @@ async function startTelegramBot(bot: BotConfig, index: number) {
     console.error(`[tg] IA ${bot.name}: ${err instanceof Error ? err.message : err}`);
   }
 
+  if (!apiKey) {
+    console.error(
+      `[tg] ${bot.name}: IA sem chave API — configure OpenAI/provedor no painel antes de atender.`
+    );
+  }
+
   await writeInstanceFiles(bot);
   const port = bot.waPort && bot.waPort >= 5200 ? bot.waPort : tgPortForBot(bot.id, index);
   const instDir = instanceDataDir(bot.id);
+  await restoreTgSessionFromDb(bot.id, instDir);
   const providerCfg = AI_PROVIDERS[provider];
 
   const childEnv: NodeJS.ProcessEnv = {
@@ -317,6 +349,12 @@ export async function logoutTelegramSession(botId: string) {
   const sessionFile = path.join(instanceDataDir(botId), "session.txt");
   try {
     await fs.unlink(sessionFile);
+        } catch {
+          // ignore
+        }
+  try {
+    const { clearTgSessionBackup } = await import("./db/tg-session.js");
+    await clearTgSessionBackup(botId);
   } catch {
     // ignore
   }

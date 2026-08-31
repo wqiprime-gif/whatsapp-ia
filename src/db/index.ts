@@ -173,6 +173,9 @@ export async function initDatabase() {
     const { initWaSessionSchema } = await import("./wa-session.js");
     await initWaSessionSchema(db);
 
+    const { initTgSessionSchema } = await import("./tg-session.js");
+    await initTgSessionSchema(db);
+
     await migrateFromJsonFiles(db);
 
     console.log("[db] PostgreSQL conectado e schema pronto.");

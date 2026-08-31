@@ -133,16 +133,46 @@ try {
     console.log(`[startup] Volume OK · ${sessionCount} sessão(ões) WhatsApp em disco`);
   }
 
+  const tgInstancesDir = path.join(env.DATA_DIR, "tg-instances");
+  let tgSessionCount = 0;
+  try {
+    const tgDirs = await fs.readdir(tgInstancesDir);
+    for (const dir of tgDirs) {
+      try {
+        const sessionPath = path.join(tgInstancesDir, dir, "session.txt");
+        const content = await fs.readFile(sessionPath, "utf8");
+        if (content.trim()) tgSessionCount += 1;
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    tgSessionCount = 0;
+  }
+
+  if (tgSessionCount > 0) {
+    console.log(`[startup] Telegram · ${tgSessionCount} sessão(ões) em disco`);
+  } else if (hadPreviousBoot) {
+    console.warn(
+      "[startup] ⚠️ Nenhuma sessão Telegram em disco — será restaurada do PostgreSQL ou será preciso login de novo."
+    );
+  }
+
   if (useDatabase()) {
     try {
       const { countWaSessionBackups } = await import("./db/wa-session.js");
+      const { countTgSessionBackups } = await import("./db/tg-session.js");
       const dbBackups = await countWaSessionBackups();
+      const tgDbBackups = await countTgSessionBackups();
       if (dbBackups > 0) {
         console.log(`[startup] PostgreSQL · ${dbBackups} backup(s) de sessão WhatsApp (reconexão automática após deploy)`);
       } else if (!hadPreviousBoot || sessionCount === 0) {
         console.log(
-          "[startup] PostgreSQL · nenhum backup de sessão ainda — após escanear o QR, a sessão será salva no banco"
+          "[startup] PostgreSQL · nenhum backup de sessão WA ainda — após escanear o QR, a sessão será salva no banco"
         );
+      }
+      if (tgDbBackups > 0) {
+        console.log(`[startup] PostgreSQL · ${tgDbBackups} backup(s) de sessão Telegram (reconexão automática após deploy)`);
       }
     } catch {
       // ignore
