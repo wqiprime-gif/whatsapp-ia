@@ -312,8 +312,9 @@ button, input, textarea, select { font-family: inherit; }
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 35;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* Quem rola e o .nav; a sidebar fica fixa para o botao de fixar nunca
+     passar por cima dos itens do menu. */
+  overflow: hidden;
   transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   contain: layout style;
 }
@@ -381,10 +382,7 @@ button, input, textarea, select { font-family: inherit; }
   justify-content: center;
 }
 .sidebar:not(:hover):not(.is-pinned) .nav-text,
-.sidebar:not(:hover):not(.is-pinned) .brand-copy,
-.sidebar:not(:hover):not(.is-pinned) .btn-new-label,
-.sidebar:not(:hover):not(.is-pinned) .sidebar-plan,
-.sidebar:not(:hover):not(.is-pinned) > form {
+.sidebar:not(:hover):not(.is-pinned) .brand-copy {
   display: none;
 }
 .sidebar:not(:hover):not(.is-pinned) .sidebar-brand {
@@ -394,20 +392,6 @@ button, input, textarea, select { font-family: inherit; }
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-mark {
   align-items: center;
-}
-.sidebar:not(:hover):not(.is-pinned) .btn-new {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  padding: 0;
-  margin: 0 auto 14px;
-  border-radius: 10px;
-  font-size: inherit;
-  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.22) !important;
-}
-.sidebar:not(:hover):not(.is-pinned) .btn-new svg {
-  width: 18px;
-  height: 18px;
 }
 .sidebar:not(:hover):not(.is-pinned) .nav a,
 .sidebar:not(:hover):not(.is-pinned) .nav button.nav-btn {
@@ -438,18 +422,8 @@ button, input, textarea, select { font-family: inherit; }
   color: #fff;
 }
 .sidebar:hover .nav-text,
-.sidebar:hover .brand-copy,
-.sidebar:hover .btn-new-label,
-.sidebar:hover .sidebar-plan,
-.sidebar:hover > form {
+.sidebar:hover .brand-copy {
   display: revert;
-}
-.sidebar:hover .btn-new {
-  width: 100%;
-  height: auto;
-  padding: 13px;
-  margin: 0 0 22px;
-  border-radius: var(--radius);
 }
 .sidebar:hover .nav a,
 .sidebar:hover .nav button.nav-btn {
@@ -483,13 +457,6 @@ button, input, textarea, select { font-family: inherit; }
 /* Sidebar fixada — mesmo estado do hover, mas sem depender do mouse.
    As regras de recolhida já se excluem via :not(.is-pinned); aqui só os deltas. */
 .sidebar.is-pinned { width: 248px; }
-.sidebar.is-pinned .btn-new {
-  width: 100%;
-  height: auto;
-  padding: 13px;
-  margin: 0 0 22px;
-  border-radius: var(--radius);
-}
 .sidebar.is-pinned .nav a,
 .sidebar.is-pinned .nav button.nav-btn {
   width: 100%;
@@ -511,13 +478,11 @@ button, input, textarea, select { font-family: inherit; }
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-top: auto;
+  flex-shrink: 0;
+  margin-top: 12px;
   padding: 11px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  /* Sticky para continuar alcançável quando o menu passa da altura da tela. */
-  position: sticky;
-  bottom: 0;
   background: #0d0d0d;
   color: var(--text-2);
   font-family: var(--font);
@@ -542,7 +507,7 @@ button, input, textarea, select { font-family: inherit; }
   height: 34px;
   min-width: 34px;
   padding: 0;
-  margin: auto auto 0;
+  margin: 12px auto 0;
   justify-content: center;
 }
 .sidebar:not(:hover):not(.is-pinned) .sidebar-pin .nav-text { display: none; }
@@ -557,24 +522,14 @@ button, input, textarea, select { font-family: inherit; }
   font-weight: 500;
 }
 .sidebar-brand { padding: 6px 4px 20px; }
-.btn-new {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; padding: 12px;
-  background: linear-gradient(135deg, var(--primary) 0%, #d4d4d4 100%);
-  color: var(--on-primary); border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius);
-  font-family: var(--font-display);
-  font-weight: 600; font-size: 0.86rem;
-  cursor: pointer; margin-bottom: 20px;
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transition: transform var(--ease), box-shadow var(--ease);
-  text-decoration: none;
+.nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
 }
-.btn-new:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(255, 255, 255, 0.32);
-}
-
+.nav::-webkit-scrollbar { width: 0; height: 0; }
 .nav-section { margin-bottom: 8px; }
 .nav-section-label {
   padding: 0 12px;
@@ -697,43 +652,6 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar:not(:hover):not(.is-pinned) .sidebar-account-manage {
   display: none;
 }
-
-.sidebar-plan {
-  margin-top: auto;
-  padding: 16px;
-  background: #0a0a0a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius);
-}
-.sidebar-plan strong {
-  display: block; font-family: var(--font-display);
-  font-size: 0.88rem; margin-bottom: 4px;
-}
-.sidebar-plan span { font-size: 0.74rem; color: var(--muted); display: block; margin-bottom: 10px; }
-.plan-usage { margin: 10px 0 12px; }
-.plan-usage-head {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 0.68rem; color: var(--muted); margin-bottom: 6px;
-}
-.plan-usage-pct { color: var(--primary); font-weight: 700; }
-.plan-usage-bar {
-  height: 6px; border-radius: 99px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-.plan-usage-bar span {
-  display: block; height: 100%; margin: 0;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--primary), #d4d4d4);
-  box-shadow: 0 0 12px var(--primary-glow);
-}
-.sidebar-plan a {
-  display: block; margin-top: 12px; text-align: center;
-  padding: 9px; border-radius: 10px; font-size: 0.78rem; font-weight: 600;
-  background: rgba(255, 255, 255, 0.1); color: var(--primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.sidebar-plan a:hover { background: rgba(255, 255, 255, 0.18); }
 
 /* Main — empurrado pela sidebar ao expandir */
 .main-wrap {

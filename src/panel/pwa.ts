@@ -53,7 +53,7 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "x1black-v1.26.1";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "x1black-v1.26.2";
 // PNG WhatsApp azul (telefone) — mesmo papel do favicon.svg do instablack.
 const NOTIFY_ICON = "/brand/pwa-192.png?v=1.26.0";
 

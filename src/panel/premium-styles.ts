@@ -772,13 +772,6 @@ body:not(.auth-body) .ambient {
   border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: none !important;
 }
-.btn-new {
-  background: linear-gradient(135deg, #ffffff, #d4d4d4) !important;
-  color: var(--on-primary) !important;
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.14) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-}
-.btn-new svg { color: var(--on-primary) !important; }
 .nav a.active {
   background: rgba(255, 255, 255, 0.1) !important;
   color: var(--blue-bright) !important;
@@ -1933,10 +1926,8 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
   background-color: #0b0b0b !important;
-  background-image:
-    radial-gradient(ellipse 88% 68% at 0% 0%, rgba(255, 255, 255, 0.17) 0%, transparent 56%),
-    radial-gradient(ellipse 50% 42% at 100% 100%, rgba(255, 255, 255, 0.08) 0%, transparent 52%) !important;
-  box-shadow: inset 0 -56px 72px -48px rgba(255, 255, 255, 0.075) !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 .topbar--dash .shark-fat-pill--topbar::before,
 .topbar--dash .shark-fat-pill--topbar::after {

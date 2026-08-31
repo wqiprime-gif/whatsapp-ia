@@ -229,7 +229,6 @@ export function appLayout(
           <span>GERENCIAR CONTA</span>${icons.chevronDown}
         </a>
       </div>
-      <a href="/instances/new" class="btn-new">${icons.plus}<span class="btn-new-label"> Nova Instância</span></a>
       <nav class="nav">
         <div class="nav-section">
           <div class="nav-section-label nav-text">PRINCIPAL</div>
