@@ -222,7 +222,7 @@ export function appLayout(
           ${userAvatarHtml(userAvatar, userName)}
           <span class="sidebar-account-name nav-text">${escapeHtml(userName)}</span>
           <form method="post" action="/logout" class="sidebar-account-power">
-            <button type="submit" aria-label="Sair" title="Sair">${icons.logout}</button>
+            <button type="submit" aria-label="Sair" title="Sair">${icons.power}</button>
           </form>
         </div>
         <a href="/perfil" class="sidebar-account-manage nav-text" data-nav>

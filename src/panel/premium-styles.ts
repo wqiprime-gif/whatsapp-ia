@@ -1,5 +1,5 @@
-﻿/** X1 BLACK: preto absoluto + branco (monocromï¿½tico) + raios CSS.
- *  As vars --blue-* mantï¿½m o nome por compatibilidade, mas carregam tons de cinza. */
+﻿/** X1 BLACK: preto absoluto + branco (monocromático) + raios CSS.
+ *  As vars --blue-* mantêm o nome por compatibilidade, mas carregam tons de cinza. */
 export const premiumStyles = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500&family=Orbitron:wght@700;800;900&display=swap');
 

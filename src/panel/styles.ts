@@ -94,7 +94,7 @@ body {
     linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 56px 56px, 56px 56px;
 }
-/* Teia X1 BLACK � dois n�s de teia (topo-direito e base-esquerda) */
+/* Textura de fundo X1 BLACK — dois nós de teia (topo-direito e base-esquerda) */
 .ambient::before,
 .ambient::after {
   content: "";
@@ -131,6 +131,7 @@ body {
 .brand-icon {
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.28));
 }
 .brand-lockup-text {
@@ -154,15 +155,15 @@ body {
   color: transparent;
   filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.65));
 }
-/* Sidebar: aranha em cima, wordmark embaixo � igual � identidade X1 BLACK */
+/* Sidebar: fantasma a esquerda e wordmark ao lado, numa linha so. */
 .brand-lockup--sidebar {
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
-  text-align: center;
+  text-align: left;
 }
-.brand-lockup--sidebar .brand-lockup-copy { align-items: center; }
-.brand-lockup--sidebar .brand-lockup-text { font-size: 1.02rem; letter-spacing: 0.2em; }
+.brand-lockup--sidebar .brand-lockup-copy { align-items: flex-start; }
+.brand-lockup--sidebar .brand-lockup-text { font-size: 0.92rem; letter-spacing: 0.16em; }
 .brand-lockup--sidebar .brand-sub { font-size: 0.54rem; letter-spacing: 0.22em; }
 .brand-lockup--login { flex-direction: column; align-items: center; gap: 12px; }
 .brand-lockup--login .brand-lockup-copy { align-items: center; }
@@ -368,8 +369,8 @@ button, input, textarea, select { font-family: inherit; }
   padding-bottom: 12px;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-icon {
-  width: 36px !important;
-  height: 36px !important;
+  width: 30px !important;
+  height: 30px !important;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-wordmark-accent { display: none; }
 .sidebar:not(:hover):not(.is-pinned) .nav-support .nav-text { display: none; }
@@ -604,20 +605,21 @@ button, input, textarea, select { font-family: inherit; }
 .sidebar-account-power button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.32);
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
   cursor: pointer;
-  transition: background var(--ease), border-color var(--ease);
+  transition: background var(--ease), border-color var(--ease), color var(--ease);
 }
 .sidebar-account-power button:hover {
-  background: rgba(239, 68, 68, 0.24);
-  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.65);
+  color: #fca5a5;
 }
-.sidebar-account-power svg { width: 16px; height: 16px; }
+.sidebar-account-power svg { width: 17px; height: 17px; }
 .sidebar-account-manage {
   display: flex;
   align-items: center;

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { x1SpiderSvg } from "./brand-icon.js";
+import { x1GhostSvg } from "./brand-icon.js";
 import { x1BlackFaviconSvg } from "./notify-icon.js";
 import { renderX1BlackAppIconPng, x1BlackAppIconSvg } from "./whatsapp-app-icon.js";
 import { env, rootDir } from "../config.js";
@@ -1550,12 +1550,24 @@ export async function registerPanelRoutes(
     return reply.redirect("/brand/favicon.svg");
   });
 
-  // Favicon X1 BLACK — aranha branca em squircle preto.
+  // Favicon X1 BLACK — fantasma branco em squircle preto.
   app.get("/brand/favicon.svg", async (_request, reply) => {
     return reply
       .type("image/svg+xml")
       .header("Cache-Control", "no-cache")
       .send(x1BlackFaviconSvg());
+  });
+
+  // Logo oficial: render metalico do fantasma, com o vetor como reserva.
+  app.get("/brand/x1black-ghost.png", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "x1black-ghost.png");
+    if (fsSync.existsSync(file)) {
+      return reply
+        .type("image/png")
+        .header("Cache-Control", "public, max-age=604800")
+        .send(fsSync.createReadStream(file));
+    }
+    return reply.type("image/svg+xml").send(x1GhostSvg(512, "", "logo"));
   });
 
   app.get("/brand/x1black-logo.jpg", async (_request, reply) => {
@@ -1566,7 +1578,7 @@ export async function registerPanelRoutes(
         .header("Cache-Control", "public, max-age=604800")
         .send(fsSync.createReadStream(file));
     }
-    return reply.type("image/svg+xml").send(x1SpiderSvg(512, "", "logo"));
+    return reply.type("image/svg+xml").send(x1GhostSvg(512, "", "logo"));
   });
 
   app.get("/brand/onlychat-mark.svg", async (_request, reply) => {
@@ -1582,7 +1594,7 @@ export async function registerPanelRoutes(
     if (fsSync.existsSync(file)) {
       return reply.type("image/svg+xml").send(fsSync.createReadStream(file));
     }
-    return reply.type("image/svg+xml").send(x1SpiderSvg(120, "", "file"));
+    return reply.type("image/svg+xml").send(x1GhostSvg(120, "", "file"));
   });
 
   app.get("/brand/onlychat.png", async (_request, reply) => {
@@ -1595,7 +1607,7 @@ export async function registerPanelRoutes(
         return reply.type("image/png").send(fsSync.createReadStream(file));
       }
     }
-    return reply.type("image/svg+xml").send(x1SpiderSvg(120, "", "png"));
+    return reply.type("image/svg+xml").send(x1GhostSvg(120, "", "png"));
   });
 
   app.get("/brand/whatsapp-logo.svg", async (_request, reply) => {

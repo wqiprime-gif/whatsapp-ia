@@ -4,32 +4,39 @@ import { brandIconSvgHtml } from "./brand-icon.js";
 export const BRAND_NAME = "X1 BLACK";
 export const BRAND_TAGLINE = "AUTOMATION CONTROL CENTER";
 
-export const BRAND_LOGO_SRC = "/brand/x1black-logo.jpg";
+export const BRAND_LOGO_SRC = "/brand/x1black-ghost.png";
 export const BRAND_ICON_PNG = "/brand/pwa-192.png";
 export const BRAND_FAVICON_SVG = "/brand/favicon.svg";
 
-export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="/brand/pwa-192.png?v=1.26.0" type="image/png" sizes="192x192" />
-    <link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.26.0" />`;
+/** Sobe junto com a troca de logo para furar cache de favicon e PWA. */
+export const BRAND_ASSET_VERSION = "1.26.3";
+
+export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon.svg?v=${BRAND_ASSET_VERSION}" type="image/svg+xml" />
+<link rel="icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" />`;
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
-/** Mark X1 BLACK — aranha SVG inline. */
+/** Mark X1 BLACK — render metalico do fantasma. A rota cai no SVG inline
+ *  quando o PNG nao existe, entao a imagem nunca fica quebrada. */
 export function brandIconHtml(className = "brand-icon", size = 40) {
-  return brandIconSvgHtml(className, size);
+  return `<img src="${BRAND_LOGO_SRC}?v=${BRAND_ASSET_VERSION}" alt="" aria-hidden="true" width="${size}" height="${size}" class="${className}" decoding="async" />`;
 }
+
+/** Versao inline em SVG — para onde nao da para usar <img>. */
+export const brandIconInlineHtml = brandIconSvgHtml;
 
 /** Wordmark tipográfico X1 BLACK. */
 export function brandWordmarkHtml(className = "brand-wordmark") {
   return `<span class="${className}">X1<span class="brand-wordmark-accent"> BLACK</span></span>`;
 }
 
-/** Lockup: aranha + X1 BLACK (texto aparece com sidebar expandida). */
+/** Lockup: fantasma + X1 BLACK (texto aparece com sidebar expandida). */
 export function brandLockupHtml(
   variant: "sidebar" | "login" | "mobile" | "drawer" = "sidebar",
   subtitle = BRAND_TAGLINE
 ) {
-  const sizes = { sidebar: 44, login: 56, mobile: 34, drawer: 40 };
+  const sizes = { sidebar: 30, login: 64, mobile: 28, drawer: 32 };
   const size = sizes[variant];
   return `<div class="brand-lockup brand-lockup--${variant}">
     ${brandIconHtml("brand-icon", size)}
@@ -40,7 +47,7 @@ export function brandLockupHtml(
   </div>`;
 }
 
-/** Marca na sidebar — aranha X1 BLACK + wordmark. */
-export function brandMarkHtml(subtitle = BRAND_TAGLINE) {
+/** Marca na sidebar — fantasma + wordmark numa linha, sem subtitulo. */
+export function brandMarkHtml(subtitle = "") {
   return brandLockupHtml("sidebar", subtitle);
 }
