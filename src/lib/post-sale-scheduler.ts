@@ -5,6 +5,8 @@ import { env } from "../config.js";
 import { getPool, useDatabase } from "../db/index.js";
 import { getBotByIdAny, type BotConfig } from "../bots.js";
 import { pickGiftMessage } from "./gifts.js";
+import { pickUpsellOffer, formatUpsellMessage } from "./upsell.js";
+import { listProducts } from "../db/events.js";
 import { jidFromChatId, sendWaMessage } from "../whatsapp-runtime.js";
 import { sendTgMessage } from "../telegram-runtime.js";
 import { isTelegramBot } from "../bots.js";
@@ -12,7 +14,7 @@ import { createChatCompletionForBot } from "./ai-chat.js";
 
 const filePath = path.join(env.DATA_DIR, "post-sale-jobs.json");
 
-export type PostSaleStage = "scheduled" | "reopened" | "warmed" | "gift_asked" | "done";
+export type PostSaleStage = "scheduled" | "reopened" | "warmed" | "upsell_offered" | "gift_asked" | "done";
 
 export type PostSaleJob = {
   id: string;
@@ -211,6 +213,41 @@ export async function processDuePostSaleJobs() {
           job.runAt = new Date(Date.now() + 90_000).toISOString();
         }
       } else if (job.stage === "warmed") {
+        const products = await listProducts(bot.id);
+        if (bot.upsellEnabled && bot.upsellInPostSale !== false && products.length >= 2) {
+          const { getLeadState, patchLeadState } = await import("../db/lead-state-db.js");
+          const lead = await getLeadState(bot.id, job.chatId);
+          if (!lead.upsellOffered) {
+            const purchased = lead.purchasedProductName || lead.selectedProductName || bot.productName;
+            const offer = pickUpsellOffer(purchased || "", products, bot.upsellRules ?? []);
+            if (offer) {
+              const msg = formatUpsellMessage(offer.message, offer.from, offer.to);
+              await sendPostSaleMessage(bot, job.chatId, msg);
+              await patchLeadState(bot.id, job.chatId, {
+                upsellOffered: true,
+                funnelStage: "upsell",
+                selectedProductName: offer.to.name,
+                selectedProductPriceCents: offer.to.priceCents
+              });
+              job.stage = "upsell_offered";
+              job.runAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+              await updateJob(job);
+              continue;
+            }
+          }
+        }
+        const giftMsg =
+          pickGiftMessage(bot.giftItems ?? []) ||
+          (await generatePostSaleLine(
+            bot,
+            bot.giftPrompt?.trim() ||
+              "Peca um presente/mimo com naturalidade (ex: um acai), sem parecer cobranca."
+          )) ||
+          "amor, me ajuda com um mimo? to com vontade de um acai 😘";
+        await sendPostSaleMessage(bot, job.chatId, giftMsg);
+        job.stage = "gift_asked";
+        job.runAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+      } else if (job.stage === "upsell_offered") {
         const giftMsg =
           pickGiftMessage(bot.giftItems ?? []) ||
           (await generatePostSaleLine(

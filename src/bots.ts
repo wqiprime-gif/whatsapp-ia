@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "./config.js";
 import { getPool, useDatabase } from "./db/index.js";
 import { parseGiftItems, type GiftItem } from "./lib/gifts.js";
+import { parseUpsellRules } from "./lib/upsell.js";
 import { parseFollowUpSteps, type FollowUpStep } from "./lib/follow-up.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
@@ -74,6 +75,12 @@ export type BotConfig = {
   postSaleOpenerPrompt?: string;
   postSaleWarmupReplies?: number;
   postSaleGiftDelayMinutes?: number;
+  /** Upsell automático de pacote após compra */
+  upsellEnabled?: boolean;
+  upsellDelayMinutes?: number;
+  upsellInPostSale?: boolean;
+  upsellPrompt?: string;
+  upsellRules?: import("./lib/upsell.js").UpsellRule[];
   /** whatsapp-web.js ou API oficial Meta (legado) */
   waApiProvider?: WaApiProvider;
   /** Número WhatsApp conectado (DDI+DDD+número) — usado no gerador de links */
@@ -246,6 +253,11 @@ function rowToBot(row: {
     postSaleOpenerPrompt: (row as { post_sale_opener_prompt?: string }).post_sale_opener_prompt ?? "",
     postSaleWarmupReplies: Number((row as { post_sale_warmup_replies?: number }).post_sale_warmup_replies ?? 2),
     postSaleGiftDelayMinutes: Number((row as { post_sale_gift_delay_minutes?: number }).post_sale_gift_delay_minutes ?? 45),
+    upsellEnabled: Boolean((row as { upsell_enabled?: boolean }).upsell_enabled),
+    upsellDelayMinutes: Number((row as { upsell_delay_minutes?: number }).upsell_delay_minutes ?? 2),
+    upsellInPostSale: (row as { upsell_in_post_sale?: boolean }).upsell_in_post_sale !== false,
+    upsellPrompt: (row as { upsell_prompt?: string }).upsell_prompt ?? "",
+    upsellRules: parseUpsellRules((row as { upsell_rules?: unknown }).upsell_rules),
     followUpEnabled: row.follow_up_enabled !== false,
     followUpAfterMinutes: row.follow_up_after_minutes ?? 10,
     followUpMaxPerLead: row.follow_up_max_per_lead ?? 2,
@@ -269,7 +281,9 @@ const BOT_SELECT = `SELECT id, user_id, name, token, platform, prompt, pix_key, 
   follow_up_enabled, follow_up_after_minutes, follow_up_max_per_lead, follow_up_steps,
   price_table_image_url, video_call_video_url, video_call_external_link, video_call_caller_name, video_call_avatar_url, locale,
   ai_provider, ai_model, ai_api_key_encrypted,
-  tg_api_id, tg_api_hash_encrypted, tg_phone
+  tg_api_id, tg_api_hash_encrypted, tg_phone,
+  post_sale_enabled, post_sale_wait_days, post_sale_opener_prompt, post_sale_warmup_replies, post_sale_gift_delay_minutes,
+  upsell_enabled, upsell_delay_minutes, upsell_in_post_sale, upsell_prompt, upsell_rules
   FROM bots`;
 
 /** Carrega bots. Sem userId = todos (runtime). Com userId = painel do cliente. */
@@ -307,6 +321,11 @@ export async function loadBots(userId?: string) {
     postSaleOpenerPrompt: b.postSaleOpenerPrompt ?? "",
     postSaleWarmupReplies: b.postSaleWarmupReplies ?? 2,
     postSaleGiftDelayMinutes: b.postSaleGiftDelayMinutes ?? 45,
+    upsellEnabled: Boolean(b.upsellEnabled),
+    upsellDelayMinutes: b.upsellDelayMinutes ?? 2,
+    upsellInPostSale: b.upsellInPostSale !== false,
+    upsellPrompt: b.upsellPrompt ?? "",
+    upsellRules: parseUpsellRules(b.upsellRules),
     waApiProvider: parseWaApiProvider(b.waApiProvider),
     waPhoneNumber: b.waPhoneNumber?.trim() || "",
     proxyEnabled: Boolean(b.proxyEnabled),

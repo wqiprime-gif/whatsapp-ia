@@ -179,6 +179,9 @@ export async function initDatabase() {
     const { initLeadStateSchema } = await import("./lead-state-db.js");
     await initLeadStateSchema();
 
+    const { initEngagementSchema } = await import("../lib/bot-engagement.js");
+    await initEngagementSchema();
+
     await migrateFromJsonFiles(db);
 
     console.log("[db] PostgreSQL conectado e schema pronto.");

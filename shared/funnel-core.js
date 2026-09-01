@@ -69,6 +69,10 @@ function emptyLeadState() {
     postSaleUserReplies: 0,
     sentAudioSlugs: [],
     previewSent: false,
+    funnelStage: "new",
+    lastObjection: null,
+    upsellOffered: false,
+    purchasedProductName: null,
     stateJson: {}
   };
 }
@@ -144,7 +148,26 @@ function nextColdMessage(state) {
 }
 
 function leadStateContext(state) {
+  const stage = state.funnelStage || (state.paid ? "paid" : "new");
+  const stageHints = {
+    new: "Lead novo — apresente com leveza.",
+    curious: "Lead curioso — mostre valor e pacotes.",
+    negotiating: "Lead negociando — trate objecao com empatia.",
+    paying: "Lead pagando — aguarde comprovante.",
+    paid: "Lead ja pagou — nao responda.",
+    upsell: "Modo upsell — ofereceu upgrade, pode negociar pacote maior.",
+    post_sale: "Pos-venda — conversa leve, presente ou upsell se configurado."
+  };
+  const objectionHints = {
+    caro: "Objecao: achou caro — reforce valor.",
+    sem_dinheiro: "Objecao: sem dinheiro — meia entrada ou pacote menor.",
+    fake: "Objecao: desconfia — use [[naosou_fake]] se ainda nao enviou.",
+    indeciso: "Objecao: indeciso — pergunte o que falta pra fechar.",
+    desconfiado: "Objecao: desconfiado — seja transparente."
+  };
   const parts = [
+    `Estagio do funil: ${stage}. ${stageHints[stage] || ""}`,
+    state.lastObjection ? objectionHints[state.lastObjection] || "" : "",
     `Mensagens do lead nesta conversa: ${state.userMessageCount || 0}.`,
     state.hasSentInformacoes
       ? "Tabela de precos JA enviada — nao use [[send_informacoes]] de novo."
@@ -152,15 +175,115 @@ function leadStateContext(state) {
     state.hasSentAmostra
       ? "Previa gratis JA enviada — nao use [[send_amostra_gratis]]."
       : "Previa ainda nao enviada.",
-    state.selectedPackage
-      ? `Pacote escolhido pelo lead: ${state.selectedPackage}. Pode negociar desconto neste pacote.`
+    state.selectedPackage || state.selectedProductName
+      ? `Pacote escolhido: ${state.selectedPackage || state.selectedProductName}. Pode negociar desconto neste pacote.`
       : "Lead ainda NAO escolheu pacote — se pedir desconto, pergunte qual pacote quer ANTES de oferecer valor.",
-    state.paid && !state.postSaleActive ? "Lead ja pagou — nao responda." : "",
+    state.paid && !state.postSaleActive && stage !== "upsell"
+      ? "Lead ja pagou — nao responda."
+      : "",
+    state.upsellOffered ? "Upsell de pacote JA oferecido nesta compra." : "",
     state.postSaleActive
       ? "Modo pos-venda ativo — pode conversar com carinho e pedir presente quando fizer sentido."
       : ""
   ];
   return parts.filter(Boolean).join(" ");
+}
+
+const OBJECTION_PATTERNS = [
+  { key: "caro", re: /caro|muito caro|ta caro|t[aá] caro/i },
+  { key: "sem_dinheiro", re: /sem dinheiro|nao tenho|n[aã]o tenho|nao consigo|n[aã]o consigo pagar/i },
+  { key: "fake", re: /fake|golpe|fraude|golpista|confi[aá]vel/i },
+  { key: "indeciso", re: /vou pensar|depois|mais tarde|nao sei|n[aã]o sei|talvez/i },
+  { key: "desconfiado", re: /desconfio|nao confio|n[aã]o confio|ser[aá] real/i }
+];
+
+function inferLeadProfile(text, state) {
+  const patch = {};
+  let stage = state.funnelStage || "new";
+  if (state.upsellActive || state.funnelStage === "upsell") {
+    stage = "upsell";
+  } else if (state.postSaleActive) {
+    stage = "post_sale";
+  } else if (state.paid) {
+    stage = "paid";
+  } else if (/comprovante|paguei|pix enviado|mandei o pix/i.test(String(text || ""))) {
+    stage = "paying";
+  } else if (wantsDiscount(text) || state.offeredHalfPrice) {
+    stage = "negotiating";
+  } else if (leadShowsBuyIntent(text) || state.hasSentInformacoes) {
+    stage = "curious";
+  } else if ((state.userMessageCount || 0) > 0) {
+    stage = stage === "new" ? "new" : stage;
+  }
+  patch.funnelStage = stage;
+  for (const o of OBJECTION_PATTERNS) {
+    if (o.re.test(String(text || ""))) {
+      patch.lastObjection = o.key;
+      break;
+    }
+  }
+  return patch;
+}
+
+function normProductName(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function productNameMatches(name, pattern) {
+  const p = normProductName(pattern);
+  if (!p) return true;
+  const n = normProductName(name);
+  return n.includes(p) || p.includes(n);
+}
+
+function pickUpsellOffer(purchasedName, cfg) {
+  if (!cfg?.upsellEnabled) return null;
+  const products = allActiveProducts(cfg);
+  if (products.length < 2) return null;
+  const rules = Array.isArray(cfg.upsellRules) ? cfg.upsellRules : [];
+  const sorted = [...products].sort((a, b) => (a.priceCents || 0) - (b.priceCents || 0));
+  let from =
+    sorted.find((p) => productNameMatches(p.name, purchasedName)) ||
+    sorted.find((p) => normProductName(purchasedName).includes(normProductName(p.name))) ||
+    null;
+
+  for (const rule of rules) {
+    if (!productNameMatches(purchasedName, rule.fromProduct || "")) continue;
+    const to = sorted.find((p) => productNameMatches(p.name, rule.toProduct || ""));
+    if (!to) continue;
+    if (from && (to.priceCents || 0) <= (from.priceCents || 0)) continue;
+    const baseFrom = from || sorted[0];
+    const diff = Math.max(0, ((to.priceCents || 0) - (baseFrom.priceCents || 0)) / 100);
+    const price = (to.priceCents || 0) / 100;
+    const fmt = (n) => n.toFixed(2).replace(".", ",");
+    const msg = String(rule.message || "")
+      .replace(/\{diff\}/g, fmt(diff))
+      .replace(/\{price\}/g, fmt(price))
+      .replace(/\{from\}/g, baseFrom.name)
+      .replace(/\{to\}/g, to.name);
+    return { message: msg, from: baseFrom, to, approach: "upsell_rule" };
+  }
+
+  if (!from) from = sorted[0];
+  const idx = sorted.findIndex((p) => p.name === from.name);
+  if (idx < 0 || idx >= sorted.length - 1) return null;
+  const to = sorted[idx + 1];
+  if ((to.priceCents || 0) <= (from.priceCents || 0)) return null;
+  const diff = ((to.priceCents || 0) - (from.priceCents || 0)) / 100;
+  const fmt = (n) => n.toFixed(2).replace(".", ",");
+  const msg = `amor, gostou? se fechar o ${to.name} por so R$${fmt(diff)} a mais eu libero agora 😈`;
+  return { message: msg, from, to, approach: "upsell_auto" };
+}
+
+function upsellDeclined(text) {
+  return /^(nao|n[aã]o|depois|agora n[aã]o|sem condi[cç][aã]o|valeu|obrigad)/i.test(String(text || "").trim());
+}
+
+function upsellAccepted(text) {
+  return /(quero|bora|manda|pode|sim|fech|vou|aceito|manda o pix|pix)/i.test(String(text || ""));
 }
 
 function parseOfferReais(text) {
@@ -456,5 +579,9 @@ module.exports = {
   getFollowUpConfig,
   allActiveProducts,
   localStateFromMaps,
-  applyStateToMaps
+  applyStateToMaps,
+  inferLeadProfile,
+  pickUpsellOffer,
+  upsellDeclined,
+  upsellAccepted
 };

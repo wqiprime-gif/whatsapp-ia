@@ -309,6 +309,11 @@ async function syncBotFiles(bot: BotConfig, port: number) {
         giftPrompt: bot.giftPrompt ?? "",
         giftItems: bot.giftItems ?? [],
         postSaleEnabled: Boolean(bot.postSaleEnabled),
+        upsellEnabled: Boolean(bot.upsellEnabled),
+        upsellDelayMinutes: bot.upsellDelayMinutes ?? 2,
+        upsellInPostSale: bot.upsellInPostSale !== false,
+        upsellPrompt: bot.upsellPrompt ?? "",
+        upsellRules: bot.upsellRules ?? [],
         updatedAt: new Date().toISOString()
       },
       null,

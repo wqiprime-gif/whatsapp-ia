@@ -232,6 +232,33 @@ function createFunnelHandler(deps) {
     return { text: clean, audioSlugs, raw, state: fresh };
   }
 
+  async function maybeOfferUpsell(peer, chatId, conv, purchasedName) {
+    const cfg = loadBotConfig();
+    if (!cfg.upsellEnabled) return false;
+    const state = await getLeadState(chatId);
+    if (state.upsellOffered) return false;
+    const delayMin = Math.max(0, Number(cfg.upsellDelayMinutes) || 2);
+    if (delayMin > 0) await sleep(delayMin * 60 * 1000);
+    const offer = funnel.pickUpsellOffer(purchasedName || state.selectedProductName || "", cfg);
+    if (!offer) return false;
+    await sendText(peer, chatId, offer.message);
+    conv.push({ role: "assistant", content: offer.message });
+    saveConversations();
+    await saveLeadState(
+      chatId,
+      {
+        upsellOffered: true,
+        purchasedProductName: purchasedName || state.selectedProductName || offer.from?.name || null,
+        funnelStage: "upsell",
+        selectedProductName: offer.to.name,
+        selectedProductPriceCents: offer.to.priceCents
+      },
+      offer.approach || "upsell",
+      false
+    );
+    return true;
+  }
+
   async function confirmPayment(peer, chatId, conv, approvedText) {
     const cfg = loadBotConfig();
     if (approvedText) await sendText(peer, chatId, approvedText);
@@ -251,15 +278,26 @@ function createFunnelHandler(deps) {
     }
     const link = String(cfg.productDeliveryLink || "").trim();
     if (link) await sendText(peer, chatId, `prontinho amor, seu acesso:\n${link}`);
+    const purchased =
+      (await getLeadState(chatId)).selectedProductName ||
+      cfg.productName ||
+      "";
     await saveLeadState(
       chatId,
-      { paid: true, paidAt: new Date().toISOString(), postSaleActive: false },
+      {
+        paid: true,
+        paidAt: new Date().toISOString(),
+        postSaleActive: false,
+        purchasedProductName: purchased,
+        funnelStage: "paid"
+      },
       "payment_confirmed",
       true
     );
     clearFollowUp(chatId);
     conv.push({ role: "system", content: "[venda] Pagamento confirmado" });
     saveConversations();
+    await maybeOfferUpsell(peer, chatId, conv, purchased);
   }
 
   async function handleReceipt(peer, chatId, buffer, mimetype, filename) {
@@ -312,12 +350,26 @@ function createFunnelHandler(deps) {
     });
 
     let state = await getLeadState(chatId);
-    if (state.paid && !state.postSaleActive) return;
+    if (state.paid && !state.postSaleActive && state.funnelStage !== "upsell") return;
 
+    const profilePatch = funnel.inferLeadProfile(text, state);
     state = await saveLeadState(chatId, {
+      ...profilePatch,
       userMessageCount: (state.userMessageCount || 0) + 1,
       lastUserMessageAt: new Date().toISOString()
     });
+
+    if (state.funnelStage === "upsell") {
+      if (funnel.upsellDeclined(text)) {
+        await saveLeadState(chatId, { funnelStage: "paid" });
+        await sendText(peer, chatId, "tudo bem amor, qualquer coisa me chama 😘");
+        return;
+      }
+      if (funnel.upsellAccepted(text)) {
+        await sendChavePix(peer, chatId, conv);
+        return;
+      }
+    }
 
     const cfg = loadBotConfig();
     const conv = getConversation(chatId);

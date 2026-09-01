@@ -2,6 +2,23 @@ import type OpenAI from "openai";
 
 export type PackageId = "basico" | "chamada" | "completo";
 
+export type FunnelStage =
+  | "new"
+  | "curious"
+  | "negotiating"
+  | "paying"
+  | "paid"
+  | "upsell"
+  | "post_sale";
+
+export type LeadObjection =
+  | "caro"
+  | "sem_dinheiro"
+  | "fake"
+  | "indeciso"
+  | "desconfiado"
+  | null;
+
 export type LeadState = {
   userMessageCount: number;
   hasSentInformacoes: boolean;
@@ -15,6 +32,12 @@ export type LeadState = {
   postSaleActive?: boolean;
   postSaleStage?: "scheduled" | "reopened" | "warmed" | "gift_asked" | "done";
   postSaleUserReplies?: number;
+  /** Estágio do funil para a IA */
+  funnelStage?: FunnelStage;
+  /** Última objeção detectada na conversa */
+  lastObjection?: LeadObjection;
+  upsellOffered?: boolean;
+  purchasedProductName?: string;
 };
 
 export function createLeadState(): LeadState {
@@ -66,14 +89,36 @@ export function nextColdMessage(state: LeadState): string | null {
 }
 
 export function leadStateContext(state: LeadState) {
+  const stageLabels: Record<FunnelStage, string> = {
+    new: "Lead novo — apresente com leveza.",
+    curious: "Lead curioso — mostre valor e pacotes.",
+    negotiating: "Lead negociando — trate objecao com empatia.",
+    paying: "Lead pagando — aguarde comprovante.",
+    paid: "Lead ja pagou — nao responda.",
+    upsell: "Modo upsell — ofereceu upgrade, pode negociar o pacote maior.",
+    post_sale: "Pos-venda — conversa leve, presente ou upsell se configurado."
+  };
+  const objectionHints: Record<string, string> = {
+    caro: "Objecao: achou caro — reforce valor, nao pressione.",
+    sem_dinheiro: "Objecao: sem dinheiro — meia entrada ou pacote menor.",
+    fake: "Objecao: desconfia — use [[naosou_fake]] se ainda nao enviou.",
+    indeciso: "Objecao: indeciso — pergunte o que falta pra fechar.",
+    desconfiado: "Objecao: desconfiado — seja transparente."
+  };
+  const stage = state.funnelStage || (state.paid ? "paid" : "new");
   const parts = [
+    `Estagio do funil: ${stage}. ${stageLabels[stage] || ""}`,
+    state.lastObjection ? objectionHints[state.lastObjection] || "" : "",
     `Mensagens do lead nesta conversa: ${state.userMessageCount}.`,
     state.hasSentInformacoes ? "Tabela de precos JA enviada — nao use [[send_informacoes]] de novo." : "Tabela ainda NAO enviada.",
     state.hasSentAmostra ? "Previa gratis JA enviada — nao use [[send_amostra_gratis]]." : "Previa ainda nao enviada.",
     state.selectedPackage
       ? `Pacote escolhido pelo lead: ${state.selectedPackage}. Pode negociar desconto neste pacote.`
       : "Lead ainda NAO escolheu pacote — se pedir desconto, pergunte qual pacote quer ANTES de oferecer valor.",
-    state.paid && !state.postSaleActive ? "Lead ja pagou — nao responda." : "",
+    state.paid && !state.postSaleActive && stage !== "upsell"
+      ? "Lead ja pagou — nao responda."
+      : "",
+    state.upsellOffered ? "Upsell de pacote JA oferecido nesta compra." : "",
     state.postSaleActive ? "Modo pos-venda ativo — pode conversar com carinho e pedir presente quando fizer sentido." : ""
   ];
   return parts.filter(Boolean).join(" ");

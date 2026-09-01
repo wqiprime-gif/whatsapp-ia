@@ -138,7 +138,59 @@ export function giftsPage(
               <span>Dia N → conversa → pede presente → continua conversando</span>
             </div>
           </div>
+
+          <div class="post-sale-panel" style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+            <h4 class="post-sale-title">Upsell de pacote</h4>
+            <p class="form-hint">Depois da compra, oferece upgrade para um pacote maior. Use regras ou deixe vazio para subir automaticamente para o próximo pacote mais caro.</p>
+            <label class="toggle-row" style="margin:14px 0">
+              <input type="checkbox" name="upsellEnabled" form="gift-save-form" value="on" ${bot?.upsellEnabled ? "checked" : ""} ${canSave ? "" : "disabled"} />
+              <span>Ativar upsell após compra</span>
+            </label>
+            <div class="post-sale-grid">
+              <label class="field">Minutos após entrega (imediato)
+                <input type="number" name="upsellDelayMinutes" form="gift-save-form" min="0" max="60" value="${bot?.upsellDelayMinutes ?? 2}" ${canSave ? "" : "disabled"} />
+              </label>
+              <label class="toggle-row" style="align-self:end">
+                <input type="checkbox" name="upsellInPostSale" form="gift-save-form" value="on" ${bot?.upsellInPostSale !== false ? "checked" : ""} ${canSave ? "" : "disabled"} />
+                <span>Também no pós-venda (antes do presente)</span>
+              </label>
+            </div>
+            <label class="field">Instruções para a IA (upsell)
+              <textarea name="upsellPrompt" form="gift-save-form" rows="3" placeholder="Ex: Ofereça o pacote maior com naturalidade. Se aceitar, mande o Pix da diferença." ${canSave ? "" : "disabled"}>${escapeHtml(bot?.upsellPrompt ?? "")}</textarea>
+            </label>
+            <p class="form-hint">Placeholders nas mensagens: <code>{from}</code> <code>{to}</code> <code>{price}</code> <code>{diff}</code></p>
+          </div>
         </form>
+      </div>
+    </div>
+
+    <div class="card card-neon" style="margin-top:16px">
+      <div class="card-head"><h3>${icons.sparkles} Regras de upsell</h3></div>
+      <div class="card-body">
+        ${
+          !bot
+            ? `<p class="form-hint">Selecione uma instância acima.</p>`
+            : (bot.upsellRules ?? []).length === 0
+              ? `<div class="empty glow-empty">Nenhuma regra — o bot usa o próximo pacote mais caro automaticamente.</div>`
+              : `<div class="gift-grid">
+          ${(bot.upsellRules ?? [])
+            .map((rule, i) => {
+              return `<article class="gift-card">
+              <div class="gift-card-head">
+                <span class="gift-badge">${icons.layers}</span>
+                <div>
+                  <h4>${escapeHtml(rule.fromProduct || "Qualquer")} → ${escapeHtml(rule.toProduct)}</h4>
+                </div>
+              </div>
+              <p class="gift-ask-preview">${escapeHtml(rule.message)}</p>
+              <label class="audio-remove"><input type="checkbox" form="gift-save-form" name="removeUpsellIndexes" value="${i}" /> Remover</label>
+            </article>`;
+            })
+            .join("")}
+        </div>`
+        }
+        <div id="upsell-new-blocks" class="seq-block" style="margin-top:16px"></div>
+        <button type="button" class="btn btn-secondary btn-sm" id="upsell-add-btn" ${canSave ? "" : "disabled"}>${icons.plus} Adicionar regra</button>
       </div>
     </div>
 
@@ -153,7 +205,8 @@ export function giftsPage(
         </button>
       </div>
     </div>
-    <script>${giftBlocksScript(canSave)}</script>`;
+    <script>${giftBlocksScript(canSave)}</script>
+    <script>${upsellBlocksScript(canSave)}</script>`;
 
   return appLayout("Pedir presentes", "gifts", body, partial, "Usuario", "", "", "", "", showAdminNav);
 }
@@ -178,6 +231,31 @@ function giftBlocksScript(canSave: boolean) {
   if (enabled) {
     btn.onclick = add;
     add();
+  }
+})();
+`.trim();
+}
+
+function upsellBlocksScript(canSave: boolean) {
+  return `
+(function(){
+  var wrap = document.getElementById("upsell-new-blocks");
+  var btn = document.getElementById("upsell-add-btn");
+  if (!wrap || !btn) return;
+  var enabled = ${canSave ? "true" : "false"};
+  function add(){
+    if (!enabled) return;
+    var row = document.createElement("div");
+    row.className = "gift-add-row";
+    row.innerHTML = '<label class="field">Comprou (vazio = qualquer)<input name="upsellFrom" form="gift-save-form" placeholder="Ex: Básico" /></label>'
+      + '<label class="field">Oferecer upgrade<input name="upsellTo" form="gift-save-form" placeholder="Ex: Completo" /></label>'
+      + '<label class="field">Mensagem<textarea name="upsellMessage" form="gift-save-form" rows="2" placeholder="amor, gostou? o {to} sai por R$ {diff} a mais"></textarea></label>'
+      + '<button type="button" class="btn btn-secondary btn-sm gift-row-remove">Remover</button>';
+    row.querySelector(".gift-row-remove").onclick = function(){ row.remove(); };
+    wrap.appendChild(row);
+  }
+  if (enabled) {
+    btn.onclick = add;
   }
 })();
 `.trim();

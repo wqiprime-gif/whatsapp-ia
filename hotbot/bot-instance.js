@@ -600,7 +600,7 @@ function scheduleFollowUp(jid) {
   clearFollowUpTimer(jid);
   const { enabled, afterMs, maxPerLead, steps } = getFollowUpConfig();
   if (!enabled) return;
-  if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid]) return;
+  if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid] && !upsellActive[jid]) return;
   const stepIndex = followUpCounts[jid] || 0;
   if (stepIndex >= maxPerLead) return;
 
@@ -612,7 +612,7 @@ function scheduleFollowUp(jid) {
   const scheduledAt = Date.now();
   followUpTimers[jid] = setTimeout(async () => {
     followUpTimers[jid] = null;
-    if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid]) return;
+    if ((comprovantesRecebidos[jid] || paidUsers[jid]) && !postSaleActive[jid] && !upsellActive[jid]) return;
     if ((lastUserActivityAt[jid] || 0) > (lastBotMessageAt[jid] || scheduledAt)) return;
     if ((followUpCounts[jid] || 0) >= maxPerLead) return;
 
@@ -1352,6 +1352,7 @@ const audioFailures = {};
 const comprovantesRecebidos = {}; // Tracks which users have sent proof of payment
 const paidUsers = {}; // Users who have already paid
 const postSaleActive = {}; // Reengajamento pos-venda — bypass silencio
+const upsellActive = {}; // Upsell de pacote — bypass silencio após compra
 const leadStateHydrated = {};
 
 async function ensureLeadStateFromPanel(jid) {
@@ -1391,9 +1392,40 @@ function syncLeadStateToPanel(jid, approach, approachConverted) {
     selectedProductByJid,
     sentAudios
   });
+  if (upsellActive[jid]) patch.funnelStage = 'upsell';
   funnel.patchLeadState(chatId, patch, approach, approachConverted).catch((error) => {
     console.warn('lead-state sync:', error?.message || error);
   });
+}
+
+async function maybeOfferUpsellWa(client, jid, purchasedName) {
+  const config = loadBotConfig();
+  if (!config.upsellEnabled) return;
+  const chatId = funnel.chatIdFromJid(jid);
+  const remote = await funnel.fetchLeadState(chatId);
+  if (remote.upsellOffered) return;
+  const delayMin = Math.max(0, Number(config.upsellDelayMinutes) || 2);
+  if (delayMin > 0) {
+    await new Promise((r) => setTimeout(r, delayMin * 60 * 1000));
+  }
+  const offer = funnel.pickUpsellOffer(String(purchasedName || ''), config);
+  if (!offer) return;
+  await sendTextHuman(client, jid, offer.message);
+  upsellActive[jid] = true;
+  selectedProductByJid[jid] = { name: offer.to.name, priceCents: offer.to.priceCents };
+  await funnel.patchLeadState(
+    chatId,
+    {
+      upsellOffered: true,
+      purchasedProductName: offer.from?.name || String(purchasedName || ''),
+      funnelStage: 'upsell',
+      selectedProductName: offer.to.name,
+      selectedProductPriceCents: offer.to.priceCents
+    },
+    offer.approach || 'upsell',
+    false
+  );
+  scheduleSaveConversations();
 }
 
 loadCustomPrompt();
@@ -2522,6 +2554,12 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
 
       await aplicarEtiqueta(messageFrom, 'Novo Cliente');
       console.log(`   Conteúdo entregue — bot silenciado para ${messageFrom}\n`);
+
+      const purchased =
+        selectedProductByJid[messageFrom]?.name ||
+        config.productName ||
+        (await detectarPacote(messageFrom));
+      await maybeOfferUpsellWa(client, messageFrom, purchased);
     } catch (error) {
       console.error(`❌ Erro na entrega: ${error.message}`);
       try {
@@ -2731,7 +2769,7 @@ client.on("message", async (message) => {
     return;
   }
   // Verificar se o lead já pagou
-  if ((comprovantesRecebidos[message.from] || paidUsers[message.from]) && !postSaleActive[message.from]) {
+  if ((comprovantesRecebidos[message.from] || paidUsers[message.from]) && !postSaleActive[message.from] && !upsellActive[message.from]) {
     console.log(`⏸️  Bot pausado para ${message.from} - Aguardando ação manual`);
     return; // Para de enviar mensagens
   }
@@ -2834,6 +2872,43 @@ client.on("message", async (message) => {
       console.log('─'.repeat(60) + '\n');
       try {
         rememberSelectedProduct(from, combinedMessage);
+
+        if (upsellActive[from]) {
+          if (funnel.upsellDeclined(combinedMessage)) {
+            upsellActive[from] = false;
+            await sendTextHuman(client, from, 'tudo bem amor, qualquer coisa me chama 😘');
+            void funnel.patchLeadState(
+              funnel.chatIdFromJid(from),
+              { funnelStage: 'paid' },
+              'upsell_declined',
+              false
+            );
+            onBotOutbound(from);
+            return;
+          }
+          if (funnel.upsellAccepted(combinedMessage)) {
+            const conv = getUserConversation(from);
+            conv.push({ role: 'user', content: combinedMessage });
+            await enviarChavePix(from, conv);
+            scheduleSaveConversations();
+            onBotOutbound(from);
+            return;
+          }
+        }
+
+        void funnel.patchLeadState(
+          funnel.chatIdFromJid(from),
+          funnel.inferLeadProfile(combinedMessage, {
+            userMessageCount: (userConversations[from] || []).filter((m) => m.role === 'user').length,
+            hasSentInformacoes: Boolean(hasSentInformacoes[from]),
+            offeredHalfPrice: Boolean(halfPriceOffered[from]),
+            paid: Boolean(paidUsers[from]),
+            postSaleActive: Boolean(postSaleActive[from]),
+            funnelStage: upsellActive[from] ? 'upsell' : paidUsers[from] ? 'paid' : 'new'
+          }),
+          null,
+          false
+        );
 
         // Saudação em ÁUDIO no primeiro contato (substitui o "oi tudo bem" em texto)
         if (isGreetingText(combinedMessage) && isFirstUserMessage(from)) {

@@ -68,6 +68,7 @@ import {
 } from "./pages.js";
 import { messagesChartSvgFromData, sparklineSvg, chartDayValues, conversionGaugeSvg, sharkPerformanceChartHtml } from "./charts.js";
 import { giftsPage, mergeGiftItems } from "./gifts-page.js";
+import { mergeUpsellRules, saveBotEngagement } from "../lib/bot-engagement.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
@@ -1915,15 +1916,20 @@ export async function registerPanelRoutes(
       if (!bot) throw new Error("Instância não encontrada.");
       const giftItems = mergeGiftItems(bot.giftItems ?? [], raw);
       const giftPrompt = String(raw.giftPrompt || "").trim();
-      await upsertBot({
-        ...bot,
+      const upsellRules = mergeUpsellRules(bot.upsellRules ?? [], raw);
+      await saveBotEngagement(botId, {
         giftPrompt,
         giftItems,
         postSaleEnabled: raw.postSaleEnabled === "on" || raw.postSaleEnabled === "true",
         postSaleWaitDays: Math.min(7, Math.max(1, Number(raw.postSaleWaitDays) || 2)),
         postSaleOpenerPrompt: String(raw.postSaleOpenerPrompt || "").trim(),
         postSaleWarmupReplies: Math.min(5, Math.max(1, Number(raw.postSaleWarmupReplies) || 2)),
-        postSaleGiftDelayMinutes: Math.min(240, Math.max(5, Number(raw.postSaleGiftDelayMinutes) || 45))
+        postSaleGiftDelayMinutes: Math.min(240, Math.max(5, Number(raw.postSaleGiftDelayMinutes) || 45)),
+        upsellEnabled: raw.upsellEnabled === "on" || raw.upsellEnabled === "true",
+        upsellDelayMinutes: Math.min(60, Math.max(0, Number(raw.upsellDelayMinutes) || 2)),
+        upsellInPostSale: raw.upsellInPostSale !== "off" && raw.upsellInPostSale !== "false",
+        upsellPrompt: String(raw.upsellPrompt || "").trim(),
+        upsellRules
       });
       hooks.syncBots();
       return reply.redirect(flashRedirect(`/gifts?botId=${botId}`, "Presentes atualizados!"));

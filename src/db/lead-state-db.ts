@@ -25,6 +25,10 @@ export type LeadStateRow = {
   postSaleUserReplies: number;
   sentAudioSlugs: string[];
   previewSent: boolean;
+  funnelStage: string;
+  lastObjection: string | null;
+  upsellOffered: boolean;
+  purchasedProductName: string | null;
   stateJson: Record<string, unknown>;
   updatedAt: string;
 };
@@ -59,6 +63,10 @@ export function emptyLeadState(botId: string, chatId: number): LeadStateRow {
     postSaleUserReplies: 0,
     sentAudioSlugs: [],
     previewSent: false,
+    funnelStage: "new",
+    lastObjection: null,
+    upsellOffered: false,
+    purchasedProductName: null,
     stateJson: {},
     updatedAt: now
   };
@@ -95,6 +103,10 @@ function rowToLeadState(r: Record<string, unknown>): LeadStateRow {
     postSaleUserReplies: Number(r.post_sale_user_replies ?? 0),
     sentAudioSlugs: Array.isArray(slugs) ? slugs.map(String) : [],
     previewSent: Boolean(r.preview_sent),
+    funnelStage: r.funnel_stage ? String(r.funnel_stage) : "new",
+    lastObjection: r.last_objection ? String(r.last_objection) : null,
+    upsellOffered: Boolean(r.upsell_offered),
+    purchasedProductName: r.purchased_product_name ? String(r.purchased_product_name) : null,
     stateJson:
       r.state_json && typeof r.state_json === "object" && !Array.isArray(r.state_json)
         ? (r.state_json as Record<string, unknown>)
@@ -131,6 +143,10 @@ export async function initLeadStateSchema() {
       post_sale_user_replies SMALLINT NOT NULL DEFAULT 0,
       sent_audio_slugs JSONB NOT NULL DEFAULT '[]',
       preview_sent BOOLEAN NOT NULL DEFAULT false,
+      funnel_stage TEXT NOT NULL DEFAULT 'new',
+      last_objection TEXT,
+      upsell_offered BOOLEAN NOT NULL DEFAULT false,
+      purchased_product_name TEXT,
       state_json JSONB NOT NULL DEFAULT '{}',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (bot_id, chat_id)
@@ -151,6 +167,11 @@ export async function initLeadStateSchema() {
 
     CREATE INDEX IF NOT EXISTS funnel_approaches_bot_idx
       ON funnel_approaches (bot_id, approach, converted, created_at DESC);
+
+    ALTER TABLE lead_state ADD COLUMN IF NOT EXISTS funnel_stage TEXT NOT NULL DEFAULT 'new';
+    ALTER TABLE lead_state ADD COLUMN IF NOT EXISTS last_objection TEXT;
+    ALTER TABLE lead_state ADD COLUMN IF NOT EXISTS upsell_offered BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE lead_state ADD COLUMN IF NOT EXISTS purchased_product_name TEXT;
   `);
 }
 
@@ -191,9 +212,11 @@ async function saveLeadStateFull(merged: LeadStateRow): Promise<LeadStateRow> {
       selected_package, selected_product_name, selected_product_price_cents,
       offered_half_price, half_price_product_name, follow_up_count,
       last_user_message_at, last_bot_message_at, post_sale_active, post_sale_stage,
-      post_sale_user_replies, sent_audio_slugs, preview_sent, state_json, updated_at
+      post_sale_user_replies, sent_audio_slugs, preview_sent,
+      funnel_stage, last_objection, upsell_offered, purchased_product_name,
+      state_json, updated_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24::jsonb,NOW()
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27,$28::jsonb,NOW()
     )
     ON CONFLICT (bot_id, chat_id) DO UPDATE SET
       user_message_count = COALESCE($3, lead_state.user_message_count),
@@ -217,7 +240,11 @@ async function saveLeadStateFull(merged: LeadStateRow): Promise<LeadStateRow> {
       post_sale_user_replies = COALESCE($21, lead_state.post_sale_user_replies),
       sent_audio_slugs = COALESCE($22::jsonb, lead_state.sent_audio_slugs),
       preview_sent = COALESCE($23, lead_state.preview_sent),
-      state_json = COALESCE($24::jsonb, lead_state.state_json),
+      funnel_stage = COALESCE($24, lead_state.funnel_stage),
+      last_objection = COALESCE($25, lead_state.last_objection),
+      upsell_offered = COALESCE($26, lead_state.upsell_offered),
+      purchased_product_name = COALESCE($27, lead_state.purchased_product_name),
+      state_json = COALESCE($28::jsonb, lead_state.state_json),
       updated_at = NOW()
     RETURNING *`,
     [
@@ -244,6 +271,10 @@ async function saveLeadStateFull(merged: LeadStateRow): Promise<LeadStateRow> {
       merged.postSaleUserReplies,
       JSON.stringify(merged.sentAudioSlugs ?? []),
       merged.previewSent,
+      merged.funnelStage,
+      merged.lastObjection,
+      merged.upsellOffered,
+      merged.purchasedProductName,
       JSON.stringify(merged.stateJson ?? {})
     ]
   );

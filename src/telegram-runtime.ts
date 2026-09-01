@@ -105,6 +105,11 @@ async function writeInstanceFiles(bot: BotConfig) {
         giftPrompt: bot.giftPrompt ?? "",
         giftItems: bot.giftItems ?? [],
         postSaleEnabled: Boolean(bot.postSaleEnabled),
+        upsellEnabled: Boolean(bot.upsellEnabled),
+        upsellDelayMinutes: bot.upsellDelayMinutes ?? 2,
+        upsellInPostSale: bot.upsellInPostSale !== false,
+        upsellPrompt: bot.upsellPrompt ?? "",
+        upsellRules: bot.upsellRules ?? [],
         platform: "telegram",
         updatedAt: new Date().toISOString()
       },
