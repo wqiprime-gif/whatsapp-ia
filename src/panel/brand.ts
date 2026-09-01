@@ -9,11 +9,11 @@ export const BRAND_ICON_PNG = "/brand/pwa-192.png";
 export const BRAND_FAVICON_SVG = "/brand/favicon.svg";
 
 /** Sobe junto com a troca de logo para furar cache de favicon e PWA. */
-export const BRAND_ASSET_VERSION = "1.31.1";
+export const BRAND_ASSET_VERSION = "1.32.0";
 
-export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon.svg?v=${BRAND_ASSET_VERSION}" type="image/svg+xml" />
+export const FAVICON_LINK = `<link rel="icon" href="/brand/x1black-ghost.png?v=${BRAND_ASSET_VERSION}" type="image/png" />
 <link rel="icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" type="image/png" sizes="192x192" />
-    <link rel="apple-touch-icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" />`;
+<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" />`;
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
@@ -36,7 +36,7 @@ export function brandLockupHtml(
   variant: "sidebar" | "login" | "mobile" | "drawer" = "sidebar",
   subtitle = BRAND_TAGLINE
 ) {
-  const sizes = { sidebar: 30, login: 64, mobile: 28, drawer: 32 };
+  const sizes = { sidebar: 34, login: 72, mobile: 30, drawer: 36 };
   const size = sizes[variant];
   return `<div class="brand-lockup brand-lockup--${variant}">
     ${brandIconHtml("brand-icon", size)}

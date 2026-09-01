@@ -1646,9 +1646,9 @@ export async function registerPanelRoutes(
   });
 
   app.get("/favicon.ico", async (_request, reply) => {
-    const png = path.join(rootDir, "public", "brand", "onlychat.png");
-    if (fsSync.existsSync(png)) {
-      return reply.type("image/png").send(fsSync.createReadStream(png));
+    const logo = path.join(rootDir, "public", "brand", "x1black-ghost.png");
+    if (fsSync.existsSync(logo)) {
+      return reply.type("image/png").send(fsSync.createReadStream(logo));
     }
     return reply.redirect("/brand/favicon.svg");
   });

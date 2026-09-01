@@ -132,7 +132,7 @@ body {
   flex-shrink: 0;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.28));
+  border-radius: 8px;
 }
 .brand-lockup-text {
   font-family: var(--font-brand, 'Orbitron', sans-serif);
@@ -323,27 +323,27 @@ button, input, textarea, select { font-family: inherit; }
   content: "";
   position: absolute;
   right: 0;
-  width: 4px;
-  height: 140px;
+  width: 2px;
+  height: 88px;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.15) 15%,
-    #ffffff 40%,
-    #d4d4d4 50%,
-    #ffffff 60%,
-    rgba(255, 255, 255, 0.15) 85%,
+    rgba(255, 255, 255, 0.12) 18%,
+    #ffffff 46%,
+    #d4d4d4 54%,
+    #ffffff 62%,
+    rgba(255, 255, 255, 0.12) 82%,
     transparent 100%
   );
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45), 0 0 6px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
   pointer-events: none;
   z-index: 4;
-  animation: shark-sidebar-beam 1.8s linear infinite;
+  animation: shark-sidebar-beam 4.8s linear infinite;
 }
 @keyframes shark-sidebar-beam {
-  0% { top: -140px; opacity: 0; }
-  6% { opacity: 1; }
-  94% { opacity: 1; }
+  0% { top: -88px; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
 .sidebar::after {
@@ -370,8 +370,8 @@ button, input, textarea, select { font-family: inherit; }
   padding-bottom: 12px;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-icon {
-  width: 30px !important;
-  height: 30px !important;
+  width: 34px !important;
+  height: 34px !important;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-wordmark-accent { display: none; }
 .sidebar:not(:hover):not(.is-pinned) .nav-support .nav-text { display: none; }

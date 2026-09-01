@@ -129,8 +129,8 @@ export const panelClientScript = `
         // Mesmo padrão do instablack: SVG compacto em icon + badge.
         await reg.showNotification(title, {
           body: body,
-          icon: "/brand/pwa-192.png?v=1.31.1",
-          badge: "/brand/pwa-192.png?v=1.31.1",
+          icon: "/brand/pwa-192.png?v=1.32.0",
+          badge: "/brand/pwa-192.png?v=1.32.0",
           tag: (tag || "x1black") + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
           renotify: true,
           data: { url: url || "/" },
@@ -141,7 +141,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.31.1" });
+        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.32.0" });
         return true;
       } catch (_) {}
     }
