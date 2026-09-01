@@ -826,6 +826,68 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.get("/internal/lead-state", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const q = z
+        .object({
+          botId: z.string().min(1),
+          chatId: z.coerce.number()
+        })
+        .parse(request.query ?? {});
+
+      const { getLeadState } = await import("../db/lead-state-db.js");
+      const state = await getLeadState(q.botId, q.chatId);
+      return reply.send({ ok: true, state });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao carregar lead state"
+      });
+    }
+  });
+
+  app.patch("/internal/lead-state", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().min(1),
+          chatId: z.coerce.number(),
+          patch: z.record(z.string(), z.unknown()).optional(),
+          approach: z.string().optional(),
+          approachConverted: z.boolean().optional()
+        })
+        .parse(request.body ?? {});
+
+      const { patchLeadState, recordFunnelApproach } = await import("../db/lead-state-db.js");
+      const patch = (body.patch ?? {}) as import("../db/lead-state-db.js").LeadStatePatch;
+      const state = await patchLeadState(body.botId, body.chatId, patch);
+
+      if (body.approach) {
+        await recordFunnelApproach(
+          body.botId,
+          body.chatId,
+          body.approach,
+          Boolean(body.approachConverted)
+        );
+      }
+
+      return reply.send({ ok: true, state });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao salvar lead state"
+      });
+    }
+  });
+
   app.post("/internal/events", async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });

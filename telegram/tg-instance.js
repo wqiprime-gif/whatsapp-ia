@@ -11,6 +11,7 @@ const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 const { Api } = require("telegram/tl");
+const { createFunnelHandler } = require("./funnel-handler.js");
 
 const args = process.argv.slice(2);
 let port = 4200;
@@ -503,6 +504,29 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
 loadConversations();
 writeConnectionStatus("starting");
 
+const funnelHandler = createFunnelHandler({
+  client,
+  Api,
+  loadBotConfig,
+  loadPrompt,
+  getConversation,
+  saveConversations,
+  buildSystemPrompt,
+  panelLog,
+  getOpenAI,
+  sleep,
+  sendNamedAudioVoiceOnce,
+  resolveMediaLocalPath,
+  pickFunnelAudios,
+  parseAudioTagSlugs,
+  isGreetingText,
+  isFirstUserMessage,
+  resolveSaudacaoAudio,
+  getAudioLibrary,
+  audioItemSlug,
+  instancesDataDir
+});
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -541,6 +565,33 @@ app.post("/api/password", (req, res) => {
   return res.json({ ok: true });
 });
 
+app.post("/api/send", async (req, res) => {
+  try {
+    const jid = String(req.body?.jid || "");
+    const message = String(req.body?.message || "").trim();
+    const postSale = Boolean(req.body?.postSale);
+    if (!message) return res.status(400).json({ ok: false, error: "message vazio" });
+    const chatId = Number(jid.replace(/^tg:/, "").replace(/\D/g, ""));
+    if (!chatId) return res.status(400).json({ ok: false, error: "chatId invalido" });
+    const peer = await client.getInputEntity(chatId);
+    if (postSale) {
+      await funnelHandler.sendPostSale(peer, chatId, message);
+    } else {
+      await client.sendMessage(peer, { message });
+      void panelLog({
+        type: "message",
+        jid: `tg:${chatId}`,
+        chatId,
+        role: "assistant",
+        content: message
+      });
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
 app.post("/api/logout", async (_req, res) => {
   try {
     await client.logOut();
@@ -560,7 +611,6 @@ client.addEventHandler(async (event) => {
     if (!msg || msg.out) return;
 
     const peerChatId = Number(msg.chatId || msg.peerId?.userId || 0);
-    // isPrivate pode ser undefined em alguns updates — confiar em chatId negativo para grupos/canais
     if (peerChatId < 0) return;
     if (event.isPrivate === false) return;
 
@@ -571,92 +621,17 @@ client.addEventHandler(async (event) => {
       [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
       sender?.username ||
       String(chatId);
+    const peer = await event.getInputChat();
     const text = String(msg.message || "").trim();
+    const hasMedia = Boolean(msg.media);
+
+    if (hasMedia) {
+      await funnelHandler.handleMedia(event, peer, chatId, displayName, msg);
+      if (!text) return;
+    }
     if (!text) return;
 
-    console.log(`💬 [${displayName}] ${text}`);
-    void panelLog({
-      type: "lead",
-      jid: `tg:${chatId}`,
-      chatId,
-      displayName,
-      source: "telegram"
-    });
-    void panelLog({
-      type: "message",
-      jid: `tg:${chatId}`,
-      chatId,
-      role: "user",
-      content: text
-    });
-
-    const peer = await event.getInputChat();
-    const delay = Number(loadBotConfig().messageDelayMs) || 2500;
-    await sleep(Math.round(delay * (0.85 + Math.random() * 0.3)));
-
-    // Saudação em áudio no primeiro "oi" (igual WhatsApp)
-    if (isGreetingText(text) && isFirstUserMessage(chatId)) {
-      const conv = getConversation(chatId);
-      conv.push({ role: "user", content: text });
-      const saudacao = resolveSaudacaoAudio();
-      if (saudacao) {
-        const ok = await sendNamedAudioVoiceOnce(peer, chatId, saudacao);
-        if (ok) {
-          conv.push({ role: "system", content: "Áudio de saudação já enviado. Não repita; siga o funil." });
-          saveConversations();
-          return;
-        }
-      }
-    }
-
-    const result = await generateReply(chatId, text);
-    const library = getAudioLibrary();
-    const audioPicks = pickFunnelAudios({
-      audioSlugs: result.audioSlugs,
-      userText: text,
-      library
-    });
-
-    let anyAudio = false;
-    for (const item of audioPicks) {
-      const ok = await sendNamedAudioVoiceOnce(peer, chatId, item);
-      if (ok) anyAudio = true;
-    }
-
-    // Se mandou áudio, não manda texto robótico junto (mesmo padrão do WhatsApp)
-    const replyText = anyAudio ? "" : result.text || "oii amor, me fala melhor o que você quer? 💕";
-    if (replyText) {
-      try {
-        await client.invoke(
-          new Api.messages.SetTyping({
-            peer,
-            action: new Api.SendMessageTypingAction()
-          })
-        );
-      } catch (_) {}
-      try {
-        await event.respond(replyText);
-      } catch (respondErr) {
-        console.warn("event.respond falhou, tentando sendMessage:", respondErr?.message || respondErr);
-        await client.sendMessage(peer, { message: replyText });
-      }
-      void panelLog({
-        type: "message",
-        jid: `tg:${chatId}`,
-        chatId,
-        role: "assistant",
-        content: replyText
-      });
-      console.log(`✅ Resposta TG: ${replyText}`);
-    } else if (anyAudio) {
-      void panelLog({
-        type: "message",
-        jid: `tg:${chatId}`,
-        chatId,
-        role: "assistant",
-        content: `[audio:${audioPicks.map((a) => audioItemSlug(a)).join(",")}]`
-      });
-    }
+    await funnelHandler.handleText(event, peer, chatId, displayName, text);
   } catch (error) {
     const errMsg = error?.message || String(error);
     console.error("Erro ao processar mensagem TG:", errMsg);

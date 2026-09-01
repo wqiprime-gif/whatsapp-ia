@@ -176,6 +176,9 @@ export async function initDatabase() {
     const { initTgSessionSchema } = await import("./tg-session.js");
     await initTgSessionSchema(db);
 
+    const { initLeadStateSchema } = await import("./lead-state-db.js");
+    await initLeadStateSchema();
+
     await migrateFromJsonFiles(db);
 
     console.log("[db] PostgreSQL conectado e schema pronto.");

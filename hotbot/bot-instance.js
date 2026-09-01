@@ -19,6 +19,7 @@ const qrcode = require('qrcode');
 const gerarCPFValido = require('./utils/gerarcpf');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const funnel = require('../shared/funnel-core.js');
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -1321,6 +1322,9 @@ function scheduleSaveConversations() {
         sentAudios,
         updatedAt: new Date().toISOString()
       }, null, 0));
+      for (const jid of Object.keys(trimmed)) {
+        syncLeadStateToPanel(jid);
+      }
     } catch (error) {
       console.warn('⚠️ Erro ao salvar memória:', error.message);
     }
@@ -1348,6 +1352,49 @@ const audioFailures = {};
 const comprovantesRecebidos = {}; // Tracks which users have sent proof of payment
 const paidUsers = {}; // Users who have already paid
 const postSaleActive = {}; // Reengajamento pos-venda — bypass silencio
+const leadStateHydrated = {};
+
+async function ensureLeadStateFromPanel(jid) {
+  if (leadStateHydrated[jid]) return;
+  leadStateHydrated[jid] = true;
+  try {
+    const chatId = funnel.chatIdFromJid(jid);
+    const state = await funnel.fetchLeadState(chatId);
+    funnel.applyStateToMaps(jid, state, {
+      hasSentInformacoes,
+      hasSentAmostra,
+      hasSentNaoSouFake,
+      halfPriceOffered,
+      paidUsers,
+      postSaleActive,
+      selectedProductByJid,
+      sentAudios
+    });
+    if (state.paid) {
+      paidUsers[jid] = true;
+      comprovantesRecebidos[jid] = true;
+    }
+  } catch (error) {
+    console.warn('lead-state hydrate:', error.message);
+  }
+}
+
+function syncLeadStateToPanel(jid, approach, approachConverted) {
+  const chatId = funnel.chatIdFromJid(jid);
+  const patch = funnel.localStateFromMaps(jid, {
+    hasSentInformacoes,
+    hasSentAmostra,
+    hasSentNaoSouFake,
+    halfPriceOffered,
+    paidUsers,
+    postSaleActive,
+    selectedProductByJid,
+    sentAudios
+  });
+  funnel.patchLeadState(chatId, patch, approach, approachConverted).catch((error) => {
+    console.warn('lead-state sync:', error?.message || error);
+  });
+}
 
 loadCustomPrompt();
 loadConversationsStore();
@@ -2401,6 +2448,7 @@ Responda APENAS: BASICO, CHAMADA ou COMPLETO.`,
   async function confirmarComprovante(messageFrom, approvedMessage) {
     paidUsers[messageFrom] = true;
     comprovantesRecebidos[messageFrom] = true;
+    syncLeadStateToPanel(messageFrom, 'payment_confirmed', true);
 
     console.log(`\n💰 [PAGAMENTO CONFIRMADO]`);
     console.log(`   Número: ${messageFrom}`);
@@ -2690,6 +2738,7 @@ client.on("message", async (message) => {
 
   onLeadMessage(message.from);
   logLeadFromMessage(message);
+  await ensureLeadStateFromPanel(message.from);
 
   // Processar comprovante (APENAS imagem ou PDF, não áudio)
   if (message.hasMedia && (message.type === 'image' || message.type === 'document')) {

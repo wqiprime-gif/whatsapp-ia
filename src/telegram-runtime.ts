@@ -68,17 +68,27 @@ async function writeInstanceFiles(bot: BotConfig) {
     path.join(instDir, "bot-config.json"),
     JSON.stringify(
       {
+        previewMediaUrls: bot.previewMediaUrls ?? [],
+        productPresentationEnabled: Boolean(bot.productPresentationEnabled),
+        productPresentationMediaUrls: bot.productPresentationMediaUrls ?? [],
+        deliveryMediaUrls: bot.deliveryMediaUrls ?? [],
         pixKey: bot.pixKey,
         pixRecipientName: bot.pixRecipientName || bot.name,
         productName: bot.productName,
         productPriceCents: bot.productPriceCents,
+        productDeliveryLink: bot.deliveryLink || "",
+        videoCallLink: bot.videoCallLink || "",
+        videoCallVideoUrl: bot.videoCallVideoUrl || "",
+        videoCallCallerName: bot.videoCallCallerName || bot.name,
+        videoCallAvatarUrl: bot.videoCallAvatarUrl || "",
+        locale: bot.locale || "pt-BR",
+        paymentMethod: bot.paymentMethod,
         messageDelayMs: bot.messageDelayMs ?? 2500,
-        products: products.map((p) => ({
-          name: p.name,
-          priceCents: p.priceCents,
-          allowHalfPrice: p.allowHalfPrice,
-          halfPricePercent: p.halfPricePercent
-        })),
+        followUpEnabled: bot.followUpEnabled !== false,
+        followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,
+        followUpMaxPerLead: bot.followUpMaxPerLead ?? 2,
+        followUpSteps: bot.followUpSteps ?? [],
+        priceTableImageUrl: bot.priceTableImageUrl ?? "",
         audioLibrary: (bot.audioLibrary ?? []).map((a) => ({
           label: a.label,
           url: a.url,
@@ -86,7 +96,15 @@ async function writeInstanceFiles(bot: BotConfig) {
           triggers: a.triggers ?? "",
           keywords: a.keywords ?? ""
         })),
-        previewMediaUrls: bot.previewMediaUrls ?? [],
+        products: products.map((p) => ({
+          name: p.name,
+          priceCents: p.priceCents,
+          allowHalfPrice: p.allowHalfPrice,
+          halfPricePercent: p.halfPricePercent
+        })),
+        giftPrompt: bot.giftPrompt ?? "",
+        giftItems: bot.giftItems ?? [],
+        postSaleEnabled: Boolean(bot.postSaleEnabled),
         platform: "telegram",
         updatedAt: new Date().toISOString()
       },
@@ -331,6 +349,36 @@ export async function submitTelegramPassword(botId: string, password: string) {
   const data = (await res.json()) as { ok?: boolean; error?: string };
   if (!res.ok || !data.ok) throw new Error(data.error || `Falha ao enviar senha (${res.status})`);
   return data;
+}
+
+export async function sendTgMessage(input: {
+  botId: string;
+  chatId: number;
+  message: string;
+  postSale?: boolean;
+}) {
+  const proc = processes.get(input.botId);
+  if (!proc) throw new Error("Instância Telegram não está rodando.");
+  const url = `http://127.0.0.1:${proc.port}/api/send`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jid: `tg:${input.chatId}`,
+      message: input.message,
+      postSale: Boolean(input.postSale)
+    })
+  });
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const json = (await response.json()) as { error?: string };
+      detail = json.error ?? "";
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    throw new Error(detail || `Falha ao enviar TG (HTTP ${response.status})`);
+  }
 }
 
 export async function logoutTelegramSession(botId: string) {
