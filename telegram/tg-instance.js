@@ -498,15 +498,32 @@ if (!apiId || !apiHash) {
 
 const stringSession = new StringSession(loadSessionString());
 const client = new TelegramClient(stringSession, apiId, apiHash, {
-  connectionRetries: 8,
-  deviceModel: "OnlyChat Panel",
-  appVersion: "1.0",
-  systemVersion: "Node",
-  useWSS: true
+  connectionRetries: 12,
+  retryDelay: 1500,
+  deviceModel: "X1 BLACK Panel",
+  appVersion: "1.33.0",
+  systemVersion: "Linux",
+  useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
+  timeout: 25
 });
 
 loadConversations();
-writeConnectionStatus("starting");
+
+function clearSavedSession() {
+  try {
+    if (fs.existsSync(sessionFilePath)) fs.unlinkSync(sessionFilePath);
+  } catch (_) {}
+}
+
+async function connectTelegramWithTimeout(ms = 90000) {
+  writeConnectionStatus("connecting");
+  await Promise.race([
+    client.connect(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout ao conectar nos servidores Telegram (90s)")), ms)
+    )
+  ]);
+}
 
 const funnelHandler = createFunnelHandler({
   client,
@@ -656,17 +673,36 @@ client.addEventHandler(async (event) => {
 
 async function startTelegram() {
   try {
-    writeConnectionStatus("connecting");
     console.log(`🔐 Telegram MTProto · ${modelName} · porta ${port}`);
     console.log(`📱 Telefone: ${phone || "(sessão salva)"}`);
 
+    await connectTelegramWithTimeout();
+
+    const authorized = await client.isUserAuthorized();
+    if (authorized) {
+      const me = await client.getMe();
+      connectedAs =
+        [me.firstName, me.lastName].filter(Boolean).join(" ") ||
+        me.username ||
+        String(me.id);
+      saveSessionString(client.session.save());
+      writeConnectionStatus("ready");
+      console.log(`✅ Sessão existente — conectado como: ${connectedAs}`);
+      console.log("🤖 Atendimento Telegram ativo (DMs).");
+      return;
+    }
+
+    writeConnectionStatus("sending_code");
+    console.log("📤 Enviando código de verificação (auth.sendCode / MTProto)...");
+
     await client.start({
       phoneNumber: async () => {
-        if (!phone) throw new Error("TG_PHONE não configurado");
+        if (!phone) throw new Error("TG_PHONE não configurado — salve +55... na edição");
+        writeConnectionStatus("sending_code");
         return phone;
       },
       phoneCode: async () => {
-        pendingCodeHint = "Digite o código que o Telegram enviou no app/SMS";
+        pendingCodeHint = "Código enviado — abra o app Telegram ou SMS";
         writeConnectionStatus("need_code");
         console.log("⏳ Aguardando código do Telegram (painel → Conectar Telegram)...");
         return await new Promise((resolve) => {
@@ -699,11 +735,20 @@ async function startTelegram() {
   } catch (error) {
     const msg = error?.message || String(error);
     console.error("❌ Falha ao iniciar Telegram:", msg);
-    writeConnectionStatus("error", msg);
+    if (/AUTH_KEY|SESSION_REVOKED|USER_DEACTIVATED|UNREGISTERED|AUTH_KEY_UNREGISTERED/i.test(msg)) {
+      clearSavedSession();
+      writeConnectionStatus(
+        "error",
+        `${msg} — sessão limpa. Clique Reiniciar motor para pedir código de novo.`
+      );
+    } else {
+      writeConnectionStatus("error", msg);
+    }
   }
 }
 
 app.listen(port, "127.0.0.1", () => {
   console.log(`🌐 TG API local http://127.0.0.1:${port}`);
+  writeConnectionStatus("starting");
   void startTelegram();
 });

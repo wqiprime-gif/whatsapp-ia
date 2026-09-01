@@ -53,8 +53,8 @@ export function buildPwaManifest(baseUrl = "") {
   };
 }
 
-export const SERVICE_WORKER_JS = `const SW_VERSION = "x1black-v1.32.1";
-const NOTIFY_ICON = "/brand/pwa-192.png?v=1.32.1";
+export const SERVICE_WORKER_JS = `const SW_VERSION = "x1black-v1.33.0";
+const NOTIFY_ICON = "/brand/pwa-192.png?v=1.33.0";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -173,9 +173,9 @@ export const PWA_HEAD_TAGS = `
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="X1 BLACK" />
-<link rel="icon" href="/brand/logonova.png?v=1.32.1" type="image/png" />
-<link rel="icon" href="/brand/pwa-192.png?v=1.32.1" type="image/png" sizes="192x192" />
-<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.32.1" />
+<link rel="icon" href="/brand/favicon-32.png?v=1.33.0" type="image/png" sizes="32x32" />
+<link rel="icon" href="/brand/logonova.png?v=1.33.0" type="image/png" />
+<link rel="apple-touch-icon" href="/brand/pwa-192.png?v=1.33.0" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 `;

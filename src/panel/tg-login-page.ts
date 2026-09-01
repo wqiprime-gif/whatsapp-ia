@@ -87,8 +87,9 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
       const LABELS = {
         offline: "Motor parado",
         starting: "Iniciando motor…",
-        connecting: "Conectando ao Telegram…",
-        need_code: "Aguardando código — verifique o app Telegram",
+        connecting: "Conectando aos servidores Telegram…",
+        sending_code: "Enviando código — verifique o app Telegram",
+        need_code: "Digite o código que chegou no Telegram",
         need_password: "Aguardando senha 2FA",
         authenticating: "Validando credenciais…",
         ready: "Conectado",
@@ -98,7 +99,7 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
       };
 
       function setPhase(state) {
-        const waitStates = ["offline", "starting", "connecting", "authenticating", "error", "logged_out"];
+        const waitStates = ["offline", "starting", "connecting", "sending_code", "authenticating", "error", "logged_out"];
         phaseWait.hidden = !waitStates.includes(state);
         phaseCode.hidden = state !== "need_code";
         phasePass.hidden = state !== "need_password";

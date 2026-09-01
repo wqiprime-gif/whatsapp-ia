@@ -329,6 +329,7 @@ async function startTelegramBot(bot: BotConfig, index: number) {
     TG_API_ID: String(apiId),
     TG_API_HASH: apiHash,
     TG_PHONE: phone,
+    TG_USE_WSS: "false",
     UPLOADS_DIR: uploadsDir
   };
 

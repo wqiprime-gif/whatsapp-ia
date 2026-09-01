@@ -133,11 +133,13 @@ body {
   display: block;
   object-fit: contain;
   border-radius: 0;
-  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.32));
+  image-rendering: -webkit-optimize-contrast;
 }
 .brand-lockup--sidebar .brand-icon {
-  width: 42px !important;
-  height: 42px !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
 }
 .brand-lockup-text {
   font-family: var(--font-brand, 'Orbitron', sans-serif);
@@ -328,31 +330,28 @@ button, input, textarea, select { font-family: inherit; }
   content: "";
   position: absolute;
   right: 0;
-  width: 3px;
-  height: 124px;
+  width: 1.5px;
+  height: 210px;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.1) 14%,
-    rgba(255, 255, 255, 0.55) 38%,
-    #ffffff 48%,
-    #e8e8e8 52%,
-    #ffffff 58%,
-    rgba(255, 255, 255, 0.55) 72%,
-    rgba(255, 255, 255, 0.1) 86%,
+    rgba(255, 255, 255, 0.08) 10%,
+    rgba(255, 255, 255, 0.45) 32%,
+    #ffffff 46%,
+    #ffffff 54%,
+    rgba(255, 255, 255, 0.45) 68%,
+    rgba(255, 255, 255, 0.08) 90%,
     transparent 100%
   );
-  box-shadow:
-    0 0 18px rgba(255, 255, 255, 0.5),
-    0 0 8px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.42);
   pointer-events: none;
   z-index: 4;
-  animation: shark-sidebar-beam 3.6s linear infinite;
+  animation: shark-sidebar-beam 4.2s linear infinite;
 }
 @keyframes shark-sidebar-beam {
-  0% { top: -124px; opacity: 0; }
-  7% { opacity: 1; }
-  93% { opacity: 1; }
+  0% { top: -210px; opacity: 0; }
+  6% { opacity: 1; }
+  94% { opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
 .sidebar::after {
@@ -379,8 +378,10 @@ button, input, textarea, select { font-family: inherit; }
   padding-bottom: 12px;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-icon {
-  width: 42px !important;
-  height: 42px !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-wordmark-accent { display: none; }
 .sidebar:not(:hover):not(.is-pinned) .nav-support .nav-text { display: none; }

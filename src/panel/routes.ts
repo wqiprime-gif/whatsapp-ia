@@ -1652,13 +1652,24 @@ export async function registerPanelRoutes(
   });
 
   app.get("/favicon.ico", async (_request, reply) => {
+    const fav32 = path.join(rootDir, "public", "brand", "favicon-32.png");
     const logo = path.join(rootDir, "public", "brand", "logonova.png");
-    const legacy = path.join(rootDir, "public", "brand", "x1black-ghost.png");
-    const file = fsSync.existsSync(logo) ? logo : legacy;
+    const file = fsSync.existsSync(fav32) ? fav32 : logo;
     if (fsSync.existsSync(file)) {
       return reply.type("image/png").send(fsSync.createReadStream(file));
     }
     return reply.redirect("/brand/favicon.svg");
+  });
+
+  app.get("/brand/favicon-32.png", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "favicon-32.png");
+    if (fsSync.existsSync(file)) {
+      return reply
+        .type("image/png")
+        .header("Cache-Control", "public, max-age=604800")
+        .send(fsSync.createReadStream(file));
+    }
+    return reply.redirect("/brand/logonova.png");
   });
 
   app.get("/brand/logonova.png", async (_request, reply) => {
