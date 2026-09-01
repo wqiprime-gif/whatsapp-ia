@@ -426,7 +426,7 @@ function toVoiceOgg(localPath) {
   });
 }
 
-/** Envia nota de voz no Telegram (voice_note) — equivalente ao PTT do WhatsApp. */
+/** Envia nota de voz no Telegram (voice_note / 🎤) — GramJS = Telethon voice_note=True. */
 async function sendNamedAudioVoiceOnce(peer, chatId, item) {
   if (!item || !item.url) return false;
   const slug = audioItemSlug(item);
@@ -437,16 +437,31 @@ async function sendNamedAudioVoiceOnce(peer, chatId, item) {
 
   const localPath = await resolveMediaLocalPath(item.url);
   if (!localPath || !fs.existsSync(localPath)) {
-    console.error(`❌ Áudio TG não encontrado: ${item.url}`);
+    console.error(`❌ Áudio TG não encontrado: ${item.url} (verifique biblioteca de áudios /seed-audios/)`);
     return false;
   }
 
-  const oggPath = (await toVoiceOgg(localPath)) || localPath;
+  const ext = path.extname(localPath).toLowerCase();
+  const oggPath = await toVoiceOgg(localPath);
+  const fileToSend = oggPath || (ext === ".ogg" || ext === ".opus" ? localPath : null);
+  if (!fileToSend) {
+    console.error(
+      `❌ Áudio TG "${slug}": não foi possível converter ${ext || "arquivo"} para OGG/Opus (ffmpeg necessário)`
+    );
+    return false;
+  }
+
+  let target = peer;
+  try {
+    if (chatId) target = await client.getInputEntity(chatId);
+  } catch (e) {
+    console.warn(`voice peer TG (${slug}):`, e?.message || e);
+  }
 
   try {
     await client.invoke(
       new Api.messages.SetTyping({
-        peer,
+        peer: target,
         action: new Api.SendMessageRecordAudioAction()
       })
     );
@@ -455,13 +470,13 @@ async function sendNamedAudioVoiceOnce(peer, chatId, item) {
   await sleep(1800 + Math.random() * 1800);
 
   try {
-    await client.sendFile(peer, {
-      file: oggPath,
+    await client.sendFile(target, {
+      file: fileToSend,
       voiceNote: true,
       forceDocument: false
     });
     markAudioSent(chatId, slug);
-    console.log(`✅ Nota de voz TG "${slug}" enviada`);
+    console.log(`✅ Nota de voz TG 🎤 "${slug}" enviada`);
     return true;
   } catch (error) {
     console.error(`❌ Falha ao enviar voz TG "${slug}":`, error?.message || error);
@@ -508,7 +523,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.36.0",
+  appVersion: "1.36.1",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,
