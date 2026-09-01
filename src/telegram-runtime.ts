@@ -26,6 +26,7 @@ type TgProcess = {
 const processes = new Map<string, TgProcess>();
 const lastExitCodes = new Map<string, number | null>();
 const lastStartErrors = new Map<string, string>();
+const lastChildStderr = new Map<string, string>();
 
 function writeTelegramBootStatus(botId: string, state: string, error?: string) {
   const statusPath = path.join(instanceDataDir(botId), "status.json");
@@ -288,7 +289,7 @@ async function startTelegramBot(bot: BotConfig, index: number) {
     return;
   }
 
-  writeTelegramBootStatus(bot.id, "starting");
+  writeTelegramBootStatus(bot.id, "booting");
 
   let apiKey = "";
   let provider: import("./lib/ai-providers.js").AIProviderId = "openai";
@@ -349,11 +350,20 @@ async function startTelegramBot(bot: BotConfig, index: number) {
   });
   child.stderr?.on("data", (chunk) => {
     const line = String(chunk).trim();
-    if (line) console.error(`[tg:${bot.name}:${port}] ${line}`);
+    if (line) {
+      lastChildStderr.set(bot.id, line);
+      console.error(`[tg:${bot.name}:${port}] ${line}`);
+    }
   });
   child.on("exit", (code) => {
     processes.delete(bot.id);
     lastExitCodes.set(bot.id, code ?? null);
+    if (code !== 0 && code !== null) {
+      const tail = lastChildStderr.get(bot.id);
+      const msg = tail || `Motor Telegram encerrou (code ${code})`;
+      lastStartErrors.set(bot.id, msg);
+      writeTelegramBootStatus(bot.id, "error", msg);
+    }
     console.log(`[tg] ${bot.name} encerrou (code ${code ?? "?"})`);
   });
 
@@ -420,6 +430,7 @@ export function getTelegramLiveStatus(botId: string): string {
       if (st === "ready" || st === "authenticated") return "online";
       if (st === "need_code" || st === "need_password") return st;
       if (st === "error") return "error";
+      if (st === "booting" || st === "connecting" || st === "sending_code") return st;
       if (st) return st;
     }
   } catch {
@@ -461,12 +472,13 @@ export async function getTelegramStatusPayload(botId: string, botHint?: BotConfi
     }
   }
 
-  const state = String(file.state || (proc ? "starting" : "offline"));
+  const state = String(file.state || (proc ? "booting" : "offline"));
   const blockReason = diag && "blockReason" in diag ? diag.blockReason : undefined;
+  const bootError = lastStartErrors.get(botId);
   const offlineError =
     !proc && blockReason && (state === "offline" || state === "error" || !file.state)
       ? blockReason
-      : file.error;
+      : file.error || bootError;
 
   return {
     ok: true,

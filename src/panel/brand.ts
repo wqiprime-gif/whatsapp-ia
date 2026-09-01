@@ -9,7 +9,7 @@ export const BRAND_ICON_PNG = "/brand/pwa-192.png";
 export const BRAND_FAVICON_PNG = "/brand/favicon-32.png";
 
 /** Sobe junto com a troca de logo para furar cache de favicon e PWA. */
-export const BRAND_ASSET_VERSION = "1.33.0";
+export const BRAND_ASSET_VERSION = "1.34.0";
 
 export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon-32.png?v=${BRAND_ASSET_VERSION}" type="image/png" sizes="32x32" />
 <link rel="icon" href="/brand/logonova.png?v=${BRAND_ASSET_VERSION}" type="image/png" />

@@ -34,7 +34,7 @@ const botConfigPath = path.join(instancesDataDir, "bot-config.json");
 const promptFilePath = path.join(instancesDataDir, "prompt.json");
 const conversationsStorePath = path.join(instancesDataDir, "conversations-store.json");
 
-let connectionState = "starting";
+let connectionState = "booting";
 let lastErrorMessage = "";
 let connectedAs = "";
 let codeResolver = null;
@@ -488,7 +488,12 @@ async function generateReply(chatId, userText) {
 
 const apiId = Number(process.env.TG_API_ID || 0);
 const apiHash = String(process.env.TG_API_HASH || "").trim();
-const phone = String(process.env.TG_PHONE || "").trim();
+const phone = String(process.env.TG_PHONE || "")
+  .trim()
+  .replace(/\s/g, "")
+  .replace(/^(\d)/, "+$1");
+
+writeConnectionStatus("booting");
 
 if (!apiId || !apiHash) {
   writeConnectionStatus("error", "Configure TELEGRAM_API_ID e TELEGRAM_API_HASH (my.telegram.org).");
@@ -498,13 +503,14 @@ if (!apiId || !apiHash) {
 
 const stringSession = new StringSession(loadSessionString());
 const client = new TelegramClient(stringSession, apiId, apiHash, {
-  connectionRetries: 12,
-  retryDelay: 1500,
+  connectionRetries: 20,
+  retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.33.0",
+  appVersion: "1.34.0",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
-  timeout: 25
+  timeout: 60,
+  autoReconnect: true
 });
 
 loadConversations();
@@ -513,16 +519,6 @@ function clearSavedSession() {
   try {
     if (fs.existsSync(sessionFilePath)) fs.unlinkSync(sessionFilePath);
   } catch (_) {}
-}
-
-async function connectTelegramWithTimeout(ms = 90000) {
-  writeConnectionStatus("connecting");
-  await Promise.race([
-    client.connect(),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout ao conectar nos servidores Telegram (90s)")), ms)
-    )
-  ]);
 }
 
 const funnelHandler = createFunnelHandler({
@@ -548,6 +544,164 @@ const funnelHandler = createFunnelHandler({
   audioItemSlug,
   instancesDataDir
 });
+
+let messageHandlerRegistered = false;
+
+function registerMessageHandler() {
+  if (messageHandlerRegistered) return;
+  messageHandlerRegistered = true;
+
+  client.addEventHandler(async (event) => {
+    try {
+      if (event.isGroup || event.isChannel) return;
+      const msg = event.message;
+      if (!msg || msg.out) return;
+
+      const peerChatId = Number(msg.chatId || msg.peerId?.userId || 0);
+      if (peerChatId < 0) return;
+      if (event.isPrivate === false) return;
+
+      const sender = await event.getSender();
+      const chatId = Number(peerChatId || sender?.id || 0);
+      if (!chatId) return;
+      const displayName =
+        [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
+        sender?.username ||
+        String(chatId);
+      const peer = await event.getInputChat();
+      const text = String(msg.message || "").trim();
+      const hasMedia = Boolean(msg.media);
+
+      if (hasMedia) {
+        await funnelHandler.handleMedia(event, peer, chatId, displayName, msg);
+        if (!text) return;
+      }
+      if (!text) return;
+
+      await funnelHandler.handleText(event, peer, chatId, displayName, text);
+    } catch (error) {
+      const errMsg = error?.message || String(error);
+      console.error("Erro ao processar mensagem TG:", errMsg);
+      if (/OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)) {
+        console.error("❌ IA não configurada — configure a chave OpenAI no painel");
+      }
+      try {
+        const peer = await event.getInputChat();
+        if (peer) {
+          await client.sendMessage(peer, {
+            message: "oii amor, travou um pouquinho aqui… manda de novo? 💕"
+          });
+        }
+      } catch (_) {}
+    }
+  }, new NewMessage({ incoming: true }));
+}
+
+async function finishLogin() {
+  saveSessionString(client.session.save());
+  const me = await client.getMe();
+  connectedAs =
+    [me.firstName, me.lastName].filter(Boolean).join(" ") ||
+    me.username ||
+    String(me.id);
+  writeConnectionStatus("ready");
+  registerMessageHandler();
+  console.log(`✅ Conectado como: ${connectedAs} (id ${me.id})`);
+  console.log("🤖 Atendimento Telegram ativo (DMs).");
+}
+
+async function runTelegramAuth() {
+  try {
+    console.log(`🔐 Telegram MTProto · ${modelName} · porta ${port}`);
+    const maskedPhone = phone ? phone.replace(/(\+\d{2})(\d+)(\d{2})$/, "$1***$3") : "(sessão salva)";
+    console.log(`📱 Telefone: ${maskedPhone}`);
+
+    const savedSession = loadSessionString();
+    if (!savedSession && !phone) {
+      throw new Error("Informe o telefone com DDI (+5511...) na edição da instância e salve.");
+    }
+
+    writeConnectionStatus("connecting");
+    await Promise.race([
+      client.connect(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout ao conectar nos servidores Telegram (120s)")), 120000)
+      )
+    ]);
+
+    if (await client.isUserAuthorized()) {
+      console.log("♻️ Sessão existente válida");
+      await finishLogin();
+      return;
+    }
+
+    if (!phone) {
+      clearSavedSession();
+      throw new Error("Sessão inválida — informe o telefone e clique Reiniciar motor.");
+    }
+
+    writeConnectionStatus("sending_code");
+    console.log("📤 auth.sendCode (MTProto)…");
+
+    const sent = await client.sendCode({ apiId, apiHash }, phone);
+    const phoneCodeHash = sent.phoneCodeHash;
+    pendingCodeHint = sent.isCodeViaApp
+      ? "Código enviado no app Telegram (notificação)"
+      : "Código enviado por SMS";
+    writeConnectionStatus("need_code");
+    console.log(`⏳ ${pendingCodeHint} — aguardando código no painel…`);
+
+    const code = await new Promise((resolve) => {
+      codeResolver = resolve;
+    });
+    codeResolver = null;
+
+    writeConnectionStatus("authenticating");
+    try {
+      await client.invoke(
+        new Api.auth.SignIn({
+          phoneNumber: phone,
+          phoneCodeHash,
+          phoneCode: String(code || "").trim()
+        })
+      );
+    } catch (err) {
+      const errMsg = err?.errorMessage || err?.message || String(err);
+      if (errMsg === "SESSION_PASSWORD_NEEDED") {
+        writeConnectionStatus("need_password");
+        pendingCodeHint = "Conta com 2FA — informe a senha cloud";
+        console.log("⏳ Aguardando senha 2FA no painel…");
+        const password = await new Promise((resolve) => {
+          passwordResolver = resolve;
+        });
+        passwordResolver = null;
+        await client.signInWithPassword(
+          { apiId, apiHash },
+          {
+            password: async () => String(password || ""),
+            onError: async (e) => {
+              writeConnectionStatus("error", e?.message || String(e));
+              return true;
+            }
+          }
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    await finishLogin();
+  } catch (error) {
+    const msg = error?.errorMessage || error?.message || String(error);
+    console.error("❌ Falha ao autenticar Telegram:", msg);
+    if (/AUTH_KEY|SESSION_REVOKED|AUTH_KEY_UNREGISTERED|USER_DEACTIVATED/i.test(msg)) {
+      clearSavedSession();
+      writeConnectionStatus("error", `${msg} — sessão limpa. Clique Reiniciar motor.`);
+    } else {
+      writeConnectionStatus("error", msg);
+    }
+  }
+}
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -626,129 +780,26 @@ app.post("/api/logout", async (_req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
-client.addEventHandler(async (event) => {
-  try {
-    if (event.isGroup || event.isChannel) return;
-    const msg = event.message;
-    if (!msg || msg.out) return;
-
-    const peerChatId = Number(msg.chatId || msg.peerId?.userId || 0);
-    if (peerChatId < 0) return;
-    if (event.isPrivate === false) return;
-
-    const sender = await event.getSender();
-    const chatId = Number(peerChatId || sender?.id || 0);
-    if (!chatId) return;
-    const displayName =
-      [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
-      sender?.username ||
-      String(chatId);
-    const peer = await event.getInputChat();
-    const text = String(msg.message || "").trim();
-    const hasMedia = Boolean(msg.media);
-
-    if (hasMedia) {
-      await funnelHandler.handleMedia(event, peer, chatId, displayName, msg);
-      if (!text) return;
-    }
-    if (!text) return;
-
-    await funnelHandler.handleText(event, peer, chatId, displayName, text);
-  } catch (error) {
-    const errMsg = error?.message || String(error);
-    console.error("Erro ao processar mensagem TG:", errMsg);
-    if (/OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)) {
-      console.error("❌ IA não configurada — configure a chave OpenAI no painel");
-    }
-    try {
-      const peer = await event.getInputChat();
-      if (peer) {
-        await client.sendMessage(peer, {
-          message: "oii amor, travou um pouquinho aqui… manda de novo? 💕"
-        });
-      }
-    } catch (_) {}
-  }
-}, new NewMessage({ incoming: true }));
-
-async function startTelegram() {
-  try {
-    console.log(`🔐 Telegram MTProto · ${modelName} · porta ${port}`);
-    console.log(`📱 Telefone: ${phone || "(sessão salva)"}`);
-
-    await connectTelegramWithTimeout();
-
-    const authorized = await client.isUserAuthorized();
-    if (authorized) {
-      const me = await client.getMe();
-      connectedAs =
-        [me.firstName, me.lastName].filter(Boolean).join(" ") ||
-        me.username ||
-        String(me.id);
-      saveSessionString(client.session.save());
-      writeConnectionStatus("ready");
-      console.log(`✅ Sessão existente — conectado como: ${connectedAs}`);
-      console.log("🤖 Atendimento Telegram ativo (DMs).");
-      return;
-    }
-
-    writeConnectionStatus("sending_code");
-    console.log("📤 Enviando código de verificação (auth.sendCode / MTProto)...");
-
-    await client.start({
-      phoneNumber: async () => {
-        if (!phone) throw new Error("TG_PHONE não configurado — salve +55... na edição");
-        writeConnectionStatus("sending_code");
-        return phone;
-      },
-      phoneCode: async () => {
-        pendingCodeHint = "Código enviado — abra o app Telegram ou SMS";
-        writeConnectionStatus("need_code");
-        console.log("⏳ Aguardando código do Telegram (painel → Conectar Telegram)...");
-        return await new Promise((resolve) => {
-          codeResolver = resolve;
-        });
-      },
-      password: async () => {
-        pendingCodeHint = "Conta com 2FA — informe a senha cloud";
-        writeConnectionStatus("need_password");
-        console.log("⏳ Aguardando senha 2FA...");
-        return await new Promise((resolve) => {
-          passwordResolver = resolve;
-        });
-      },
-      onError: (err) => {
-        console.error("Telegram auth error:", err?.message || err);
-        writeConnectionStatus("error", err?.message || String(err));
-      }
-    });
-
-    saveSessionString(client.session.save());
-    const me = await client.getMe();
-    connectedAs =
-      [me.firstName, me.lastName].filter(Boolean).join(" ") ||
-      me.username ||
-      String(me.id);
-    writeConnectionStatus("ready");
-    console.log(`✅ Conectado como: ${connectedAs} (id ${me.id})`);
-    console.log("🤖 Atendimento Telegram ativo (DMs).");
-  } catch (error) {
-    const msg = error?.message || String(error);
-    console.error("❌ Falha ao iniciar Telegram:", msg);
-    if (/AUTH_KEY|SESSION_REVOKED|USER_DEACTIVATED|UNREGISTERED|AUTH_KEY_UNREGISTERED/i.test(msg)) {
-      clearSavedSession();
-      writeConnectionStatus(
-        "error",
-        `${msg} — sessão limpa. Clique Reiniciar motor para pedir código de novo.`
-      );
-    } else {
-      writeConnectionStatus("error", msg);
-    }
-  }
-}
-
 app.listen(port, "127.0.0.1", () => {
   console.log(`🌐 TG API local http://127.0.0.1:${port}`);
-  writeConnectionStatus("starting");
-  void startTelegram();
+  writeConnectionStatus("connecting");
+  void runTelegramAuth();
+}).on("error", (err) => {
+  const msg = err?.message || String(err);
+  console.error("❌ Falha ao abrir porta TG:", msg);
+  writeConnectionStatus("error", msg);
+  process.exit(1);
+});
+
+process.on("uncaughtException", (err) => {
+  const msg = err?.message || String(err);
+  console.error("❌ uncaughtException TG:", msg);
+  writeConnectionStatus("error", msg);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.error("❌ unhandledRejection TG:", msg);
+  writeConnectionStatus("error", msg);
 });
