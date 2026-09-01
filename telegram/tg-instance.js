@@ -12,6 +12,7 @@ const { StringSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 const { Api } = require("telegram/tl");
 const { createFunnelHandler } = require("./funnel-handler.js");
+const { resolveMediaLocalPath: fetchMediaPath, resolveMediaLocalPathSync } = require("../shared/media-resolve.js");
 
 const args = process.argv.slice(2);
 let port = 4200;
@@ -310,7 +311,25 @@ function isFirstUserMessage(chatId) {
 }
 
 function resolveSaudacaoAudio() {
-  return resolveAudioBySlug("saudacao", getAudioLibrary());
+  const fromLib = resolveAudioBySlug("saudacao", getAudioLibrary());
+  if (fromLib) return fromLib;
+  const fallback = path.join(__dirname, "..", "hotbot", "saudacao.mp3");
+  if (fs.existsSync(fallback)) {
+    return { label: "Saudação", url: "/seed-audios/saudacao.mp3", slug: "saudacao", triggers: "" };
+  }
+  return null;
+}
+
+function mediaResolveOptions() {
+  return {
+    instancesDataDir,
+    telegramDir: __dirname,
+    rootDir: path.join(__dirname, "..")
+  };
+}
+
+async function resolveMediaLocalPath(url) {
+  return fetchMediaPath(url, mediaResolveOptions());
 }
 
 function findContextualLeadAudio(text, library) {
@@ -353,40 +372,6 @@ function pickFunnelAudios(input) {
   for (const slug of input.audioSlugs || []) add(resolveAudioBySlug(slug, library));
   if (picks.length === 0) add(findContextualLeadAudio(input.userText, library));
   return picks.slice(0, 1);
-}
-
-function resolveMediaLocalPath(url) {
-  const clean = String(url || "").trim();
-  if (!clean) return null;
-  if (fs.existsSync(clean)) return clean;
-
-  if (clean.includes("/seed-audios/")) {
-    const seedName = path.basename(clean.split("?")[0]);
-    const candidates = [
-      path.join(__dirname, "..", "assets", "seed-audios", seedName),
-      path.join(__dirname, "..", "hotbot", seedName),
-      path.join(process.cwd(), "..", "assets", "seed-audios", seedName),
-      path.join(process.cwd(), "assets", "seed-audios", seedName)
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) return c;
-    }
-  }
-
-  const baseName = path.basename(clean.split("?")[0]);
-  const uploadsDir = process.env.UPLOADS_DIR;
-  const candidates = [];
-  if (uploadsDir) {
-    candidates.push(path.join(uploadsDir, baseName));
-    if (clean.includes("/uploads/")) {
-      candidates.push(path.join(uploadsDir, clean.split("/uploads/")[1].split("?")[0]));
-    }
-  }
-  candidates.push(path.join(instancesDataDir, "uploads", baseName));
-  for (const c of candidates) {
-    if (c && fs.existsSync(c)) return c;
-  }
-  return null;
 }
 
 let ffmpegAvailable = null;
@@ -450,7 +435,7 @@ async function sendNamedAudioVoiceOnce(peer, chatId, item) {
     return false;
   }
 
-  const localPath = resolveMediaLocalPath(item.url);
+  const localPath = await resolveMediaLocalPath(item.url);
   if (!localPath || !fs.existsSync(localPath)) {
     console.error(`❌ Áudio TG não encontrado: ${item.url}`);
     return false;
@@ -523,7 +508,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.35.2",
+  appVersion: "1.36.0",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,
@@ -560,6 +545,7 @@ const funnelHandler = createFunnelHandler({
   resolveSaudacaoAudio,
   getAudioLibrary,
   audioItemSlug,
+  resolveAudioBySlug,
   instancesDataDir
 });
 

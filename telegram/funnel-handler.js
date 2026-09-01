@@ -28,6 +28,7 @@ function createFunnelHandler(deps) {
     resolveSaudacaoAudio,
     getAudioLibrary,
     audioItemSlug,
+    resolveAudioBySlug,
     instancesDataDir
   } = deps;
 
@@ -144,7 +145,8 @@ function createFunnelHandler(deps) {
   }
 
   async function sendMedia(peer, chatId, localPath, caption) {
-    await client.sendFile(peer, { file: localPath, caption: caption || "" });
+    const peerResolved = await resolvePeer(peer, chatId);
+    await client.sendFile(peerResolved, { file: localPath, caption: caption || "" });
     void panelLog({
       type: "message",
       jid: `tg:${chatId}`,
@@ -156,13 +158,18 @@ function createFunnelHandler(deps) {
 
   async function sendInformacoes(peer, chatId, conv, state) {
     const cfg = loadBotConfig();
+    const library = getAudioLibrary();
+    const infoAudio = resolveAudioBySlug("informacoes", library);
+    if (infoAudio) await sendNamedAudioVoiceOnce(peer, chatId, infoAudio);
+    await sleep(900);
+
     const table =
       funnel.buildPriceTableFromProducts(cfg.products) ||
       "💎 MEUS PACOTES 💎\nQual pacote te interessa, amor? 💕";
     const priceImageUrl = String(cfg.priceTableImageUrl || "").trim();
     let sent = false;
     if (priceImageUrl) {
-      const local = resolveMediaLocalPath(priceImageUrl);
+      const local = await resolveMediaLocalPath(priceImageUrl);
       if (local && fs.existsSync(local)) {
         await sendMedia(peer, chatId, local, "meus pacotes amor 😈");
         sent = true;
@@ -179,6 +186,8 @@ function createFunnelHandler(deps) {
     const cfg = loadBotConfig();
     const pixKey = String(process.env.PIX_KEY || cfg.pixKey || "").trim();
     const pixName = String(process.env.PIX_RECIPIENT || cfg.pixRecipientName || "").trim();
+    const pixAudio = resolveAudioBySlug("chave_pix", getAudioLibrary());
+    if (pixAudio) await sendNamedAudioVoiceOnce(peer, chatId, pixAudio);
     if (!pixKey) {
       await sendText(peer, chatId, "me manda um oi que ja te passo o pix amor 💕");
       return;
@@ -192,21 +201,30 @@ function createFunnelHandler(deps) {
 
   async function sendAmostra(peer, chatId, conv, state) {
     const cfg = loadBotConfig();
-    const urls = cfg.previewMediaUrls || [];
+    const urls = (cfg.previewMediaUrls || []).filter(Boolean);
     let sent = 0;
     for (const url of urls.slice(0, 2)) {
-      const local = resolveMediaLocalPath(url);
+      const local = await resolveMediaLocalPath(url);
       if (local && fs.existsSync(local)) {
         await sendMedia(peer, chatId, local, "");
         sent++;
       }
     }
     if (!sent) {
-      await sendText(peer, chatId, "a previa e so depois que fechar o pacote amor 😘");
+      const fallback = path.join(__dirname, "..", "hotbot", "amostra.jpg");
+      if (fs.existsSync(fallback)) {
+        await sendMedia(peer, chatId, fallback, "");
+        sent++;
+      }
+    }
+    if (!sent) {
+      console.error("❌ TG: nenhuma prévia configurada ou encontrada no disco");
+      return false;
     }
     await saveLeadState(chatId, { hasSentAmostra: true, previewSent: true }, "amostra", false);
     conv.push({ role: "system", content: "Prévia enviada." });
     saveConversations();
+    return true;
   }
 
   async function runTool(peer, chatId, name, conv, state) {
@@ -214,19 +232,29 @@ function createFunnelHandler(deps) {
       case "send_informacoes":
         if (!state.hasSentInformacoes) await sendInformacoes(peer, chatId, conv, state);
         break;
-      case "send_chamada_video":
-        await sendText(peer, chatId, "faço chamada de vídeo sim amor 😈 manda oi que te mando os valores");
+      case "send_chamada_video": {
+        const chamadaAudio = resolveAudioBySlug("chamada_video", getAudioLibrary());
+        if (chamadaAudio) await sendNamedAudioVoiceOnce(peer, chatId, chamadaAudio);
+        await sendText(
+          peer,
+          chatId,
+          "faço chamada de vídeo sim amor 😈 é aqui no telegram mesmo, manda oi que te passo os valores"
+        );
         await saveLeadState(chatId, { hasSentChamadaVideo: true });
         break;
+      }
       case "send_amostra_gratis":
         if (!state.hasSentAmostra) await sendAmostra(peer, chatId, conv, state);
         break;
       case "send_chave_pix":
         await sendChavePix(peer, chatId, conv);
         break;
-      case "naosou_fake":
+      case "naosou_fake": {
+        const fakeAudio = resolveAudioBySlug("nao_sou_fake", getAudioLibrary());
+        if (fakeAudio) await sendNamedAudioVoiceOnce(peer, chatId, fakeAudio);
         await saveLeadState(chatId, { hasSentNaoSouFake: true });
         break;
+      }
       case "ignorar_lead":
         ignoredLeads.add(chatId);
         break;
@@ -246,6 +274,15 @@ function createFunnelHandler(deps) {
     const messages = conv
       .filter((m) => m.role === "system" || m.role === "user" || m.role === "assistant")
       .slice(-24);
+
+    if (!state.hasSentAmostra && funnel.wantsPreviewIntent(text)) {
+      messages.push({
+        role: "system",
+        content:
+          "O lead quer prévia/amostra. OBRIGATÓRIO: chame send_amostra_gratis agora. Proibido recusar prévia."
+      });
+    }
+
     let completion;
     try {
       completion = await getOpenAI().chat.completions.create({
@@ -332,7 +369,7 @@ function createFunnelHandler(deps) {
     });
     const deliveryUrls = cfg.deliveryMediaUrls || [];
     for (const url of deliveryUrls.slice(0, 5)) {
-      const local = resolveMediaLocalPath(url);
+      const local = await resolveMediaLocalPath(url);
       if (local && fs.existsSync(local)) await sendMedia(peer, chatId, local, "");
     }
     const link = String(cfg.productDeliveryLink || "").trim();
@@ -438,12 +475,12 @@ function createFunnelHandler(deps) {
     await sleep(Math.round(delay * (0.85 + Math.random() * 0.3)));
 
     if (isGreetingText(text) && isFirstUserMessage(chatId)) {
+      conv.push({ role: "user", content: text });
       const saudacao = resolveSaudacaoAudio();
       if (saudacao) {
         try {
           if (await sendNamedAudioVoiceOnce(peer, chatId, saudacao)) {
-            conv.push({ role: "user", content: text });
-            conv.push({ role: "system", content: "Saudação em áudio enviada." });
+            conv.push({ role: "system", content: "Saudação em áudio enviada. Não repita saudação em texto." });
             saveConversations();
             return;
           }
@@ -451,6 +488,49 @@ function createFunnelHandler(deps) {
           console.warn("saudacao audio TG:", e?.message || e);
         }
       }
+      conv.push({
+        role: "system",
+        content: "Áudio de saudação indisponível. Não mande texto de oi — aguarde a próxima mensagem do lead."
+      });
+      saveConversations();
+      return;
+    }
+
+    if (state.hasSentAmostra && funnel.wantsPreviewIntent(text)) {
+      conv.push({ role: "user", content: text });
+      await sendText(
+        peer,
+        chatId,
+        "todo mundo fala que paga depois bb 😅 prévia você já teve, agora só comprando que eu monto do seu gosto 😘"
+      );
+      saveConversations();
+      return;
+    }
+
+    if (!state.hasSentAmostra && funnel.wantsPreviewIntent(text)) {
+      conv.push({ role: "user", content: text });
+      const sent = await sendAmostra(peer, chatId, conv, state);
+      if (sent) {
+        await sendText(peer, chatId, "Gostou amor? 😘");
+        saveConversations();
+        return;
+      }
+    }
+
+    if (funnel.isDistrustMessage(text) && !state.hasSentNaoSouFake) {
+      conv.push({ role: "user", content: text });
+      const fakeAudio = resolveAudioBySlug("nao_sou_fake", getAudioLibrary());
+      if (fakeAudio && (await sendNamedAudioVoiceOnce(peer, chatId, fakeAudio))) {
+        await saveLeadState(chatId, { hasSentNaoSouFake: true });
+        saveConversations();
+        return;
+      }
+    }
+
+    if (funnel.confirmsPriceInterest(text) && !state.hasSentInformacoes) {
+      conv.push({ role: "user", content: text });
+      await sendInformacoes(peer, chatId, conv, state);
+      return;
     }
 
     const negCustom = funnel.tryCustomAmountOffer(state, text, cfg, conv);
@@ -505,6 +585,15 @@ function createFunnelHandler(deps) {
 
     state = await getLeadState(chatId);
     const result = await runCompletion(peer, chatId, text, conv, state);
+
+    if (result.tool) {
+      if (result.tool === "send_amostra_gratis") {
+        const st = await getLeadState(chatId);
+        if (st.hasSentAmostra) await sendText(peer, chatId, "Gostou amor? 😘");
+      }
+      return;
+    }
+
     const library = getAudioLibrary();
     const audioPicks = pickFunnelAudios({
       audioSlugs: result.audioSlugs,
@@ -517,7 +606,7 @@ function createFunnelHandler(deps) {
       if (await sendNamedAudioVoiceOnce(peer, chatId, item)) anyAudio = true;
     }
 
-    const replyText = anyAudio ? "" : result.text || "oii amor, me fala melhor o que você quer? 💕";
+    const replyText = anyAudio ? "" : result.text || "";
     if (replyText) await sendText(peer, chatId, replyText);
     else if (anyAudio) {
       void panelLog({

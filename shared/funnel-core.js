@@ -590,6 +590,23 @@ function applyStateToMaps(jid, state, maps) {
   }
 }
 
+function wantsPreviewIntent(text) {
+  return /previa|pr[eé]via|amostra|foto gr[aá]tis|foto gratis|manda foto|manda uma foto|tem foto|ver antes|mostra|teste gr[aá]tis/i.test(
+    String(text || "")
+  );
+}
+
+function isDistrustMessage(text) {
+  return /fake|golpe|golp|é bot|e bot|rob[oô]|\bia\b|desconfi|scam|fraude/i.test(String(text || ""));
+}
+
+function confirmsPriceInterest(text) {
+  return (
+    /^(sim|s|pode|manda|quero|bora|manda ai|manda aí|show|ok|quero ver|quero sim)/i.test(String(text || "").trim()) ||
+    /(quero ver|manda a tabela|mostra|pode mandar).*(tabela|precos|preços|pacotes)/i.test(String(text || ""))
+  );
+}
+
 module.exports = {
   chatIdFromJid,
   emptyLeadState,
@@ -618,5 +635,8 @@ module.exports = {
   inferLeadProfile,
   pickUpsellOffer,
   upsellDeclined,
-  upsellAccepted
+  upsellAccepted,
+  wantsPreviewIntent,
+  isDistrustMessage,
+  confirmsPriceInterest
 };
