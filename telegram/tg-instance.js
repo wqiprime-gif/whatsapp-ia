@@ -506,7 +506,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.34.0",
+  appVersion: "1.34.1",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,

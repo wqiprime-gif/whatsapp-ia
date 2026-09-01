@@ -331,7 +331,8 @@ async function startTelegramBot(bot: BotConfig, index: number) {
     TG_API_HASH: apiHash,
     TG_PHONE: phone,
     TG_USE_WSS: "false",
-    UPLOADS_DIR: uploadsDir
+    UPLOADS_DIR: uploadsDir,
+    NODE_PATH: path.join(telegramDir, "node_modules")
   };
 
   const child = spawn(

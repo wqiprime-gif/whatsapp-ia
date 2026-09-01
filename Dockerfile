@@ -39,6 +39,7 @@ COPY src ./src
 COPY scripts ./scripts
 COPY hotbot ./hotbot
 COPY telegram ./telegram
+COPY shared ./shared
 COPY public ./public
 COPY assets ./assets
 

@@ -407,7 +407,8 @@ async function spawnWebBot(bot: BotConfig, port: number) {
     UPLOADS_DIR: uploadsDir,
     PUPPETEER_EXECUTABLE_PATH: resolveChromeExecutable(),
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true",
-    DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || "unix:path=/dev/null"
+    DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || "unix:path=/dev/null",
+    NODE_PATH: path.join(hotbotDir, "node_modules")
   };
   if (proxyUrl) childEnv.PROXY_URL = proxyUrl;
   if (forceQrOnSpawn.has(bot.id)) {
