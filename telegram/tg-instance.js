@@ -148,6 +148,10 @@ function getConversation(chatId) {
   return conversations[key];
 }
 
+function setConversation(chatId, conv) {
+  conversations[String(chatId)] = conv;
+}
+
 function buildSystemPrompt() {
   const cfg = loadBotConfig();
   const pixKey = String(process.env.PIX_KEY || cfg.pixKey || "").trim();
@@ -510,6 +514,7 @@ const funnelHandler = createFunnelHandler({
   loadBotConfig,
   loadPrompt,
   getConversation,
+  setConversation,
   saveConversations,
   buildSystemPrompt,
   panelLog,

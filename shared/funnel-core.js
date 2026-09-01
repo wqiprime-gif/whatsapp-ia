@@ -106,6 +106,38 @@ async function patchLeadState(chatId, patch, approach, approachConverted) {
   return null;
 }
 
+async function fetchConversationHistory(chatId, limit = 36) {
+  const { url, secret, botId } = panelConfig();
+  if (!url || !secret || !botId || !chatId) return [];
+  try {
+    const res = await axios.get(`${url}/internal/conversation-history`, {
+      params: { botId, chatId, limit },
+      headers: { "x-internal": secret },
+      timeout: 10000,
+      validateStatus: () => true
+    });
+    if (res.data?.ok && Array.isArray(res.data.messages)) return res.data.messages;
+  } catch (_) {}
+  return [];
+}
+
+function countDialogMessages(conv) {
+  return (conv || []).filter((m) => m.role === "user" || m.role === "assistant").length;
+}
+
+function buildConversationFromHistory(messages, systemPrompt, maxMessages = 36) {
+  const dialog = (messages || [])
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role,
+      content: String(m.content || "").slice(0, 4000)
+    }))
+    .filter((m) => m.content.trim());
+  if (!dialog.length) return null;
+  const tail = dialog.slice(-maxMessages);
+  return [{ role: "system", content: systemPrompt }, ...tail];
+}
+
 async function validateReceiptOnPanel(base64, mimetype, filename) {
   const { url, secret, botId } = panelConfig();
   if (!url || !secret) return { paid: false, reason: "painel indisponivel" };
@@ -563,6 +595,9 @@ module.exports = {
   emptyLeadState,
   fetchLeadState,
   patchLeadState,
+  fetchConversationHistory,
+  countDialogMessages,
+  buildConversationFromHistory,
   validateReceiptOnPanel,
   leadShowsBuyIntent,
   looksLikeStalling,

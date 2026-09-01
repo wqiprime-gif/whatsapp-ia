@@ -13,6 +13,7 @@ function createFunnelHandler(deps) {
     loadPrompt,
     getConversation,
     saveConversations,
+    setConversation,
     buildSystemPrompt,
     panelLog,
     getOpenAI,
@@ -32,6 +33,33 @@ function createFunnelHandler(deps) {
   const leadStates = {};
   const followUpTimers = {};
   const ignoredLeads = new Set();
+  const conversationHydrated = new Set();
+
+  async function ensureConversationHydrated(chatId) {
+    if (conversationHydrated.has(chatId)) return;
+    conversationHydrated.add(chatId);
+    try {
+      const conv = getConversation(chatId);
+      const localCount = funnel.countDialogMessages(conv);
+      const rows = await funnel.fetchConversationHistory(chatId, 36);
+      if (!rows.length || rows.length <= localCount) return;
+      const built = funnel.buildConversationFromHistory(rows, buildSystemPrompt(), 36);
+      if (!built) return;
+      setConversation(chatId, built);
+      saveConversations();
+      console.log(`💾 Histórico PG TG: ${rows.length} msg(s) restaurada(s) para ${chatId}`);
+    } catch (e) {
+      console.warn("conversation hydrate TG:", e?.message || e);
+    }
+  }
+
+  async function hydrateLead(chatId) {
+    if (!leadStates[chatId]) {
+      leadStates[chatId] = await funnel.fetchLeadState(chatId);
+    }
+    await ensureConversationHydrated(chatId);
+    return leadStates[chatId];
+  }
 
   async function getLeadState(chatId) {
     if (!leadStates[chatId]) {
@@ -333,6 +361,7 @@ function createFunnelHandler(deps) {
   async function handleText(event, peer, chatId, displayName, text) {
     if (ignoredLeads.has(chatId)) return;
     clearFollowUp(chatId);
+    await hydrateLead(chatId);
 
     void panelLog({
       type: "lead",
@@ -465,6 +494,7 @@ function createFunnelHandler(deps) {
 
   async function handleMedia(event, peer, chatId, displayName, msg) {
     if (ignoredLeads.has(chatId)) return;
+    await hydrateLead(chatId);
     const state = await getLeadState(chatId);
     if (state.paid && !state.postSaleActive) return;
 

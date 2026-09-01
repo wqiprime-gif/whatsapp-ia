@@ -1354,6 +1354,7 @@ const paidUsers = {}; // Users who have already paid
 const postSaleActive = {}; // Reengajamento pos-venda — bypass silencio
 const upsellActive = {}; // Upsell de pacote — bypass silencio após compra
 const leadStateHydrated = {};
+const conversationHydrated = {};
 
 async function ensureLeadStateFromPanel(jid) {
   if (leadStateHydrated[jid]) return;
@@ -1375,9 +1376,35 @@ async function ensureLeadStateFromPanel(jid) {
       paidUsers[jid] = true;
       comprovantesRecebidos[jid] = true;
     }
+    if (state.postSaleActive) postSaleActive[jid] = true;
+    if (state.funnelStage === 'upsell') upsellActive[jid] = true;
   } catch (error) {
     console.warn('lead-state hydrate:', error.message);
   }
+}
+
+async function ensureConversationHydrated(jid) {
+  if (conversationHydrated[jid]) return;
+  conversationHydrated[jid] = true;
+  try {
+    const chatId = funnel.chatIdFromJid(jid);
+    const localCount = funnel.countDialogMessages(userConversations[jid]);
+    const rows = await funnel.fetchConversationHistory(chatId, 36);
+    if (!rows.length || rows.length <= localCount) return;
+    const systemPrompt = buildSystemPrompt() || JSON.stringify(arrayImport);
+    const built = funnel.buildConversationFromHistory(rows, systemPrompt, 36);
+    if (!built) return;
+    userConversations[jid] = built;
+    scheduleSaveConversations();
+    console.log(`💾 Histórico PG: ${rows.length} msg(s) restaurada(s) para ${jid}`);
+  } catch (error) {
+    console.warn('conversation hydrate:', error.message);
+  }
+}
+
+async function hydrateLeadFromPanel(jid) {
+  await ensureLeadStateFromPanel(jid);
+  await ensureConversationHydrated(jid);
 }
 
 function syncLeadStateToPanel(jid, approach, approachConverted) {
@@ -2776,7 +2803,7 @@ client.on("message", async (message) => {
 
   onLeadMessage(message.from);
   logLeadFromMessage(message);
-  await ensureLeadStateFromPanel(message.from);
+  await hydrateLeadFromPanel(message.from);
 
   // Processar comprovante (APENAS imagem ou PDF, não áudio)
   if (message.hasMedia && (message.type === 'image' || message.type === 'document')) {

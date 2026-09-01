@@ -118,6 +118,9 @@ export async function initEventsSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE INDEX IF NOT EXISTS conversation_messages_bot_chat_created_idx
+      ON conversation_messages (bot_id, chat_id, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS receipts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       bot_id UUID NOT NULL,
@@ -646,9 +649,13 @@ export async function listConversationThreads(botIds: string[] | null, limit = 8
 export async function getConversationMessages(botId: string, chatId: number, limit = 200) {
   if (useDatabase()) {
     const { rows } = await getPool().query(
-      `SELECT role, content, created_at FROM conversation_messages
-       WHERE bot_id = $1 AND chat_id = $2
-       ORDER BY created_at ASC LIMIT $3`,
+      `SELECT role, content, created_at FROM (
+         SELECT role, content, created_at
+         FROM conversation_messages
+         WHERE bot_id = $1 AND chat_id = $2
+         ORDER BY created_at DESC
+         LIMIT $3
+       ) recent ORDER BY created_at ASC`,
       [botId, chatId, limit]
     );
     return rows.map((r) => ({

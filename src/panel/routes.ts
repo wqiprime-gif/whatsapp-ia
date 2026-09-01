@@ -827,6 +827,31 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.get("/internal/conversation-history", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const q = z
+        .object({
+          botId: z.string().min(1),
+          chatId: z.coerce.number(),
+          limit: z.coerce.number().min(1).max(80).optional()
+        })
+        .parse(request.query ?? {});
+
+      const { getConversationMessages } = await import("../db/events.js");
+      const messages = await getConversationMessages(q.botId, q.chatId, q.limit ?? 36);
+      return reply.send({ ok: true, messages });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao carregar historico"
+      });
+    }
+  });
+
   app.get("/internal/lead-state", async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });
