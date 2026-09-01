@@ -43,6 +43,8 @@ COPY shared ./shared
 COPY public ./public
 COPY assets ./assets
 
+RUN cd shared && npm install --omit=dev
+
 RUN npm run build
 
 ENV NODE_ENV=production
