@@ -581,26 +581,33 @@ button, input, textarea, select { font-family: inherit; }
 /* Card de conta no topo da sidebar: avatar + nome + sair + gerenciar. */
 .sidebar-account {
   margin-bottom: 16px;
-  padding: 10px;
+  padding: 0;
   background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius);
+  overflow: hidden;
 }
 .sidebar-account-head {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+  padding: 10px 12px;
 }
 .sidebar-account-name {
   flex: 1;
   min-width: 0;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.sidebar-account-power {
+  margin: 0;
+  flex-shrink: 0;
 }
 .sidebar-account-power button {
   display: grid;
@@ -625,13 +632,16 @@ button, input, textarea, select { font-family: inherit; }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0;
+  padding: 10px 12px;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-2);
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-decoration: none;
