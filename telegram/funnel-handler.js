@@ -110,12 +110,28 @@ function createFunnelHandler(deps) {
     }, fu.afterMs);
   }
 
+  async function resolvePeer(peer, chatId) {
+    if (chatId) {
+      try {
+        return await client.getInputEntity(chatId);
+      } catch (_) {}
+    }
+    return peer;
+  }
+
   async function sendText(peer, chatId, text) {
     if (!text) return;
+    let target = await resolvePeer(peer, chatId);
     try {
-      await client.invoke(new Api.messages.SetTyping({ peer, action: new Api.SendMessageTypingAction() }));
-    } catch (_) {}
-    await client.sendMessage(peer, { message: text });
+      try {
+        await client.invoke(new Api.messages.SetTyping({ peer: target, action: new Api.SendMessageTypingAction() }));
+      } catch (_) {}
+      await client.sendMessage(target, { message: text });
+    } catch (e) {
+      console.warn("sendText TG retry:", e?.message || e);
+      target = await client.getInputEntity(chatId);
+      await client.sendMessage(target, { message: text });
+    }
     void panelLog({
       type: "message",
       jid: `tg:${chatId}`,
@@ -124,7 +140,7 @@ function createFunnelHandler(deps) {
       content: text
     });
     await saveLeadState(chatId, { lastBotMessageAt: new Date().toISOString() });
-    scheduleFollowUp(chatId, peer);
+    scheduleFollowUp(chatId, target);
   }
 
   async function sendMedia(peer, chatId, localPath, caption) {
@@ -227,14 +243,28 @@ function createFunnelHandler(deps) {
     else conv.unshift({ role: "system", content: sys });
 
     const model = (typeof getModel === "function" ? getModel() : null) || process.env.AI_MODEL || "gpt-4o-mini";
-    const completion = await getOpenAI().chat.completions.create({
-      model,
-      temperature: 0.3,
-      messages: conv.filter((m) => m.role === "system" || m.role === "user" || m.role === "assistant").slice(-24),
-      max_tokens: 256,
-      tools: funnel.getCompletionTools(state),
-      tool_choice: "auto"
-    });
+    const messages = conv
+      .filter((m) => m.role === "system" || m.role === "user" || m.role === "assistant")
+      .slice(-24);
+    let completion;
+    try {
+      completion = await getOpenAI().chat.completions.create({
+        model,
+        temperature: 0.3,
+        messages,
+        max_tokens: 256,
+        tools: funnel.getCompletionTools(state),
+        tool_choice: "auto"
+      });
+    } catch (err) {
+      console.warn("runCompletion tools TG:", err?.message || err);
+      completion = await getOpenAI().chat.completions.create({
+        model,
+        temperature: 0.85,
+        messages,
+        max_tokens: 220
+      });
+    }
 
     const choice = completion.choices[0];
     const toolCall = choice?.message?.tool_calls?.[0];

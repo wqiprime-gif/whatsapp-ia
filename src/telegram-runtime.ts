@@ -295,6 +295,10 @@ async function stopTelegramBot(botId: string) {
 async function startTelegramBot(bot: BotConfig, index: number) {
   lastStartErrors.delete(bot.id);
 
+  const freshBots = await loadBots();
+  const freshBot = freshBots.find((b) => b.id === bot.id);
+  if (freshBot) bot = freshBot;
+
   if (!isTelegramBot(bot)) {
     lastStartErrors.set(bot.id, "Instância não é Telegram.");
     writeTelegramBootStatus(bot.id, "error", lastStartErrors.get(bot.id));
@@ -362,6 +366,16 @@ async function startTelegramBot(bot: BotConfig, index: number) {
   }
 
   await writeInstanceFiles(bot);
+  const runtimePath = path.join(instanceDataDir(bot.id), "ai-runtime.json");
+  try {
+    const raw = JSON.parse(await fs.readFile(runtimePath, "utf8")) as { apiKey?: string };
+    if (!String(raw.apiKey || "").trim()) {
+      console.error(`[tg] ${bot.name}: ai-runtime.json SEM apiKey em ${runtimePath}`);
+    }
+  } catch {
+    console.error(`[tg] ${bot.name}: ai-runtime.json ausente em ${runtimePath}`);
+  }
+
   const port = bot.waPort && bot.waPort >= 5200 ? bot.waPort : tgPortForBot(bot.id, index);
   const providerCfg = AI_PROVIDERS[provider];
 

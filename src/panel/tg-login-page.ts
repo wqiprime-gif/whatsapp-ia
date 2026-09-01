@@ -138,6 +138,7 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
           if (d.connectedAs) parts.push("Conta: " + escapeHtml(String(d.connectedAs)));
           if (d.pendingCodeHint && state === "need_code") parts.push(escapeHtml(String(d.pendingCodeHint)));
           if (d.error) parts.push('<span style="color:#f87171">' + escapeHtml(String(d.error)) + "</span>");
+          if (d.lastMessageError) parts.push('<span style="color:#fb923c" title="Último erro ao responder">Msg: ' + escapeHtml(String(d.lastMessageError).slice(0, 120)) + "</span>");
           statusBox.innerHTML = parts.join(" · ");
           statusBox.style.borderColor =
             state === "ready" || state === "authenticated"

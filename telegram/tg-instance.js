@@ -41,6 +41,8 @@ let codeResolver = null;
 let passwordResolver = null;
 let pendingCodeHint = "";
 
+let lastMessageError = "";
+
 function writeConnectionStatus(state, errorMessage) {
   connectionState = state;
   if (errorMessage) lastErrorMessage = String(errorMessage);
@@ -50,13 +52,36 @@ function writeConnectionStatus(state, errorMessage) {
     at: new Date().toISOString(),
     error: lastErrorMessage || undefined,
     connectedAs: connectedAs || undefined,
-    pendingCodeHint: pendingCodeHint || undefined
+    pendingCodeHint: pendingCodeHint || undefined,
+    lastMessageError: lastMessageError || undefined
   };
   try {
     fs.writeFileSync(statusFilePath, JSON.stringify(payload, null, 2));
     if (errorMessage) fs.writeFileSync(errorFilePath, String(errorMessage));
     else if (fs.existsSync(errorFilePath)) fs.unlinkSync(errorFilePath);
   } catch (_) {}
+}
+
+function recordMessageError(err) {
+  const msg = err?.errorMessage || err?.message || String(err || "");
+  lastMessageError = msg.slice(0, 500);
+  try {
+    let payload = {};
+    if (fs.existsSync(statusFilePath)) {
+      payload = JSON.parse(fs.readFileSync(statusFilePath, "utf8"));
+    }
+    payload.state = connectionState;
+    payload.lastMessageError = lastMessageError;
+    payload.lastMessageErrorAt = new Date().toISOString();
+    fs.writeFileSync(statusFilePath, JSON.stringify(payload, null, 2));
+  } catch (_) {}
+}
+
+function toNumId(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "bigint") return Number(value);
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function loadBotConfig() {
@@ -498,7 +523,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.35.1",
+  appVersion: "1.35.2",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,
@@ -544,7 +569,14 @@ function registerMessageHandler() {
   if (messageHandlerRegistered) return;
   messageHandlerRegistered = true;
 
-  async function resolvePeerFromEvent(event) {
+  async function resolvePeerFromEvent(event, chatId) {
+    if (chatId) {
+      try {
+        return await client.getInputEntity(chatId);
+      } catch (e) {
+        console.warn("getInputEntity(chatId) TG:", e?.message || e);
+      }
+    }
     if (event.inputChat) return event.inputChat;
     try {
       const chat = await event.getInputChat();
@@ -565,13 +597,15 @@ function registerMessageHandler() {
       const msg = event.message;
       if (!msg || msg.out) return;
 
-      const sender = await event.getSender();
-      const chatId = Number(
-        msg.chatId ||
-          msg.peerId?.userId ||
-          sender?.id ||
-          event.chatId ||
-          0
+      let sender = null;
+      try {
+        sender = await event.getSender();
+      } catch (e) {
+        console.warn("getSender TG:", e?.message || e);
+      }
+
+      const chatId = toNumId(
+        msg.chatId || msg.peerId?.userId || sender?.id || event.chatId || 0
       );
       if (!chatId || chatId < 0) return;
       if (event.isPrivate === false) return;
@@ -580,7 +614,7 @@ function registerMessageHandler() {
         [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
         sender?.username ||
         String(chatId);
-      const peer = await resolvePeerFromEvent(event);
+      const peer = await resolvePeerFromEvent(event, chatId);
       const text = String(msg.message || "").trim();
       const hasMedia = Boolean(msg.media);
 
@@ -592,14 +626,21 @@ function registerMessageHandler() {
 
       await funnelHandler.handleText(event, peer, chatId, displayName, text);
     } catch (error) {
-      const errMsg = error?.message || String(error);
+      const errMsg = error?.errorMessage || error?.message || String(error);
       console.error("Erro ao processar mensagem TG:", errMsg);
       if (error?.stack) console.error(error.stack);
+      recordMessageError(error);
       if (/OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)) {
         console.error("❌ IA não configurada — configure a chave OpenAI no painel");
       }
       try {
-        const peer = await resolvePeerFromEvent(event);
+        const chatId = toNumId(
+          event.message?.chatId ||
+            event.message?.peerId?.userId ||
+            event.chatId ||
+            0
+        );
+        const peer = await resolvePeerFromEvent(event, chatId);
         if (peer) {
           const hint = /OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)
             ? "amor, a IA não está configurada no painel ainda… salva a API Key e reinicia o motor 💕"
@@ -748,6 +789,7 @@ app.get("/api/status", (_req, res) => {
     connectedAs: connectedAs || undefined,
     error: lastErrorMessage || undefined,
     pendingCodeHint: pendingCodeHint || undefined,
+    lastMessageError: lastMessageError || undefined,
     platform: "telegram"
   });
 });
