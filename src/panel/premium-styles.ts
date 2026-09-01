@@ -1157,8 +1157,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   overflow: hidden;
   isolation: isolate;
 }
-/* Listra branca correndo em volta da borda inteira do card.
-   O conic-gradient gira e a máscara deixa visível só o anel de 1px. */
+/* Listra dourada correndo em volta da borda inteira do card. */
 .dash-glow-card::before,
 .card-premium::before,
 .shark-kpi-card::before,
@@ -1169,21 +1168,21 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  padding: 1.5px;
+  padding: 3.5px;
   background: conic-gradient(
     from var(--card-angle),
-    #ffffff 0deg,
-    rgba(255, 255, 255, 0.45) 16deg,
-    rgba(255, 255, 255, 0) 70deg,
-    rgba(255, 255, 255, 0) 290deg,
-    rgba(255, 255, 255, 0.45) 344deg,
-    #ffffff 360deg
+    #f5c842 0deg,
+    rgba(245, 200, 66, 0.55) 18deg,
+    rgba(245, 200, 66, 0) 68deg,
+    rgba(245, 200, 66, 0) 292deg,
+    rgba(245, 200, 66, 0.55) 342deg,
+    #f5c842 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
-  animation: card-orbit 5.5s linear infinite;
+  animation: card-orbit 2.2s linear infinite;
 }
 /* Mesmo anel desfocado por baixo = o brilho da listra. */
 .dash-glow-card::after,
@@ -1196,23 +1195,23 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   z-index: 0;
   pointer-events: none;
   border-radius: inherit;
-  padding: 3px;
+  padding: 5px;
   background: conic-gradient(
     from var(--card-angle),
-    #ffffff 0deg,
-    rgba(255, 255, 255, 0.4) 22deg,
-    rgba(255, 255, 255, 0) 80deg,
-    rgba(255, 255, 255, 0) 280deg,
-    rgba(255, 255, 255, 0.4) 338deg,
-    #ffffff 360deg
+    #f5c842 0deg,
+    rgba(245, 200, 66, 0.5) 24deg,
+    rgba(245, 200, 66, 0) 78deg,
+    rgba(245, 200, 66, 0) 282deg,
+    rgba(245, 200, 66, 0.5) 336deg,
+    #f5c842 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
-  filter: blur(8px);
+  filter: blur(14px);
   opacity: 0.95;
-  animation: card-orbit 5.5s linear infinite;
+  animation: card-orbit 2.2s linear infinite;
 }
 @keyframes card-orbit {
   to { --card-angle: 360deg; }

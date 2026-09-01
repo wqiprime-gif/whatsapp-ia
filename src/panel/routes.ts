@@ -582,6 +582,15 @@ export async function registerPanelRoutes(
 ) {
   await app.register(cookie);
 
+  app.addHook("onSend", async (_request, reply, payload) => {
+    const ct = String(reply.getHeader("content-type") || "");
+    if (ct.includes("text/html")) {
+      reply.header("content-type", "text/html; charset=utf-8");
+      reply.header("vary", "X-Panel-Partial");
+    }
+    return payload;
+  });
+
   app.addHook("onRequest", async (request, reply) => {
     const urlPath = request.url.split("?")[0];
     const publicPaths = [
@@ -1644,7 +1653,7 @@ export async function registerPanelRoutes(
     return reply.redirect("/brand/favicon.svg");
   });
 
-  // Favicon X1 BLACK — fantasma branco em squircle preto.
+  // Favicon X1 BLACK — fantasma dourado sem caixa preta.
   app.get("/brand/favicon.svg", async (_request, reply) => {
     return reply
       .type("image/svg+xml")
@@ -1806,8 +1815,31 @@ export async function registerPanelRoutes(
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
     const bot = await getBotById(params.id, user.id);
     if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
+    if (bot.active) {
+      const { getTelegramLiveStatus, restartSingleTelegramBot } = await import("../telegram-runtime.js");
+      const st = getTelegramLiveStatus(bot.id);
+      if (st === "offline" || st === "error") {
+        void restartSingleTelegramBot(bot.id).catch((err) =>
+          console.error(`[tg] auto-start ${bot.id}:`, err)
+        );
+      }
+    }
     const { telegramLoginPage } = await import("./tg-login-page.js");
     return reply.type("text/html").send(telegramLoginPage(bot, panelUserLabel(user), isPartial(request)));
+  });
+
+  app.post("/api/instances/:id/tg/start", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const bot = await getBotById(params.id, user.id);
+    if (!bot) return reply.code(404).send({ ok: false, error: "Instância não encontrada" });
+    if (!bot.active) {
+      return reply.code(400).send({ ok: false, error: "Ative a instância antes de conectar o Telegram." });
+    }
+    hooks.restartBot(bot.id);
+    const { getTelegramLiveStatus } = await import("../telegram-runtime.js");
+    return reply.send({ ok: true, state: getTelegramLiveStatus(bot.id) });
   });
 
   app.get("/api/instances/:id/tg", async (request, reply) => {

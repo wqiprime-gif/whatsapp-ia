@@ -12,20 +12,44 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
         </div>
       </div>
       <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
-        <div id="tg-status-box" class="form-hint">Carregando status...</div>
-        <p class="form-hint">1) Pegue <code>api_id</code> e <code>api_hash</code> em <a href="https://my.telegram.org" target="_blank" rel="noopener">my.telegram.org</a><br/>
-        2) Salve telefone + credenciais na edição da instância<br/>
-        3) Quando pedir código, digite abaixo (e 2FA se tiver)</p>
+        <div id="tg-status-box" class="tg-status-box">Carregando status...</div>
 
-        <label class="field">Código do Telegram
-          <input id="tg-code" inputmode="numeric" autocomplete="one-time-code" placeholder="12345" />
-        </label>
-        <button type="button" class="btn btn-primary" id="tg-send-code">${icons.zap} Enviar código</button>
+        <div id="tg-phase-wait" class="tg-phase" hidden>
+          <p class="form-hint" style="margin:0">
+            <strong>Aguardando conexão…</strong><br/>
+            O Telegram envia o código no <em>app oficial</em> ou por SMS quando o motor estiver pronto.
+            Não digite nada até o status mudar para <code>need_code</code>.
+          </p>
+        </div>
 
-        <label class="field">Senha 2FA (só se pedir)
-          <input id="tg-password" type="password" autocomplete="current-password" placeholder="Senha cloud do Telegram" />
-        </label>
-        <button type="button" class="btn btn-secondary" id="tg-send-password">Enviar senha 2FA</button>
+        <div id="tg-phase-code" class="tg-phase" hidden>
+          <p class="form-hint" style="margin:0 0 10px">Código recebido no Telegram — digite abaixo:</p>
+          <label class="field">Código do Telegram
+            <input id="tg-code" inputmode="numeric" autocomplete="one-time-code" placeholder="12345" />
+          </label>
+          <button type="button" class="btn btn-primary" id="tg-send-code">${icons.zap} Enviar código</button>
+        </div>
+
+        <div id="tg-phase-password" class="tg-phase" hidden>
+          <p class="form-hint" style="margin:0 0 10px">Sua conta tem verificação em duas etapas:</p>
+          <label class="field">Senha 2FA (cloud)
+            <input id="tg-password" type="password" autocomplete="current-password" placeholder="Senha cloud do Telegram" />
+          </label>
+          <button type="button" class="btn btn-secondary" id="tg-send-password">Enviar senha 2FA</button>
+        </div>
+
+        <div id="tg-phase-ready" class="tg-phase" hidden>
+          <p class="form-hint" style="margin:0;color:#22c55e"><strong>Conectado!</strong> O atendimento no Telegram está ativo.</p>
+        </div>
+
+        <details class="form-hint" style="margin:0">
+          <summary style="cursor:pointer">Como configurar</summary>
+          <ol style="margin:8px 0 0 18px;padding:0">
+            <li>Pegue <code>api_id</code> e <code>api_hash</code> em <a href="https://my.telegram.org" target="_blank" rel="noopener">my.telegram.org</a></li>
+            <li>Salve telefone + credenciais na <a href="/instances/${bot.id}/edit">edição da instância</a></li>
+            <li>Ative a instância e aguarde o código aparecer aqui</li>
+          </ol>
+        </details>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           <form method="post" action="/instances/${bot.id}/tg/restart" style="display:inline">
@@ -38,50 +62,131 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
         </div>
       </div>
     </div>
+    <style>
+      .tg-status-box {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+      .tg-phase[hidden] { display: none !important; }
+    </style>
     <script>
     (function () {
       const statusBox = document.getElementById("tg-status-box");
+      const phaseWait = document.getElementById("tg-phase-wait");
+      const phaseCode = document.getElementById("tg-phase-code");
+      const phasePass = document.getElementById("tg-phase-password");
+      const phaseReady = document.getElementById("tg-phase-ready");
       const codeInput = document.getElementById("tg-code");
       const passInput = document.getElementById("tg-password");
+      let motorStartTried = false;
+
+      const LABELS = {
+        offline: "Motor parado",
+        starting: "Iniciando motor…",
+        connecting: "Conectando ao Telegram…",
+        need_code: "Aguardando código — verifique o app Telegram",
+        need_password: "Aguardando senha 2FA",
+        authenticating: "Validando credenciais…",
+        ready: "Conectado",
+        authenticated: "Conectado",
+        error: "Erro na conexão",
+        logged_out: "Sessão encerrada"
+      };
+
+      function setPhase(state) {
+        const waitStates = ["offline", "starting", "connecting", "authenticating", "error", "logged_out"];
+        phaseWait.hidden = !waitStates.includes(state);
+        phaseCode.hidden = state !== "need_code";
+        phasePass.hidden = state !== "need_password";
+        phaseReady.hidden = state !== "ready" && state !== "authenticated";
+      }
+
+      async function tryStartMotor() {
+        if (motorStartTried) return;
+        try {
+          const r = await fetch("/api/instances/${bot.id}/tg");
+          const d = await r.json();
+          const state = d.state || "offline";
+          if (state === "offline" || state === "error") {
+            motorStartTried = true;
+            await fetch("/api/instances/${bot.id}/tg/start", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "content-type": "application/json" }
+            });
+          }
+        } catch (_) {}
+      }
+
       async function refresh() {
         try {
           const r = await fetch("/api/instances/${bot.id}/tg");
           const d = await r.json();
           const state = d.state || "offline";
-          const parts = ["Estado: " + state];
-          if (d.connectedAs) parts.push("Conta: " + d.connectedAs);
-          if (d.pendingCodeHint) parts.push(d.pendingCodeHint);
-          if (d.error) parts.push("Erro: " + d.error);
-          statusBox.textContent = parts.join(" · ");
-          statusBox.style.color = state === "ready" || state === "authenticated" ? "#22c55e" : "";
+          const label = LABELS[state] || state;
+          const parts = ["<strong>" + label + "</strong>"];
+          if (d.connectedAs) parts.push("Conta: " + escapeHtml(String(d.connectedAs)));
+          if (d.pendingCodeHint && state === "need_code") parts.push(escapeHtml(String(d.pendingCodeHint)));
+          if (d.error) parts.push('<span style="color:#f87171">' + escapeHtml(String(d.error)) + "</span>");
+          statusBox.innerHTML = parts.join(" · ");
+          statusBox.style.borderColor =
+            state === "ready" || state === "authenticated"
+              ? "rgba(34,197,94,0.35)"
+              : state === "error"
+                ? "rgba(248,113,113,0.35)"
+                : "";
+          setPhase(state);
+          if (state === "offline" || state === "error") void tryStartMotor();
         } catch (e) {
           statusBox.textContent = "Falha ao ler status";
         }
       }
-      document.getElementById("tg-send-code").addEventListener("click", async function () {
-        const code = (codeInput.value || "").trim();
-        if (!code) return alert("Digite o código");
-        const r = await fetch("/api/instances/${bot.id}/tg/code", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ code })
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      const sendCodeBtn = document.getElementById("tg-send-code");
+      if (sendCodeBtn) {
+        sendCodeBtn.addEventListener("click", async function () {
+          const code = (codeInput && codeInput.value || "").trim();
+          if (!code) return alert("Digite o código que chegou no Telegram");
+          const r = await fetch("/api/instances/${bot.id}/tg/code", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ code })
+          });
+          const d = await r.json();
+          if (!d.ok) alert(d.error || "Falha");
+          else { if (codeInput) codeInput.value = ""; refresh(); }
         });
-        const d = await r.json();
-        if (!d.ok) alert(d.error || "Falha");
-        else { codeInput.value = ""; refresh(); }
-      });
-      document.getElementById("tg-send-password").addEventListener("click", async function () {
-        const password = passInput.value || "";
-        if (!password) return alert("Digite a senha 2FA");
-        const r = await fetch("/api/instances/${bot.id}/tg/password", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ password })
+      }
+
+      const sendPassBtn = document.getElementById("tg-send-password");
+      if (sendPassBtn) {
+        sendPassBtn.addEventListener("click", async function () {
+          const password = passInput ? passInput.value || "" : "";
+          if (!password) return alert("Digite a senha 2FA");
+          const r = await fetch("/api/instances/${bot.id}/tg/password", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ password })
+          });
+          const d = await r.json();
+          if (!d.ok) alert(d.error || "Falha");
+          else { if (passInput) passInput.value = ""; refresh(); }
         });
-        const d = await r.json();
-        if (!d.ok) alert(d.error || "Falha");
-        else { passInput.value = ""; refresh(); }
-      });
+      }
+
+      void tryStartMotor();
       refresh();
       setInterval(refresh, 2500);
     })();

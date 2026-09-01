@@ -11,25 +11,31 @@ export const GHOST_EYE_LEFT =
 export const GHOST_EYE_RIGHT =
   "M60 55C68 43 82 38 88 43c5 4.5-2 12-12 15.5-6 2-12 .5-16-3.5Z";
 
-/** Mark X1 BLACK — fantasma monocromatico inline (sem depender de /brand/). */
+/** Gradiente dourado metalico — alinhado ao Instablack de referencia. */
+export const GOLD_GRADIENT_STOPS = `
+      <stop offset="0%" stop-color="#f8e9b0"/>
+      <stop offset="32%" stop-color="#e8c547"/>
+      <stop offset="58%" stop-color="#d4af37"/>
+      <stop offset="82%" stop-color="#f5c842"/>
+      <stop offset="100%" stop-color="#a67c00"/>`;
+
+/** Mark X1 BLACK — fantasma dourado inline (sem depender de /brand/). */
 export function x1GhostSvg(size: number, className = "brand-icon", idSuffix = "a") {
   const s = idSuffix.replace(/[^a-zA-Z0-9]/g, "");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" class="${className}" width="${size}" height="${size}" role="img" aria-hidden="true">
   <defs>
-    <linearGradient id="x1-metal-${s}" x1="60" y1="15" x2="60" y2="104" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="48%" stop-color="#dcdcdc"/>
-      <stop offset="100%" stop-color="#8f8f8f"/>
+    <linearGradient id="x1-gold-${s}" x1="60" y1="12" x2="60" y2="108" gradientUnits="userSpaceOnUse">
+${GOLD_GRADIENT_STOPS}
     </linearGradient>
-    <filter id="x1-glow-${s}" x="-25%" y="-25%" width="150%" height="150%">
-      <feGaussianBlur stdDeviation="1.6" result="b"/>
+    <filter id="x1-glow-${s}" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
   <g filter="url(#x1-glow-${s})">
-    <path fill="url(#x1-metal-${s})" d="${GHOST_BODY}"/>
-    <path fill="#000000" d="${GHOST_EYE_LEFT}"/>
-    <path fill="#000000" d="${GHOST_EYE_RIGHT}"/>
+    <path fill="url(#x1-gold-${s})" d="${GHOST_BODY}"/>
+    <path fill="#1a1200" d="${GHOST_EYE_LEFT}"/>
+    <path fill="#1a1200" d="${GHOST_EYE_RIGHT}"/>
   </g>
 </svg>`;
 }

@@ -129,8 +129,8 @@ export const panelClientScript = `
         // Mesmo padrão do instablack: SVG compacto em icon + badge.
         await reg.showNotification(title, {
           body: body,
-          icon: "/brand/pwa-192.png?v=1.24.15",
-          badge: "/brand/pwa-192.png?v=1.24.15",
+          icon: "/brand/pwa-192.png?v=1.31.0",
+          badge: "/brand/pwa-192.png?v=1.31.0",
           tag: (tag || "x1black") + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
           renotify: true,
           data: { url: url || "/" },
@@ -141,7 +141,7 @@ export const panelClientScript = `
     } catch (_) {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.24.15" });
+        new Notification(title, { body: body, icon: "/brand/pwa-192.png?v=1.31.0" });
         return true;
       } catch (_) {}
     }
@@ -527,6 +527,9 @@ export const panelClientScript = `
     if (!href || !href.startsWith("/")) return false;
     if (href.startsWith("/uploads")) return false;
     if (a.closest("form")) return false;
+    const path = href.split("?")[0];
+    if (path === "/instances/new" || /^\\/instances\\/[^/]+\\/edit/.test(path)) return false;
+    if (/^\\/instances\\/[^/]+\\/(tg|qr)$/.test(path)) return false;
     return true;
   }
 
