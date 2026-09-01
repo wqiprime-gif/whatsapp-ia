@@ -1,5 +1,6 @@
 node_modules
-hotbot/node_modules
+telegram/node_modules
+shared/node_modules
 dist
 .env
 .env.*
