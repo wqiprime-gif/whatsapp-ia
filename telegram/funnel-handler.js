@@ -388,6 +388,8 @@ function createFunnelHandler(deps) {
       lastUserMessageAt: new Date().toISOString()
     });
 
+    const conv = getConversation(chatId);
+
     if (state.funnelStage === "upsell") {
       if (funnel.upsellDeclined(text)) {
         await saveLeadState(chatId, { funnelStage: "paid" });
@@ -401,7 +403,6 @@ function createFunnelHandler(deps) {
     }
 
     const cfg = loadBotConfig();
-    const conv = getConversation(chatId);
     const delay = Number(cfg.messageDelayMs) || 2500;
     await sleep(Math.round(delay * (0.85 + Math.random() * 0.3)));
 

@@ -204,16 +204,8 @@ async function panelLog(payload) {
   } catch (_) {}
 }
 
-const OpenAI = require("openai");
-let openai = null;
-function getOpenAI() {
-  if (openai) return openai;
-  const key = process.env.OPENAI_API_KEY || "";
-  if (!key) throw new Error("OPENAI_API_KEY ausente");
-  const baseURL = process.env.AI_BASE_URL || undefined;
-  openai = new OpenAI({ apiKey: key, ...(baseURL ? { baseURL } : {}) });
-  return openai;
-}
+const { createAiRuntime } = require("../shared/ai-runtime.js");
+const aiRuntime = createAiRuntime(instancesDataDir);
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -471,8 +463,8 @@ async function generateReply(chatId, userText) {
   const conv = getConversation(chatId);
   if (conv[0]?.role === "system") conv[0].content = buildSystemPrompt();
   conv.push({ role: "user", content: userText });
-  const model = process.env.AI_MODEL || "gpt-4o-mini";
-  const completion = await getOpenAI().chat.completions.create({
+  const model = aiRuntime.getModel();
+  const completion = await aiRuntime.getOpenAI().chat.completions.create({
     model,
     messages: conv.filter((m) => m.role === "system" || m.role === "user" || m.role === "assistant").slice(-24),
     max_tokens: 280,
@@ -506,7 +498,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.34.3",
+  appVersion: "1.35.0",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,
@@ -531,7 +523,7 @@ const funnelHandler = createFunnelHandler({
   saveConversations,
   buildSystemPrompt,
   panelLog,
-  getOpenAI,
+  getOpenAI: () => aiRuntime.getOpenAI(),
   sleep,
   sendNamedAudioVoiceOnce,
   resolveMediaLocalPath,
@@ -582,6 +574,7 @@ function registerMessageHandler() {
     } catch (error) {
       const errMsg = error?.message || String(error);
       console.error("Erro ao processar mensagem TG:", errMsg);
+      if (error?.stack) console.error(error.stack);
       if (/OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)) {
         console.error("❌ IA não configurada — configure a chave OpenAI no painel");
       }
@@ -606,6 +599,12 @@ async function finishLogin() {
     String(me.id);
   writeConnectionStatus("ready");
   registerMessageHandler();
+  aiRuntime.reload();
+  if (!aiRuntime.hasKey()) {
+    console.error("❌ IA sem API Key — configure no painel da instância (mensagens não serão respondidas)");
+  } else {
+    console.log(`🤖 IA ativa: ${aiRuntime.getModel()}`);
+  }
   console.log(`✅ Conectado como: ${connectedAs} (id ${me.id})`);
   console.log("🤖 Atendimento Telegram ativo (DMs).");
 }

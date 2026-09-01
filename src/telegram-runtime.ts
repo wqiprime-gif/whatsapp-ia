@@ -229,6 +229,46 @@ async function writeInstanceFiles(bot: BotConfig) {
     JSON.stringify({ prompt: bot.prompt }, null, 2),
     "utf8"
   );
+  await writeAiRuntimeFile(bot);
+}
+
+async function writeAiRuntimeFile(bot: BotConfig) {
+  const instDir = instanceDataDir(bot.id);
+  const owner = bot.userId ? await getUserById(bot.userId).catch(() => null) : null;
+  let payload: Record<string, string> = {
+    apiKey: "",
+    model: env.OPENAI_MODEL,
+    provider: "openai",
+    baseURL: "",
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    const ai = await resolveBotAIConfig(bot, owner?.email);
+    const cfg = AI_PROVIDERS[ai.provider];
+    payload = {
+      apiKey: ai.apiKey,
+      model: ai.model,
+      provider: ai.provider,
+      baseURL: cfg.baseURL || "",
+      updatedAt: new Date().toISOString()
+    };
+    console.log(`[tg] ai-runtime ${bot.name}: ${ai.provider} · ${ai.model} · key ${ai.apiKey.slice(0, 7)}…`);
+  } catch (err) {
+    console.warn(`[tg] ai-runtime ${bot.name} vazio: ${err instanceof Error ? err.message : err}`);
+    if (env.OPENAI_API_KEY) {
+      payload = {
+        apiKey: env.OPENAI_API_KEY,
+        model: env.OPENAI_MODEL,
+        provider: "openai",
+        baseURL: "",
+        updatedAt: new Date().toISOString()
+      };
+      console.log(`[tg] ai-runtime ${bot.name}: fallback OPENAI_API_KEY do ambiente`);
+    }
+  }
+  await fs.writeFile(path.join(instDir, "ai-runtime.json"), JSON.stringify(payload, null, 2), {
+    mode: 0o600
+  });
 }
 
 async function stopTelegramBot(botId: string) {
