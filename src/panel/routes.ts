@@ -1653,7 +1653,7 @@ export async function registerPanelRoutes(
     return reply.redirect("/brand/favicon.svg");
   });
 
-  // Favicon X1 BLACK — fantasma dourado sem caixa preta.
+  // Favicon X1 BLACK — fantasma branco em squircle preto.
   app.get("/brand/favicon.svg", async (_request, reply) => {
     return reply
       .type("image/svg+xml")

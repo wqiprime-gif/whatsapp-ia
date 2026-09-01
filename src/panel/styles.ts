@@ -132,7 +132,7 @@ body {
   flex-shrink: 0;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 0 18px rgba(212, 175, 55, 0.7)) drop-shadow(0 0 8px rgba(245, 200, 66, 0.45));
+  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.28));
 }
 .brand-lockup-text {
   font-family: var(--font-brand, 'Orbitron', sans-serif);
@@ -149,11 +149,11 @@ body {
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.25));
 }
 .brand-lockup-accent {
-  background: linear-gradient(100deg, #f8e9b0 0%, #d4af37 40%, #f5c842 100%);
+  background: linear-gradient(100deg, #e5e5e5 0%, #e5e5e5 35%, #ffffff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 14px rgba(212, 175, 55, 0.65));
+  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.65));
 }
 /* Sidebar: fantasma a esquerda e wordmark ao lado, numa linha so. */
 .brand-lockup--sidebar {
@@ -328,14 +328,14 @@ button, input, textarea, select { font-family: inherit; }
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(212, 175, 55, 0.2) 15%,
-    #f5c842 40%,
-    #d4af37 50%,
-    #f5c842 60%,
-    rgba(212, 175, 55, 0.2) 85%,
+    rgba(255, 255, 255, 0.15) 15%,
+    #ffffff 40%,
+    #d4d4d4 50%,
+    #ffffff 60%,
+    rgba(255, 255, 255, 0.15) 85%,
     transparent 100%
   );
-  box-shadow: 0 0 16px rgba(245, 200, 66, 0.55), 0 0 6px rgba(212, 175, 55, 0.4);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45), 0 0 6px rgba(255, 255, 255, 0.25);
   pointer-events: none;
   z-index: 4;
   animation: shark-sidebar-beam 1.8s linear infinite;

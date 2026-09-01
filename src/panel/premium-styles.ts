@@ -1157,7 +1157,7 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   overflow: hidden;
   isolation: isolate;
 }
-/* Listra dourada correndo em volta da borda inteira do card. */
+/* Listra branca correndo em volta da borda inteira do card — maior e mais rápida. */
 .dash-glow-card::before,
 .card-premium::before,
 .shark-kpi-card::before,
@@ -1171,12 +1171,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 3.5px;
   background: conic-gradient(
     from var(--card-angle),
-    #f5c842 0deg,
-    rgba(245, 200, 66, 0.55) 18deg,
-    rgba(245, 200, 66, 0) 68deg,
-    rgba(245, 200, 66, 0) 292deg,
-    rgba(245, 200, 66, 0.55) 342deg,
-    #f5c842 360deg
+    #ffffff 0deg,
+    rgba(255, 255, 255, 0.55) 18deg,
+    rgba(255, 255, 255, 0) 68deg,
+    rgba(255, 255, 255, 0) 292deg,
+    rgba(255, 255, 255, 0.55) 342deg,
+    #ffffff 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -1198,12 +1198,12 @@ body.thunder-flash .mesh-blob { opacity: 1.2; filter: brightness(1.35); }
   padding: 5px;
   background: conic-gradient(
     from var(--card-angle),
-    #f5c842 0deg,
-    rgba(245, 200, 66, 0.5) 24deg,
-    rgba(245, 200, 66, 0) 78deg,
-    rgba(245, 200, 66, 0) 282deg,
-    rgba(245, 200, 66, 0.5) 336deg,
-    #f5c842 360deg
+    #ffffff 0deg,
+    rgba(255, 255, 255, 0.5) 24deg,
+    rgba(255, 255, 255, 0) 78deg,
+    rgba(255, 255, 255, 0) 282deg,
+    rgba(255, 255, 255, 0.5) 336deg,
+    #ffffff 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;

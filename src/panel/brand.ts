@@ -9,7 +9,7 @@ export const BRAND_ICON_PNG = "/brand/pwa-192.png";
 export const BRAND_FAVICON_SVG = "/brand/favicon.svg";
 
 /** Sobe junto com a troca de logo para furar cache de favicon e PWA. */
-export const BRAND_ASSET_VERSION = "1.31.0";
+export const BRAND_ASSET_VERSION = "1.31.1";
 
 export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon.svg?v=${BRAND_ASSET_VERSION}" type="image/svg+xml" />
 <link rel="icon" href="/brand/pwa-192.png?v=${BRAND_ASSET_VERSION}" type="image/png" sizes="192x192" />
@@ -17,9 +17,10 @@ export const FAVICON_LINK = `<link rel="icon" href="/brand/favicon.svg?v=${BRAND
 
 export const SUPPORT_WHATSAPP_URL = "https://wa.me/5511913748602";
 
-/** Mark X1 BLACK — fantasma dourado inline (sempre correto, sem depender de PNG). */
+/** Mark X1 BLACK — render metalico do fantasma. A rota cai no SVG inline
+ *  quando o PNG nao existe, entao a imagem nunca fica quebrada. */
 export function brandIconHtml(className = "brand-icon", size = 40) {
-  return brandIconSvgHtml(className, size);
+  return `<img src="${BRAND_LOGO_SRC}?v=${BRAND_ASSET_VERSION}" alt="" aria-hidden="true" width="${size}" height="${size}" class="${className}" decoding="async" />`;
 }
 
 /** Versao inline em SVG — para onde nao da para usar <img>. */
