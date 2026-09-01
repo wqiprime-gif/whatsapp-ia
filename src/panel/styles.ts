@@ -132,7 +132,12 @@ body {
   flex-shrink: 0;
   display: block;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 0;
+  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.32));
+}
+.brand-lockup--sidebar .brand-icon {
+  width: 42px !important;
+  height: 42px !important;
 }
 .brand-lockup-text {
   font-family: var(--font-brand, 'Orbitron', sans-serif);
@@ -323,27 +328,31 @@ button, input, textarea, select { font-family: inherit; }
   content: "";
   position: absolute;
   right: 0;
-  width: 2px;
-  height: 88px;
+  width: 3px;
+  height: 124px;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.12) 18%,
-    #ffffff 46%,
-    #d4d4d4 54%,
-    #ffffff 62%,
-    rgba(255, 255, 255, 0.12) 82%,
+    rgba(255, 255, 255, 0.1) 14%,
+    rgba(255, 255, 255, 0.55) 38%,
+    #ffffff 48%,
+    #e8e8e8 52%,
+    #ffffff 58%,
+    rgba(255, 255, 255, 0.55) 72%,
+    rgba(255, 255, 255, 0.1) 86%,
     transparent 100%
   );
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 0 18px rgba(255, 255, 255, 0.5),
+    0 0 8px rgba(255, 255, 255, 0.35);
   pointer-events: none;
   z-index: 4;
-  animation: shark-sidebar-beam 4.8s linear infinite;
+  animation: shark-sidebar-beam 3.6s linear infinite;
 }
 @keyframes shark-sidebar-beam {
-  0% { top: -88px; opacity: 0; }
-  8% { opacity: 1; }
-  92% { opacity: 1; }
+  0% { top: -124px; opacity: 0; }
+  7% { opacity: 1; }
+  93% { opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
 .sidebar::after {
@@ -370,8 +379,8 @@ button, input, textarea, select { font-family: inherit; }
   padding-bottom: 12px;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-icon {
-  width: 34px !important;
-  height: 34px !important;
+  width: 42px !important;
+  height: 42px !important;
 }
 .sidebar:not(:hover):not(.is-pinned) .brand-wordmark-accent { display: none; }
 .sidebar:not(:hover):not(.is-pinned) .nav-support .nav-text { display: none; }

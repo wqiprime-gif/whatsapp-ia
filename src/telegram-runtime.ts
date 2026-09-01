@@ -25,6 +25,111 @@ type TgProcess = {
 
 const processes = new Map<string, TgProcess>();
 const lastExitCodes = new Map<string, number | null>();
+const lastStartErrors = new Map<string, string>();
+
+function writeTelegramBootStatus(botId: string, state: string, error?: string) {
+  const statusPath = path.join(instanceDataDir(botId), "status.json");
+  try {
+    fsSync.mkdirSync(instanceDataDir(botId), { recursive: true });
+    fsSync.writeFileSync(
+      statusPath,
+      JSON.stringify(
+        {
+          state,
+          at: new Date().toISOString(),
+          error: error || undefined
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+  } catch {
+    // ignore
+  }
+}
+
+function hasTgSessionOnDisk(botId: string) {
+  const sessionFile = path.join(instanceDataDir(botId), "session.txt");
+  try {
+    return fsSync.existsSync(sessionFile) && Boolean(fsSync.readFileSync(sessionFile, "utf8").trim());
+  } catch {
+    return false;
+  }
+}
+
+export function tgBotNeedsMotorRestart(before: BotConfig, after: BotConfig): boolean {
+  if (!isTelegramBot(after)) return false;
+  return (
+    before.active !== after.active ||
+    before.platform !== after.platform ||
+    before.tgApiId !== after.tgApiId ||
+    (after.tgApiHashEncrypted ?? "") !== (before.tgApiHashEncrypted ?? "") ||
+    (after.tgPhone ?? "") !== (before.tgPhone ?? "")
+  );
+}
+
+export function explainTelegramStartBlock(bot: BotConfig) {
+  const base = {
+    active: Boolean(bot.active),
+    hasApiId: false,
+    hasApiHash: false,
+    hasPhone: Boolean(String(bot.tgPhone || "").trim()),
+    hasSession: hasTgSessionOnDisk(bot.id)
+  };
+
+  if (!isTelegramBot(bot)) {
+    return { ...base, blockReason: "Esta instância não está configurada como Telegram." };
+  }
+  if (!bot.active) {
+    return {
+      ...base,
+      blockReason: "Instância desativada — em Editar, marque Ativo e salve."
+    };
+  }
+
+  const apiId = Number(bot.tgApiId || 0);
+  base.hasApiId = Number.isFinite(apiId) && apiId > 0;
+
+  let apiHash = "";
+  try {
+    if (bot.tgApiHashEncrypted) {
+      apiHash = decryptSecret(bot.tgApiHashEncrypted);
+      base.hasApiHash = Boolean(apiHash);
+    }
+  } catch {
+    return {
+      ...base,
+      blockReason: "api_hash não pôde ser lido — cole de novo em Editar instância e salve."
+    };
+  }
+
+  if (!base.hasApiId) {
+    return { ...base, blockReason: "Falta api_id — salve em Editar instância (my.telegram.org)." };
+  }
+  if (!base.hasApiHash) {
+    return { ...base, blockReason: "Falta api_hash — cole em Editar instância e salve." };
+  }
+  if (!base.hasPhone && !base.hasSession) {
+    return {
+      ...base,
+      blockReason: "Informe o telefone com DDI (+5511...) em Editar instância e salve."
+    };
+  }
+
+  const cached = lastStartErrors.get(bot.id);
+  if (cached) return { ...base, blockReason: cached };
+
+  const exit = lastExitCodes.get(bot.id);
+  if (exit != null && !processes.has(bot.id)) {
+    return {
+      ...base,
+      blockReason: `Motor encerrou (código ${exit}). Clique em Reiniciar motor.`
+    };
+  }
+
+  return base;
+}
 
 function stablePort(botId: string, index: number) {
   const hash = parseInt(botId.replace(/\D/g, "").slice(0, 8), 10) || index;
@@ -137,7 +242,18 @@ async function stopTelegramBot(botId: string) {
 }
 
 async function startTelegramBot(bot: BotConfig, index: number) {
-  if (!isTelegramBot(bot) || !bot.active) return;
+  lastStartErrors.delete(bot.id);
+
+  if (!isTelegramBot(bot)) {
+    lastStartErrors.set(bot.id, "Instância não é Telegram.");
+    writeTelegramBootStatus(bot.id, "error", lastStartErrors.get(bot.id));
+    return;
+  }
+  if (!bot.active) {
+    lastStartErrors.set(bot.id, "Instância desativada.");
+    writeTelegramBootStatus(bot.id, "offline", lastStartErrors.get(bot.id));
+    return;
+  }
   if (processes.has(bot.id)) return;
 
   const apiId = Number(bot.tgApiId || 0);
@@ -146,15 +262,33 @@ async function startTelegramBot(bot: BotConfig, index: number) {
     if (bot.tgApiHashEncrypted) apiHash = decryptSecret(bot.tgApiHashEncrypted);
   } catch {
     apiHash = "";
+    lastStartErrors.set(bot.id, "api_hash inválido — salve de novo na edição.");
+    writeTelegramBootStatus(bot.id, "error", lastStartErrors.get(bot.id));
+    return;
   }
   const phone = String(bot.tgPhone || "").trim();
 
   if (!apiId || !apiHash) {
-    console.error(
-      `[tg] ${bot.name}: falta api_id/api_hash (my.telegram.org). Salve na edição da instância.`
-    );
+    const msg = !apiId
+      ? "Falta api_id (my.telegram.org) — salve na edição da instância."
+      : "Falta api_hash — cole na edição da instância e salve.";
+    lastStartErrors.set(bot.id, msg);
+    writeTelegramBootStatus(bot.id, "error", msg);
+    console.error(`[tg] ${bot.name}: ${msg}`);
     return;
   }
+
+  const instDir = instanceDataDir(bot.id);
+  await restoreTgSessionFromDb(bot.id, instDir);
+  if (!phone && !hasTgSessionOnDisk(bot.id)) {
+    const msg = "Informe o telefone com DDI (+5511...) na edição da instância.";
+    lastStartErrors.set(bot.id, msg);
+    writeTelegramBootStatus(bot.id, "error", msg);
+    console.error(`[tg] ${bot.name}: ${msg}`);
+    return;
+  }
+
+  writeTelegramBootStatus(bot.id, "starting");
 
   let apiKey = "";
   let provider: import("./lib/ai-providers.js").AIProviderId = "openai";
@@ -178,8 +312,6 @@ async function startTelegramBot(bot: BotConfig, index: number) {
 
   await writeInstanceFiles(bot);
   const port = bot.waPort && bot.waPort >= 5200 ? bot.waPort : tgPortForBot(bot.id, index);
-  const instDir = instanceDataDir(bot.id);
-  await restoreTgSessionFromDb(bot.id, instDir);
   const providerCfg = AI_PROVIDERS[provider];
 
   const childEnv: NodeJS.ProcessEnv = {
@@ -295,7 +427,7 @@ export function getTelegramLiveStatus(botId: string): string {
   return proc.child.exitCode == null ? "starting" : "offline";
 }
 
-export async function getTelegramStatusPayload(botId: string) {
+export async function getTelegramStatusPayload(botId: string, botHint?: BotConfig) {
   const proc = processes.get(botId);
   const statusPath = path.join(instanceDataDir(botId), "status.json");
   let file: Record<string, unknown> = {};
@@ -306,25 +438,45 @@ export async function getTelegramStatusPayload(botId: string) {
   } catch {
     // ignore
   }
+
+  const bot = botHint ?? (await loadBots()).find((b) => b.id === botId);
+  const diag = bot ? explainTelegramStartBlock(bot) : undefined;
+
   if (proc) {
     try {
       const res = await fetch(`http://127.0.0.1:${proc.port}/api/status`, {
         signal: AbortSignal.timeout(4000)
       });
-      if (res.ok) return (await res.json()) as Record<string, unknown>;
+      if (res.ok) {
+        const live = (await res.json()) as Record<string, unknown>;
+        return {
+          ...live,
+          diagnostics: diag,
+          exitCode: lastExitCodes.get(botId) ?? null
+        };
+      }
     } catch {
       // fall through to file
     }
   }
+
+  const state = String(file.state || (proc ? "starting" : "offline"));
+  const blockReason = diag && "blockReason" in diag ? diag.blockReason : undefined;
+  const offlineError =
+    !proc && blockReason && (state === "offline" || state === "error" || !file.state)
+      ? blockReason
+      : file.error;
+
   return {
     ok: true,
-    state: file.state || (proc ? "starting" : "offline"),
+    state: offlineError && !proc && state === "offline" ? "error" : state,
     connected: file.state === "ready" || file.state === "authenticated",
     connectedAs: file.connectedAs,
-    error: file.error,
+    error: offlineError,
     pendingCodeHint: file.pendingCodeHint,
     platform: "telegram",
-    exitCode: lastExitCodes.get(botId) ?? null
+    exitCode: lastExitCodes.get(botId) ?? null,
+    diagnostics: diag
   };
 }
 

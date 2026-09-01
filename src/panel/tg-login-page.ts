@@ -82,7 +82,7 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
       const phaseReady = document.getElementById("tg-phase-ready");
       const codeInput = document.getElementById("tg-code");
       const passInput = document.getElementById("tg-password");
-      let motorStartTried = false;
+      let motorStartAttempts = 0;
 
       const LABELS = {
         offline: "Motor parado",
@@ -106,18 +106,22 @@ export function telegramLoginPage(bot: BotConfig, userName = "", partial = false
       }
 
       async function tryStartMotor() {
-        if (motorStartTried) return;
+        if (motorStartAttempts >= 4) return;
         try {
           const r = await fetch("/api/instances/${bot.id}/tg");
           const d = await r.json();
           const state = d.state || "offline";
           if (state === "offline" || state === "error") {
-            motorStartTried = true;
-            await fetch("/api/instances/${bot.id}/tg/start", {
+            motorStartAttempts += 1;
+            const startRes = await fetch("/api/instances/${bot.id}/tg/start", {
               method: "POST",
               credentials: "same-origin",
               headers: { "content-type": "application/json" }
             });
+            const startData = await startRes.json();
+            if (!startRes.ok && startData.error) {
+              statusBox.innerHTML = "<strong>Erro</strong> · " + escapeHtml(String(startData.error));
+            }
           }
         } catch (_) {}
       }

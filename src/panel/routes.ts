@@ -71,6 +71,7 @@ import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { mergeUpsellRules, saveBotEngagement } from "../lib/bot-engagement.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
+import { tgBotNeedsMotorRestart } from "../telegram-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
 import { buildPwaManifest, SERVICE_WORKER_JS } from "./pwa.js";
 import {
@@ -493,7 +494,12 @@ function applyTelegramFieldsFromForm<T extends Record<string, unknown>>(
     if (Number.isFinite(apiId) && apiId > 0) next.tgApiId = apiId;
     const hash = String(body.tgApiHash || "").trim();
     if (hash) next.tgApiHashEncrypted = encryptSecret(hash);
-    if (body.tgPhone !== undefined) next.tgPhone = String(body.tgPhone || "").trim();
+    if (body.tgPhone !== undefined) {
+      const raw = String(body.tgPhone || "").trim().replace(/\s/g, "");
+      if (!raw) next.tgPhone = "";
+      else if (raw.startsWith("+")) next.tgPhone = raw;
+      else next.tgPhone = `+${raw.replace(/^\+/, "")}`;
+    }
     if (next.id && (!next.token || String(next.token).startsWith("wa-"))) {
       next.token = `tg-${next.id}`;
     }
@@ -1646,11 +1652,26 @@ export async function registerPanelRoutes(
   });
 
   app.get("/favicon.ico", async (_request, reply) => {
-    const logo = path.join(rootDir, "public", "brand", "x1black-ghost.png");
-    if (fsSync.existsSync(logo)) {
-      return reply.type("image/png").send(fsSync.createReadStream(logo));
+    const logo = path.join(rootDir, "public", "brand", "logonova.png");
+    const legacy = path.join(rootDir, "public", "brand", "x1black-ghost.png");
+    const file = fsSync.existsSync(logo) ? logo : legacy;
+    if (fsSync.existsSync(file)) {
+      return reply.type("image/png").send(fsSync.createReadStream(file));
     }
     return reply.redirect("/brand/favicon.svg");
+  });
+
+  app.get("/brand/logonova.png", async (_request, reply) => {
+    const file = path.join(rootDir, "public", "brand", "logonova.png");
+    const legacy = path.join(rootDir, "public", "brand", "x1black-ghost.png");
+    const src = fsSync.existsSync(file) ? file : legacy;
+    if (!fsSync.existsSync(src)) {
+      return reply.type("image/svg+xml").send(x1GhostSvg(512, "", "logo"));
+    }
+    return reply
+      .type("image/png")
+      .header("Cache-Control", "public, max-age=604800")
+      .send(fsSync.createReadStream(src));
   });
 
   // Favicon X1 BLACK — fantasma branco em squircle preto.
@@ -1661,14 +1682,16 @@ export async function registerPanelRoutes(
       .send(x1BlackFaviconSvg());
   });
 
-  // Logo oficial: render metalico do fantasma, com o vetor como reserva.
+  // Logo oficial: logonova.png (fantasma metalico).
   app.get("/brand/x1black-ghost.png", async (_request, reply) => {
-    const file = path.join(rootDir, "public", "brand", "x1black-ghost.png");
-    if (fsSync.existsSync(file)) {
+    const file = path.join(rootDir, "public", "brand", "logonova.png");
+    const legacy = path.join(rootDir, "public", "brand", "x1black-ghost.png");
+    const src = fsSync.existsSync(file) ? file : legacy;
+    if (fsSync.existsSync(src)) {
       return reply
         .type("image/png")
         .header("Cache-Control", "public, max-age=604800")
-        .send(fsSync.createReadStream(file));
+        .send(fsSync.createReadStream(src));
     }
     return reply.type("image/svg+xml").send(x1GhostSvg(512, "", "logo"));
   });
@@ -1837,9 +1860,11 @@ export async function registerPanelRoutes(
     if (!bot.active) {
       return reply.code(400).send({ ok: false, error: "Ative a instância antes de conectar o Telegram." });
     }
-    hooks.restartBot(bot.id);
-    const { getTelegramLiveStatus } = await import("../telegram-runtime.js");
-    return reply.send({ ok: true, state: getTelegramLiveStatus(bot.id) });
+    const { restartSingleTelegramBot, getTelegramStatusPayload } = await import("../telegram-runtime.js");
+    await restartSingleTelegramBot(bot.id);
+    await new Promise((r) => setTimeout(r, 1800));
+    const payload = await getTelegramStatusPayload(bot.id, bot);
+    return reply.send({ ok: true, ...payload });
   });
 
   app.get("/api/instances/:id/tg", async (request, reply) => {
@@ -1849,7 +1874,7 @@ export async function registerPanelRoutes(
     const bot = await getBotById(params.id, user.id);
     if (!bot) return reply.code(404).send({ ok: false });
     const { getTelegramStatusPayload } = await import("../telegram-runtime.js");
-    return reply.send(await getTelegramStatusPayload(bot.id));
+    return reply.send(await getTelegramStatusPayload(bot.id, bot));
   });
 
   app.post("/api/instances/:id/tg/code", async (request, reply) => {
@@ -2601,10 +2626,16 @@ export async function registerPanelRoutes(
       await upsertBot(updated);
       await syncProductsFromPrompt(updated.id, updated.prompt);
       hooks.syncBots();
-      if (botNeedsMotorRestart(existing, updated)) {
+      if (botNeedsMotorRestart(existing, updated) || tgBotNeedsMotorRestart(existing, updated)) {
         hooks.restartBot(updated.id);
         const channel = updated.platform === "telegram" ? "Telegram" : "WhatsApp";
-        return reply.redirect(flashRedirect("/instances", `Instância atualizada! Reiniciando conexão ${channel}...`));
+        const redirect =
+          updated.platform === "telegram"
+            ? `/instances/${updated.id}/tg`
+            : "/instances";
+        return reply.redirect(
+          flashRedirect(redirect, `Instância atualizada! Reiniciando ${channel}...`)
+        );
       }
       const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar." : "";
       return reply.redirect(flashRedirect("/instances", `Instância salva!${aiMsg}`));
