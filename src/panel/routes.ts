@@ -1606,10 +1606,16 @@ export async function registerPanelRoutes(
   app.get("/leads", async (request, reply) => {
     const user = requireUser(request, reply);
     if (!user) return;
+    const meta = await panelUserMeta(user.id);
+    const botIds = (await loadBots(user.id)).map((b) => b.id);
+    const { listLeadsWithFunnelState } = await import("../db/lead-state-db.js");
+    const rows = botIds.length ? await listLeadsWithFunnelState(200, botIds) : [];
     const html = leadsPage(
-      await rowsForUser(await listLeads(200), user.id),
+      rows,
       isPartial(request),
-      await resolvePlatformOwnerAccess(user.id)
+      meta.showAdminNav,
+      meta.label,
+      meta.avatarUrl
     );
     return reply.type("text/html").send(html);
   });

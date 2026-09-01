@@ -310,3 +310,63 @@ export async function funnelApproachStats(botId: string, limit = 20) {
   );
   return rows as { approach: string; total: number; converted: number }[];
 }
+
+export type LeadWithFunnelRow = Record<string, unknown> & {
+  bot_id: string;
+  chat_id: number | string;
+  display_name?: string | null;
+  username?: string | null;
+  source?: string;
+  last_message_at?: string | Date;
+  bot_name?: string;
+  funnel_stage?: string;
+  last_objection?: string | null;
+  paid?: boolean;
+  selected_product_name?: string | null;
+  last_preview?: string | null;
+};
+
+export async function listLeadsWithFunnelState(limit = 200, botIds?: string[]) {
+  if (!useDatabase()) {
+    const { listLeads } = await import("./events.js");
+    const leads = await listLeads(limit);
+    return leads.map((l) => ({
+      ...l,
+      funnel_stage: "new",
+      last_objection: null,
+      paid: false,
+      selected_product_name: null,
+      last_preview: null
+    })) as LeadWithFunnelRow[];
+  }
+
+  const params: unknown[] = [limit];
+  let scope = "";
+  if (botIds?.length) {
+    scope = " AND l.bot_id = ANY($2::uuid[])";
+    params.push(botIds);
+  }
+
+  const { rows } = await getPool().query(
+    `SELECT l.*, COALESCE(b.name, 'Bot') AS bot_name,
+            COALESCE(ls.funnel_stage, 'new') AS funnel_stage,
+            ls.last_objection,
+            COALESCE(ls.paid, false) AS paid,
+            ls.selected_product_name,
+            lm.content AS last_preview
+     FROM leads l
+     LEFT JOIN bots b ON b.id = l.bot_id
+     LEFT JOIN lead_state ls ON ls.bot_id = l.bot_id AND ls.chat_id = l.chat_id
+     LEFT JOIN LATERAL (
+       SELECT content FROM conversation_messages
+       WHERE bot_id = l.bot_id AND chat_id = l.chat_id
+       ORDER BY created_at DESC LIMIT 1
+     ) lm ON true
+     WHERE 1=1${scope}
+     ORDER BY l.last_message_at DESC
+     LIMIT $1`,
+    params
+  );
+
+  return rows as LeadWithFunnelRow[];
+}

@@ -578,14 +578,15 @@ button, input, textarea, select { font-family: inherit; }
   padding: 8px 12px 6px;
 }
 
-/* Card de conta no topo da sidebar: avatar + nome + sair + gerenciar. */
+/* Card de conta no topo da sidebar — igual referência Instablack. */
 .sidebar-account {
-  margin-bottom: 16px;
+  margin: 0 0 14px;
   padding: 0;
-  background: #0a0a0a;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .sidebar-account-head {
   display: flex;
@@ -594,12 +595,17 @@ button, input, textarea, select { font-family: inherit; }
   min-width: 0;
   padding: 10px 12px;
 }
+.sidebar-account-head .user-avatar-slot,
+.sidebar-account-head .user-avatar {
+  width: 38px;
+  height: 38px;
+}
 .sidebar-account-name {
   flex: 1;
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -615,51 +621,70 @@ button, input, textarea, select { font-family: inherit; }
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
   color: #f87171;
   cursor: pointer;
+  padding: 0;
   transition: background var(--ease), border-color var(--ease), color var(--ease);
 }
 .sidebar-account-power button:hover {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.65);
+  background: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.6);
   color: #fca5a5;
 }
-.sidebar-account-power svg { width: 17px; height: 17px; }
+.sidebar-account-power svg { width: 16px; height: 16px; }
 .sidebar-account-manage {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
-  margin-top: 0;
-  padding: 10px 12px;
-  border-radius: 0;
+  padding: 10px 36px 10px 12px;
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-2);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--muted);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-decoration: none;
+  text-align: center;
   transition: background var(--ease), color var(--ease);
 }
-.sidebar-account-manage:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: var(--text);
+.sidebar-account-manage span {
+  flex: 1;
+  text-align: center;
 }
-.sidebar-account-manage svg { flex-shrink: 0; }
-/* Recolhida: sobra só o avatar centralizado. */
+.sidebar-account-manage svg {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+.sidebar-account-manage:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+/* Recolhida: só o avatar centralizado. */
 .sidebar:not(:hover):not(.is-pinned) .sidebar-account {
+  margin-bottom: 12px;
   padding: 0;
   border: none;
   background: transparent;
-  display: flex;
-  justify-content: center;
 }
+.sidebar:not(:hover):not(.is-pinned) .sidebar-account-head {
+  padding: 2px 0;
+  justify-content: center;
+  width: 100%;
+}
+.sidebar:not(:hover):not(.is-pinned) .sidebar-account-name,
 .sidebar:not(:hover):not(.is-pinned) .sidebar-account-power,
 .sidebar:not(:hover):not(.is-pinned) .sidebar-account-manage {
   display: none;
@@ -2306,4 +2331,87 @@ button, input, textarea, select { font-family: inherit; }
 .admin-user-actions { text-align: right; white-space: nowrap; }
 .admin-delete-form { display: inline; margin: 0; }
 .admin-users-table code { color: var(--text-2); }
+
+/* Leads — inbox com estágio e objeção */
+.lead-inbox-list { display: flex; flex-direction: column; }
+.lead-inbox-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.2s ease;
+}
+.lead-inbox-row:hover { background: rgba(255, 255, 255, 0.04); }
+.lead-inbox-row:last-child { border-bottom: none; }
+.lead-inbox-main { flex: 1; min-width: 0; }
+.lead-inbox-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.lead-inbox-top strong {
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lead-inbox-top time {
+  font-size: 0.68rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.lead-inbox-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.lead-inbox-preview {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  margin: 6px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lead-inbox-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 108px;
+}
+.funnel-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.funnel-stage--new { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border-color: rgba(148, 163, 184, 0.25); }
+.funnel-stage--curious { background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.28); }
+.funnel-stage--negotiating { background: rgba(251, 191, 36, 0.12); color: #fcd34d; border-color: rgba(251, 191, 36, 0.28); }
+.funnel-stage--paying { background: rgba(167, 139, 250, 0.14); color: #c4b5fd; border-color: rgba(167, 139, 250, 0.3); }
+.funnel-stage--paid { background: rgba(34, 197, 94, 0.14); color: #86efac; border-color: rgba(34, 197, 94, 0.3); }
+.funnel-stage--upsell { background: rgba(244, 114, 182, 0.14); color: #f9a8d4; border-color: rgba(244, 114, 182, 0.3); }
+.funnel-stage--post_sale { background: rgba(96, 165, 250, 0.12); color: #93c5fd; border-color: rgba(96, 165, 250, 0.28); }
+.funnel-stage--package { background: rgba(255, 255, 255, 0.06); color: #e5e5e5; border-color: rgba(255, 255, 255, 0.12); text-transform: none; font-size: 0.68rem; }
+.funnel-objection--caro { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.28); }
+.funnel-objection--money { background: rgba(249, 115, 22, 0.12); color: #fdba74; border-color: rgba(249, 115, 22, 0.28); }
+.funnel-objection--fake { background: rgba(168, 85, 247, 0.12); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.28); }
+.funnel-objection--indeciso { background: rgba(107, 114, 128, 0.18); color: #d1d5db; border-color: rgba(107, 114, 128, 0.3); }
+.funnel-objection--generic { background: rgba(255, 255, 255, 0.06); color: var(--text-2); border-color: rgba(255, 255, 255, 0.1); }
+@media (max-width: 720px) {
+  .lead-inbox-row { flex-direction: column; gap: 10px; }
+  .lead-inbox-badges { flex-direction: row; flex-wrap: wrap; align-items: flex-start; min-width: 0; }
+}
 `;

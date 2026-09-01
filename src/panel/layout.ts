@@ -34,6 +34,14 @@ export function panelUserLabel(input: { name: string; email?: string; username?:
   return name;
 }
 
+export function sidebarAccountLabel(name: string) {
+  const n = name.trim();
+  if (!n) return "Conta";
+  if (n.startsWith("@")) return n.slice(1);
+  if (n.includes("@")) return n.split("@")[0] || "Conta";
+  return n;
+}
+
 export function greetingDisplayName(name: string, email: string) {
   const n = name?.trim();
   if (n && !n.includes("@") && n.toLowerCase() !== "usuario") {
@@ -220,12 +228,12 @@ export function appLayout(
       <div class="sidebar-account">
         <div class="sidebar-account-head">
           ${userAvatarHtml(userAvatar, userName)}
-          <span class="sidebar-account-name nav-text">${escapeHtml(userName)}</span>
+          <span class="sidebar-account-name">${escapeHtml(sidebarAccountLabel(userName))}</span>
           <form method="post" action="/logout" class="sidebar-account-power">
             <button type="submit" aria-label="Sair" title="Sair">${icons.power}</button>
           </form>
         </div>
-        <a href="/perfil" class="sidebar-account-manage nav-text" data-nav>
+        <a href="/perfil" class="sidebar-account-manage" data-nav>
           <span>GERENCIAR CONTA</span>${icons.chevronDown}
         </a>
       </div>

@@ -1,13 +1,24 @@
 import type { BotConfig } from "../bots.js";
 import type { ScheduledCampaign } from "../lib/scheduled-campaigns.js";
 import { sourceEmoji, sourceLabel } from "../lib/lead-source.js";
+import { funnelStageBadge, objectionBadge } from "../lib/funnel-labels.js";
+import type { LeadWithFunnelRow } from "../db/lead-state-db.js";
 import { alertHtml, appLayout, escapeHtml, type NavId } from "./layout.js";
 import { icons } from "./icons.js";
 
-function wrap(title: string, nav: NavId, body: string, partial?: boolean, subtitle = "", showAdminNav = false) {
+function wrap(
+  title: string,
+  nav: NavId,
+  body: string,
+  partial?: boolean,
+  subtitle = "",
+  showAdminNav = false,
+  userName = "Usuario",
+  userAvatar = ""
+) {
   if (partial) return `${body}`;
   const shell = `<div class="page-shell">${body}</div>`;
-  return appLayout(title, nav, shell, false, "Usuario", subtitle, "", "", "", showAdminNav);
+  return appLayout(title, nav, shell, false, userName, subtitle, userAvatar, "", "", showAdminNav);
 }
 
 function formatMoney(cents: number) {
@@ -19,29 +30,57 @@ function formatDate(value: string | Date) {
   return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export function leadsPage(rows: Record<string, unknown>[], partial?: boolean, showAdminNav = false) {
+export function leadsPage(
+  rows: LeadWithFunnelRow[],
+  partial?: boolean,
+  showAdminNav = false,
+  userName = "Usuario",
+  userAvatar = ""
+) {
   const list =
     rows.length === 0
-      ? `<div class="empty">Nenhum lead ainda. Quando alguem falar com o bot, aparece aqui.</div>`
-      : `<table class="table"><thead><tr><th>Lead</th><th>Origem</th><th>Bot</th><th>Chat ID</th><th>Ultima msg</th></tr></thead><tbody>
+      ? `<div class="empty glow-empty">Nenhum lead ainda. Quando alguém falar com o bot, aparece aqui com estágio e objeção do funil.</div>`
+      : `<div class="lead-inbox-list">
       ${rows
-        .map(
-          (r) => {
-            const src = String(r.source || "unknown");
-            return `<tr>
-          <td><strong>${escapeHtml(String(r.display_name || r.username || "Lead"))}</strong><br/><span style="color:var(--muted);font-size:0.8rem">@${escapeHtml(String(r.username || "—"))}</span></td>
-          <td><span class="source-badge ${escapeHtml(src)}">${sourceEmoji(src)} ${escapeHtml(sourceLabel(src))}</span></td>
-          <td>${escapeHtml(String(r.bot_name || "—"))}</td>
-          <td><code>${r.chat_id}</code></td>
-          <td>${formatDate(String(r.last_message_at || r.lastMessageAt))}</td>
-        </tr>`;
-          }
-        )
+        .map((r) => {
+          const src = String(r.source || "unknown");
+          const stage = funnelStageBadge(String(r.funnel_stage || (r.paid ? "paid" : "new")));
+          const objection = objectionBadge(r.last_objection ? String(r.last_objection) : null);
+          const display = String(r.display_name || r.username || "Lead");
+          const handle = r.username ? `@${String(r.username).replace(/^@/, "")}` : `chat ${r.chat_id}`;
+          const preview = String(r.last_preview || "").replace(/\[\[.*?\]\]/g, "").trim();
+          const product = r.selected_product_name ? String(r.selected_product_name) : "";
+          return `<article class="lead-inbox-row">
+            <div class="lead-inbox-main">
+              <div class="lead-inbox-top">
+                <strong>${escapeHtml(display)}</strong>
+                <time>${formatDate(String(r.last_message_at || ""))}</time>
+              </div>
+              <div class="lead-inbox-sub">${escapeHtml(handle)} · ${escapeHtml(String(r.bot_name || "—"))} · ${sourceEmoji(src)} ${escapeHtml(sourceLabel(src))}</div>
+              ${preview ? `<p class="lead-inbox-preview">${escapeHtml(preview.slice(0, 140))}</p>` : ""}
+            </div>
+            <div class="lead-inbox-badges">
+              <span class="funnel-badge ${stage.css}" title="Estágio do funil">${escapeHtml(stage.label)}</span>
+              ${objection ? `<span class="funnel-badge ${objection.css}" title="Última objeção">${escapeHtml(objection.label)}</span>` : ""}
+              ${product ? `<span class="funnel-badge funnel-stage--package" title="Pacote">${escapeHtml(product)}</span>` : ""}
+            </div>
+          </article>`;
+        })
         .join("")}
-      </tbody></table>`;
+      </div>`;
 
-  const body = `<div class="card card-premium"><div class="card-head"><h3>${icons.users} Leads (${rows.length})</h3></div><div class="card-body card-body--flush">${list}</div></div>`;
-  return wrap("Leads", "leads", body, partial, "Todos os contatos do funil", showAdminNav);
+  const body = `
+    <div class="page-hero neon-hero" style="margin-bottom:16px">
+      <div>
+        <h2 class="hero-title"><span class="brand-accent">Leads</span> · funil ao vivo</h2>
+        <p class="hero-desc">Estágio e objeção vêm do <code>lead_state</code> — atualizam conforme o lead conversa no WhatsApp ou Telegram.</p>
+      </div>
+    </div>
+    <div class="card card-neon">
+      <div class="card-head"><h3>${icons.users} Conversas (${rows.length})</h3></div>
+      <div class="card-body card-body--flush">${list}</div>
+    </div>`;
+  return wrap("Leads", "leads", body, partial, "Funil por lead", showAdminNav, userName, userAvatar);
 }
 
 export function paymentsPage(rows: Record<string, unknown>[], partial?: boolean, showAdminNav = false) {
