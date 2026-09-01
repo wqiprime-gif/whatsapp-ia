@@ -66,7 +66,17 @@ export function tgBotNeedsMotorRestart(before: BotConfig, after: BotConfig): boo
     before.platform !== after.platform ||
     before.tgApiId !== after.tgApiId ||
     (after.tgApiHashEncrypted ?? "") !== (before.tgApiHashEncrypted ?? "") ||
-    (after.tgPhone ?? "") !== (before.tgPhone ?? "")
+    (after.tgPhone ?? "") !== (before.tgPhone ?? "") ||
+    tgAiConfigChanged(before, after)
+  );
+}
+
+export function tgAiConfigChanged(before: BotConfig, after: BotConfig): boolean {
+  if (!isTelegramBot(after)) return false;
+  return (
+    (after.aiApiKeyEncrypted ?? "") !== (before.aiApiKeyEncrypted ?? "") ||
+    (after.aiProvider ?? "openai") !== (before.aiProvider ?? "openai") ||
+    (after.aiModel ?? "") !== (before.aiModel ?? "")
   );
 }
 

@@ -17,6 +17,7 @@ function createFunnelHandler(deps) {
     buildSystemPrompt,
     panelLog,
     getOpenAI,
+    getModel,
     sleep,
     sendNamedAudioVoiceOnce,
     resolveMediaLocalPath,
@@ -225,7 +226,7 @@ function createFunnelHandler(deps) {
     if (conv[0]?.role === "system") conv[0].content = sys;
     else conv.unshift({ role: "system", content: sys });
 
-    const model = process.env.AI_MODEL || "gpt-4o-mini";
+    const model = (typeof getModel === "function" ? getModel() : null) || process.env.AI_MODEL || "gpt-4o-mini";
     const completion = await getOpenAI().chat.completions.create({
       model,
       temperature: 0.3,
@@ -407,12 +408,18 @@ function createFunnelHandler(deps) {
     await sleep(Math.round(delay * (0.85 + Math.random() * 0.3)));
 
     if (isGreetingText(text) && isFirstUserMessage(chatId)) {
-      conv.push({ role: "user", content: text });
       const saudacao = resolveSaudacaoAudio();
-      if (saudacao && (await sendNamedAudioVoiceOnce(peer, chatId, saudacao))) {
-        conv.push({ role: "system", content: "Saudação em áudio enviada." });
-        saveConversations();
-        return;
+      if (saudacao) {
+        try {
+          if (await sendNamedAudioVoiceOnce(peer, chatId, saudacao)) {
+            conv.push({ role: "user", content: text });
+            conv.push({ role: "system", content: "Saudação em áudio enviada." });
+            saveConversations();
+            return;
+          }
+        } catch (e) {
+          console.warn("saudacao audio TG:", e?.message || e);
+        }
       }
     }
 

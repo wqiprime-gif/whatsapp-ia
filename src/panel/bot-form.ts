@@ -413,7 +413,7 @@ function aiConfigBlock(isEdit: boolean, bot?: BotConfig) {
           <p>Escolha o provedor, modelo e API Key usados para responder os leads desta instância.</p>
         </div>
       </div>
-      ${isEdit && hasKey ? `<p class="form-hint" style="color:#d4d4d4;margin-bottom:10px">Chave ativa: <code style="color:#93c5fd">${escapeHtml(maskedKey)}</code> — deixe o campo abaixo vazio para manter.</p>` : ""}
+      ${isEdit && hasKey ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.08);color:#86efac;font-size:0.88rem">✓ <strong>API Key salva</strong> · <code style="color:#bbf7d0">${escapeHtml(maskedKey)}</code><br/><span style="color:#9ca3af">O campo abaixo fica vazio por segurança — só preencha se quiser trocar a chave.</span></div>` : ""}
       <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
         <label class="field">
           <span>Provedor de IA</span>

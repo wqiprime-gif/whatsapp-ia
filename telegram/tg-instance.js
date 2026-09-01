@@ -498,7 +498,7 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 20,
   retryDelay: 2000,
   deviceModel: "X1 BLACK Panel",
-  appVersion: "1.35.0",
+  appVersion: "1.35.1",
   systemVersion: "Linux",
   useWSS: String(process.env.TG_USE_WSS || "false").toLowerCase() === "true",
   timeout: 60,
@@ -524,6 +524,7 @@ const funnelHandler = createFunnelHandler({
   buildSystemPrompt,
   panelLog,
   getOpenAI: () => aiRuntime.getOpenAI(),
+  getModel: () => aiRuntime.getModel(),
   sleep,
   sendNamedAudioVoiceOnce,
   resolveMediaLocalPath,
@@ -543,24 +544,43 @@ function registerMessageHandler() {
   if (messageHandlerRegistered) return;
   messageHandlerRegistered = true;
 
+  async function resolvePeerFromEvent(event) {
+    if (event.inputChat) return event.inputChat;
+    try {
+      const chat = await event.getInputChat();
+      if (chat) return chat;
+    } catch (_) {}
+    try {
+      const sender = await event.getSender();
+      if (sender) return await client.getInputEntity(sender);
+    } catch (_) {}
+    const peerId = event.message?.peerId;
+    if (peerId) return await client.getInputEntity(peerId);
+    throw new Error("Não foi possível resolver o chat do Telegram");
+  }
+
   client.addEventHandler(async (event) => {
     try {
       if (event.isGroup || event.isChannel) return;
       const msg = event.message;
       if (!msg || msg.out) return;
 
-      const peerChatId = Number(msg.chatId || msg.peerId?.userId || 0);
-      if (peerChatId < 0) return;
+      const sender = await event.getSender();
+      const chatId = Number(
+        msg.chatId ||
+          msg.peerId?.userId ||
+          sender?.id ||
+          event.chatId ||
+          0
+      );
+      if (!chatId || chatId < 0) return;
       if (event.isPrivate === false) return;
 
-      const sender = await event.getSender();
-      const chatId = Number(peerChatId || sender?.id || 0);
-      if (!chatId) return;
       const displayName =
         [sender?.firstName, sender?.lastName].filter(Boolean).join(" ") ||
         sender?.username ||
         String(chatId);
-      const peer = await event.getInputChat();
+      const peer = await resolvePeerFromEvent(event);
       const text = String(msg.message || "").trim();
       const hasMedia = Boolean(msg.media);
 
@@ -579,11 +599,12 @@ function registerMessageHandler() {
         console.error("❌ IA não configurada — configure a chave OpenAI no painel");
       }
       try {
-        const peer = await event.getInputChat();
+        const peer = await resolvePeerFromEvent(event);
         if (peer) {
-          await client.sendMessage(peer, {
-            message: "oii amor, travou um pouquinho aqui… manda de novo? 💕"
-          });
+          const hint = /OPENAI_API_KEY|api.?key|401|authent/i.test(errMsg)
+            ? "amor, a IA não está configurada no painel ainda… salva a API Key e reinicia o motor 💕"
+            : "oii amor, travou um pouquinho aqui… manda de novo? 💕";
+          await client.sendMessage(peer, { message: hint });
         }
       } catch (_) {}
     }
@@ -604,6 +625,20 @@ async function finishLogin() {
     console.error("❌ IA sem API Key — configure no painel da instância (mensagens não serão respondidas)");
   } else {
     console.log(`🤖 IA ativa: ${aiRuntime.getModel()}`);
+    void (async () => {
+      try {
+        const r = await aiRuntime.getOpenAI().chat.completions.create({
+          model: aiRuntime.getModel(),
+          messages: [{ role: "user", content: "oi" }],
+          max_tokens: 5,
+          temperature: 0
+        });
+        const sample = String(r?.choices?.[0]?.message?.content || "").trim();
+        console.log(`✅ Self-test IA OK · resposta="${sample.slice(0, 40)}"`);
+      } catch (e) {
+        console.error(`❌ Self-test IA FALHOU: ${e?.message || e}`);
+      }
+    })();
   }
   console.log(`✅ Conectado como: ${connectedAs} (id ${me.id})`);
   console.log("🤖 Atendimento Telegram ativo (DMs).");

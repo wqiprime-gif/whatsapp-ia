@@ -71,7 +71,7 @@ import { giftsPage, mergeGiftItems } from "./gifts-page.js";
 import { mergeUpsellRules, saveBotEngagement } from "../lib/bot-engagement.js";
 import { waQrPage } from "./wa-qr-page.js";
 import { botNeedsMotorRestart, chatIdFromWaJid, getWaLiveStatuses, getWaPhonesForBots, pickDistributionPhone, purgeWaInstanceData, readWaQr, waPortForBot } from "../whatsapp-runtime.js";
-import { tgBotNeedsMotorRestart } from "../telegram-runtime.js";
+import { tgBotNeedsMotorRestart, tgAiConfigChanged } from "../telegram-runtime.js";
 import { buildWaMeUrl } from "../lib/wa-links.js";
 import { buildPwaManifest, SERVICE_WORKER_JS } from "./pwa.js";
 import {
@@ -2648,7 +2648,12 @@ export async function registerPanelRoutes(
           flashRedirect(redirect, `Instância atualizada! Reiniciando ${channel}...`)
         );
       }
-      const aiMsg = body.aiApiKey?.trim() ? " IA aplicada sem desconectar." : "";
+      const aiMsg =
+        body.aiApiKey?.trim() && updated.platform !== "telegram"
+          ? " IA aplicada sem desconectar."
+          : tgAiConfigChanged(existing, updated) && updated.platform === "telegram"
+            ? " IA atualizada — reiniciando motor Telegram."
+            : "";
       return reply.redirect(flashRedirect("/instances", `Instância salva!${aiMsg}`));
     } catch (error) {
       request.log.error(error);
