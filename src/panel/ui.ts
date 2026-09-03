@@ -87,11 +87,28 @@ function userInitials(name: string, email: string) {
   return src.slice(0, 2).toUpperCase();
 }
 
+function formatActivityStamp(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: "—", time: "" };
+  const date = d.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+  const time = d.toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  return { date, time };
+}
+
 export function activityFeedHtml(activities: ActivityItem[]) {
   if (activities.length === 0) {
-    return `<div class="empty" style="padding:20px 8px;font-size:0.85rem">
+    return `<div class="empty shark-empty">
       Nenhuma atividade registrada ainda.<br/>
-      <small style="color:var(--muted)">Vendas, leads e pagamentos aparecem aqui automaticamente.</small>
+      <small>Vendas, leads e pagamentos aparecem aqui automaticamente.</small>
     </div>`;
   }
 
@@ -104,10 +121,17 @@ export function activityFeedHtml(activities: ActivityItem[]) {
   return activities
     .map((item) => {
       const meta = iconMap[item.type];
-      return `<div class="activity-item">
+      const stamp = formatActivityStamp(item.at);
+      return `<div class="activity-item activity-item--pro">
       <div class="activity-icon ${meta.cls}">${meta.icon}</div>
-      <div class="activity-text"><strong>${escapeHtml(item.title)}</strong><br/>${escapeHtml(item.subtitle)}</div>
-      <div class="activity-time">${formatRelativeTime(item.at)}</div>
+      <div class="activity-text">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.subtitle)}</span>
+      </div>
+      <div class="activity-stamp">
+        <span class="activity-stamp-date">${stamp.date}</span>
+        <span class="activity-stamp-time">${stamp.time}</span>
+      </div>
     </div>`;
     })
     .join("");
@@ -146,26 +170,82 @@ export function topBotsRankingHtml(ranking: BotSalesRank[]) {
 
 export function topPlayersRankingHtml(ranking: UserSalesRank[], currentUserId?: string) {
   if (ranking.length === 0) {
-    return `<div class="empty" style="padding:24px 8px;font-size:0.85rem;text-align:center">
+    return `<div class="empty shark-empty">
       Nenhum player no ranking ainda.<br/>
-      <small style="color:var(--muted)">A corrida começa na primeira venda confirmada na plataforma.</small>
+      <small>A corrida começa na primeira venda confirmada na plataforma.</small>
     </div>`;
   }
 
   return ranking
+    .slice(0, 5)
     .map((player, i) => {
-      const rankCls = i === 0 ? "top-player-row--gold" : i === 1 ? "top-player-row--silver" : i === 2 ? "top-player-row--bronze" : "";
+      const rankCls =
+        i === 0 ? "top-player-row--gold" : i === 1 ? "top-player-row--silver" : i === 2 ? "top-player-row--bronze" : "";
       const isMe = currentUserId && player.userId === currentUserId;
+      const handle = player.email?.split("@")[0] || player.displayName;
       return `<div class="top-player-row ${rankCls}${isMe ? " top-player-row--me" : ""}">
         <div class="top-player-avatar">${escapeHtml(userInitials(player.displayName, player.email))}</div>
-        <div>
-          <span class="top-player-name">${escapeHtml(player.displayName)}<span class="top-player-rank">#${i + 1}</span>${isMe ? '<span class="top-player-you">você</span>' : ""}</span>
+        <div class="top-player-info">
+          <span class="top-player-name">
+            ${escapeHtml(player.displayName)}
+            <span class="top-player-handle"> · @${escapeHtml(handle)}</span>
+            <span class="top-player-rank">#${i + 1}</span>
+            ${isMe ? '<span class="top-player-you">você</span>' : ""}
+          </span>
           <span class="top-player-tier">${playerTier(player.totalCents)}</span>
         </div>
         <div class="top-player-revenue">${moneyCompact(player.totalCents)}</div>
       </div>`;
     })
     .join("");
+}
+
+const DASH_AWARDS = [
+  { id: "blood", name: "Shark Blood", goalReais: 10_000, theme: "blood" },
+  { id: "abyss", name: "Abyssal Baron", goalReais: 50_000, theme: "abyss" },
+  { id: "mega", name: "Megalodon Emperor", goalReais: 150_000, theme: "mega" },
+  { id: "apex", name: "Apex Leviathan", goalReais: 500_000, theme: "apex" }
+] as const;
+
+export function awardsCarouselHtml(salesTotalCents: number) {
+  const current = salesTotalCents / 100;
+  const cards = DASH_AWARDS.map((award) => {
+    const unlocked = current >= award.goalReais;
+    const pct = Math.min(100, Math.round((current / award.goalReais) * 100));
+    return `<article class="shark-award-slide shark-award-slide--${award.theme}${unlocked ? " is-unlocked" : ""}">
+      <div class="shark-award-slide-bg" aria-hidden="true"></div>
+      <div class="shark-award-slide-lock">${unlocked ? icons.trophy : icons.lock}</div>
+      <div class="shark-award-slide-foot">
+        <strong>${escapeHtml(award.name)}</strong>
+        <span>META R$ ${Math.round(current).toLocaleString("pt-BR")} / R$ ${(award.goalReais / 1000).toFixed(0)}k</span>
+        <div class="shark-award-bar"><i style="width:${pct}%"></i></div>
+      </div>
+    </article>`;
+  }).join("");
+
+  return `<div class="shark-award-carousel" data-award-carousel>
+    <button type="button" class="shark-award-nav shark-award-nav--prev" data-award-prev aria-label="Anterior">${icons.chevronLeft}</button>
+    <div class="shark-award-track" data-award-track>${cards}</div>
+    <button type="button" class="shark-award-nav shark-award-nav--next" data-award-next aria-label="Próxima">${icons.chevronRight}</button>
+  </div>
+  <script>
+  (function(){
+    var root = document.querySelector("[data-award-carousel]");
+    if (!root || root.getAttribute("data-ready")) return;
+    root.setAttribute("data-ready", "1");
+    var track = root.querySelector("[data-award-track]");
+    var prev = root.querySelector("[data-award-prev]");
+    var next = root.querySelector("[data-award-next]");
+    function step(dir) {
+      if (!track) return;
+      var w = track.querySelector(".shark-award-slide");
+      var amount = w ? w.getBoundingClientRect().width + 12 : 180;
+      track.scrollBy({ left: dir * amount, behavior: "smooth" });
+    }
+    if (prev) prev.onclick = function(){ step(-1); };
+    if (next) next.onclick = function(){ step(1); };
+  })();
+  </script>`;
 }
 
 function activityFeed(activities: ActivityItem[]) {
@@ -483,7 +563,7 @@ export function dashboardPage(
           <div class="shark-card-head-row">
             ${sharkIconBox(icons.activity)}
             <div>
-              <h3>Log de atividades</h3>
+              <h3>Log de Atividades</h3>
               <span class="shark-card-sub">Tempo real</span>
             </div>
           </div>
@@ -491,18 +571,20 @@ export function dashboardPage(
         </div>
         <div class="card-body activity-feed-live" data-live="activity-feed">${activityFeed(data.activities)}</div>
       </div>
-      <div class="dash-glow-card shark-card card card-premium shark-instances-card" style="${glowStyle(1)}">
+      <div class="dash-glow-card shark-card card card-premium shark-award-card" style="${glowStyle(1)}">
         ${dashStripeRingHtml()}
         <div class="card-head">
           <div class="shark-card-head-row">
-            ${sharkIconBox(icons.layers)}
+            ${sharkIconBox(icons.trophy)}
             <div>
-              <h3>Instâncias ativas</h3>
-              <span class="shark-card-sub">WhatsApp conectados</span>
+              <h3>Premiações</h3>
+              <span class="shark-card-sub">Conquiste novas placas</span>
             </div>
           </div>
         </div>
-        <div class="card-body" data-live="instances-card">${activeInstancesCardHtml(bots, statuses)}</div>
+        <div class="card-body shark-award-body">
+          ${awardsCarouselHtml(data.stats.salesTotalCents)}
+        </div>
       </div>
       <div class="dash-glow-card shark-card card card-premium top-players-card shark-players-card" style="${glowStyle(2)}">
         ${dashStripeRingHtml()}
@@ -514,11 +596,13 @@ export function dashboardPage(
               <span class="shark-card-sub">Corrida de faturamento</span>
             </div>
           </div>
+          <span class="shark-card-head-action" title="Ranking">${icons.eye}</span>
         </div>
         <div class="card-body">
           <div class="top-players-tabs">
             <span class="top-players-tab top-players-tab--active">Concurso</span>
             <span class="top-players-tab top-players-tab--muted">Mensal</span>
+            <span class="top-players-tab top-players-tab--muted">Liga</span>
           </div>
           <div class="top-players-list" data-live="top-players">${topPlayersRankingHtml(data.topPlayers, currentUserId)}</div>
         </div>

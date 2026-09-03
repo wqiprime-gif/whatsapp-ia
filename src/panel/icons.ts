@@ -33,6 +33,12 @@ export const icons = {
     '<rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path>'
   ),
   chevronDown: lucide('<path d="m6 9 6 6 6-6"></path>', 16),
+  chevronLeft: lucide('<path d="m15 18-6-6 6-6"></path>', 16),
+  chevronRight: lucide('<path d="m9 18 6-6-6-6"></path>', 16),
+  eye: lucide(
+    '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle>',
+    16
+  ),
   power: lucide('<path d="M12 2v10"></path><path d="M18.4 6.6a9 9 0 1 1-12.77.04"></path>', 18),
   phone: s("M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3"),
   calendar: lucide(
