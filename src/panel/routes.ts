@@ -50,7 +50,15 @@ import { sendRemarketingMulti } from "../lib/remarketing.js";
 import { authenticateUser, createUser, deletePlatformUser, getUserById, listPlatformUsers, updateUserProfile } from "../db/users.js";
 import { isPlatformOwner, resolvePlatformOwnerAccess } from "../lib/settings.js";
 import { getNotificationPrefs, saveNotificationPrefs } from "../db/notification-prefs.js";
-import { encryptSecret } from "../lib/crypto.js";
+import { encryptSecret, decryptSecret } from "../lib/crypto.js";
+import {
+  checkGatewayPixStatus,
+  createGatewayPixCharge,
+  isGatewayPayment,
+  paidFromPayload,
+  parsePaymentMethod
+} from "../lib/pix-gateways.js";
+import { rememberPendingPix, takePendingPix } from "../lib/pending-pix.js";
 import {
   clearSessionCookie,
   getSessionUser,
@@ -467,7 +475,7 @@ const botFormFieldsSchema = z.object({
   messageDelayMinutes: z.coerce.number().min(0).max(30).default(0),
   messageDelaySeconds: z.coerce.number().min(0).max(59).default(4),
   active: z.enum(["true", "false"]).default("true"),
-  paymentMethod: z.enum(["pix", "laranjinha"]).default("pix"),
+  paymentMethod: z.enum(["pix", "laranjinha", "nexuspag", "wiinpay"]).default("pix"),
   laranjinhaApiKey: z.string().optional(),
   backupToken: z.string().optional(),
   productName: z.string().default("VIP"),
@@ -782,6 +790,190 @@ export async function registerPanelRoutes(
     }
   });
 
+  app.post("/internal/pix/create", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().min(1),
+          chatId: z.coerce.number(),
+          jid: z.string().optional(),
+          platform: z.enum(["whatsapp", "telegram"]).default("whatsapp"),
+          amountCents: z.coerce.number().int().positive().optional(),
+          productName: z.string().optional(),
+          description: z.string().optional(),
+          payerName: z.string().optional(),
+          payerEmail: z.string().optional()
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
+
+      const method = parsePaymentMethod(bot.paymentMethod);
+      if (!isGatewayPayment(method)) {
+        return reply.send({
+          ok: true,
+          mode: "manual",
+          pixKey: bot.pixKey,
+          pixRecipientName: bot.pixRecipientName || bot.name
+        });
+      }
+
+      if (!bot.laranjinhaApiKeyEncrypted) {
+        return reply.code(400).send({ ok: false, error: "API Key do gateway nao configurada nesta instancia." });
+      }
+
+      let apiKey = "";
+      try {
+        apiKey = decryptSecret(bot.laranjinhaApiKeyEncrypted);
+      } catch {
+        return reply.code(400).send({ ok: false, error: "API Key do gateway invalida — salve de novo." });
+      }
+
+      const amountCents = body.amountCents && body.amountCents > 0 ? body.amountCents : bot.productPriceCents || 4990;
+      const productName = body.productName?.trim() || bot.productName || "VIP";
+      const externalId = `${bot.id.slice(0, 8)}-${body.chatId}-${Date.now()}`;
+      const publicBase = (env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+      const webhookUrl = publicBase
+        ? `${publicBase}/webhooks/pix/${method}/${bot.id}`
+        : undefined;
+
+      const charge = await createGatewayPixCharge({
+        gateway: method,
+        apiKey,
+        amountCents,
+        description: body.description?.trim() || `${productName} — ${bot.name}`,
+        externalId,
+        payerName: body.payerName || bot.pixRecipientName || "Cliente",
+        payerEmail: body.payerEmail || "cliente@zapmanager.app",
+        webhookUrl
+      });
+
+      rememberPendingPix({
+        botId: bot.id,
+        chatId: body.chatId,
+        jid: body.jid || (body.platform === "telegram" ? `tg:${body.chatId}` : String(body.chatId)),
+        platform: body.platform,
+        gateway: method,
+        chargeId: charge.id,
+        externalId: charge.externalId || externalId,
+        amountCents,
+        productName,
+        createdAt: Date.now()
+      });
+
+      return reply.send({
+        ok: true,
+        mode: "gateway",
+        gateway: method,
+        id: charge.id,
+        externalId: charge.externalId || externalId,
+        brCode: charge.brCode,
+        status: charge.status,
+        amountCents
+      });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao criar PIX"
+      });
+    }
+  });
+
+  app.post("/internal/pix/status", async (request, reply) => {
+    if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    try {
+      const body = z
+        .object({
+          botId: z.string().min(1),
+          chargeId: z.string().optional(),
+          externalId: z.string().optional()
+        })
+        .parse(request.body ?? {});
+
+      const bot = await getBotByIdAny(body.botId);
+      if (!bot) return reply.code(404).send({ ok: false, error: "Instancia nao encontrada" });
+      const method = parsePaymentMethod(bot.paymentMethod);
+      if (!isGatewayPayment(method) || !bot.laranjinhaApiKeyEncrypted) {
+        return reply.send({ ok: true, paid: false, status: "manual" });
+      }
+
+      let apiKey = "";
+      try {
+        apiKey = decryptSecret(bot.laranjinhaApiKeyEncrypted);
+      } catch {
+        return reply.code(400).send({ ok: false, error: "API Key invalida" });
+      }
+
+      const chargeId = body.chargeId || "";
+      const externalId = body.externalId || "";
+      if (!chargeId && !externalId) {
+        return reply.code(400).send({ ok: false, error: "Informe chargeId ou externalId" });
+      }
+
+      const result = await checkGatewayPixStatus({
+        gateway: method,
+        apiKey,
+        chargeId: chargeId || externalId,
+        externalId
+      });
+
+      return reply.send({ ok: true, paid: result.paid, status: result.status });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({
+        ok: false,
+        paid: false,
+        error: error instanceof Error ? error.message : "Erro ao consultar PIX"
+      });
+    }
+  });
+
+  app.post("/webhooks/pix/:gateway/:botId", async (request, reply) => {
+    try {
+      const params = z
+        .object({
+          gateway: z.enum(["nexuspag", "wiinpay", "laranjinha"]),
+          botId: z.string().min(1)
+        })
+        .parse(request.params);
+      const bot = await getBotByIdAny(params.botId);
+      if (!bot) return reply.code(404).send({ ok: false });
+
+      const payload = request.body ?? {};
+      const paid = paidFromPayload(payload);
+      if (!paid) return reply.send({ ok: true, paid: false });
+
+      const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+      const nested = (root.transaction || root.data || root.payment || {}) as Record<string, unknown>;
+      const chargeId = String(nested.id || nested.transaction_id || nested.payment_id || root.id || "");
+      const externalId = String(nested.external_id || root.external_id || "");
+      const pending = takePendingPix({ chargeId, externalId });
+
+      if (pending) {
+        const { logSale } = await import("../db/events.js");
+        await logSale({
+          botId: bot.id,
+          chatId: pending.chatId,
+          productName: pending.productName,
+          amountCents: pending.amountCents,
+          paymentMethod: params.gateway
+        }).catch(() => undefined);
+      }
+
+      return reply.send({ ok: true, paid: true, pending: Boolean(pending) });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ ok: false });
+    }
+  });
+
   app.post("/internal/tg-session-backup", async (request, reply) => {
     if (request.headers["x-internal"] !== env.INTERNAL_SECRET) {
       return reply.code(401).send({ ok: false });
@@ -1033,7 +1225,7 @@ export async function registerPanelRoutes(
           chatId,
           productName: body.productName ?? "VIP",
           amountCents: body.amountCents ?? 0,
-          paymentMethod: (body.paymentMethod as "pix" | "laranjinha") ?? "pix"
+          paymentMethod: parsePaymentMethod(body.paymentMethod)
         });
         const saleBot = await getBotByIdAny(body.botId);
         if (saleBot?.userId) {

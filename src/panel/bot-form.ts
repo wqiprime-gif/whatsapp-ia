@@ -605,12 +605,50 @@ export function botInstanceForm(mode: "new" | "edit", bot?: BotConfig) {
         <div id="tg-platform-blocks">
         ${telegramConnectionBlock(isEdit, bot)}
         </div>
-        <label class="field">Chave Pix
-          <input name="pixKey" value="${isEdit ? escapeHtml(bot.pixKey) : ""}" placeholder="CPF, email ou telefone" required />
-        </label>
-        <label class="field">Nome do recebedor Pix
-          <input name="pixRecipientName" value="${isEdit ? escapeHtml(bot.pixRecipientName) : ""}" placeholder="Nome no comprovante" />
-        </label>
+        <div class="form-section span-2" id="pagamento">
+          <div class="form-section-head">
+            <span class="form-section-icon">${icons.pix}</span>
+            <div>
+              <h4>Pagamento PIX</h4>
+              <p>Chave manual ou gateway com <strong>código copia e cola</strong> (NexusPag / WiinPay).</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="field">Forma de pagamento
+              <select name="paymentMethod" id="bot-payment-method">
+                <option value="pix" ${!isEdit || bot.paymentMethod === "pix" ? "selected" : ""}>Chave Pix manual</option>
+                <option value="nexuspag" ${isEdit && bot.paymentMethod === "nexuspag" ? "selected" : ""}>NexusPag (copia e cola)</option>
+                <option value="wiinpay" ${isEdit && bot.paymentMethod === "wiinpay" ? "selected" : ""}>WiinPay (copia e cola)</option>
+                <option value="laranjinha" ${isEdit && bot.paymentMethod === "laranjinha" ? "selected" : ""}>Laranjinha (gateway)</option>
+              </select>
+            </label>
+            <label class="field" id="gateway-api-key-field">
+              API Key do gateway
+              <input name="laranjinhaApiKey" type="password" autocomplete="off"
+                placeholder="${isEdit && bot.laranjinhaApiKeyEncrypted ? "•••• (vazio = manter a atual)" : "Cole a chave da API"}" />
+              <span class="form-hint">NexusPag: header x-api-key · WiinPay: api_key no body</span>
+            </label>
+            <label class="field">Chave Pix (fallback / comprovante)
+              <input name="pixKey" value="${isEdit ? escapeHtml(bot.pixKey) : ""}" placeholder="CPF, email ou telefone" ${!isEdit || bot.paymentMethod === "pix" ? "required" : ""} />
+            </label>
+            <label class="field">Nome do recebedor Pix
+              <input name="pixRecipientName" value="${isEdit ? escapeHtml(bot.pixRecipientName) : ""}" placeholder="Nome no comprovante" />
+            </label>
+          </div>
+          <p class="form-hint">Com gateway ativo, o bot gera e envia o <strong>PIX copia e cola</strong> ao lead. A chave manual continua como fallback e ajuda a validar comprovante.</p>
+          <script>
+          (function(){
+            var sel = document.getElementById("bot-payment-method");
+            var pix = document.querySelector('input[name="pixKey"]');
+            function sync() {
+              if (!sel || !pix) return;
+              var gw = sel.value !== "pix";
+              pix.required = !gw;
+            }
+            if (sel) { sel.addEventListener("change", sync); sync(); }
+          })();
+          </script>
+        </div>
         <div class="form-section span-2">
           <div class="form-section-head">
             <span class="form-section-icon">${icons.chat}</span>

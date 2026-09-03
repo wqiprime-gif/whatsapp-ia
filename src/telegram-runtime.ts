@@ -198,7 +198,7 @@ async function writeInstanceFiles(bot: BotConfig) {
         videoCallCallerName: bot.videoCallCallerName || bot.name,
         videoCallAvatarUrl: bot.videoCallAvatarUrl || "",
         locale: bot.locale || "pt-BR",
-        paymentMethod: bot.paymentMethod,
+        paymentMethod: bot.paymentMethod || "pix",
         messageDelayMs: bot.messageDelayMs ?? 2500,
         followUpEnabled: bot.followUpEnabled !== false,
         followUpAfterMinutes: bot.followUpAfterMinutes ?? 10,

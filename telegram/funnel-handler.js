@@ -191,10 +191,64 @@ function createFunnelHandler(deps) {
 
   async function sendChavePix(peer, chatId, conv) {
     const cfg = loadBotConfig();
-    const pixKey = String(process.env.PIX_KEY || cfg.pixKey || "").trim();
-    const pixName = String(process.env.PIX_RECIPIENT || cfg.pixRecipientName || "").trim();
     const pixAudio = resolveAudioBySlug("chave_pix", getAudioLibrary());
     if (pixAudio) await sendNamedAudioVoiceOnce(peer, chatId, pixAudio);
+
+    const state = await getLeadState(chatId);
+    const amountCents =
+      Number(state.selectedProductPriceCents) > 0
+        ? Number(state.selectedProductPriceCents)
+        : Number(cfg.productPriceCents) || 4990;
+    const productName = state.selectedProductName || cfg.productName || "VIP";
+    const method = String(cfg.paymentMethod || "pix").toLowerCase();
+
+    if (method === "nexuspag" || method === "wiinpay" || method === "laranjinha") {
+      const charge = await funnel.createPixOnPanel({
+        chatId,
+        jid: `tg:${chatId}`,
+        platform: "telegram",
+        amountCents,
+        productName,
+        description: `${productName} — Telegram`
+      });
+
+      if (charge?.ok && charge.mode === "gateway" && charge.brCode) {
+        const intro = `pix copia e cola do ${productName} (R$ ${(amountCents / 100).toFixed(2).replace(".", ",")}):`;
+        await sendText(peer, chatId, intro);
+        await sleep(700);
+        await sendText(peer, chatId, String(charge.brCode));
+        await sleep(700);
+        await sendText(peer, chatId, "quando pagar me manda o comprovante aqui 😘");
+        conv.push({ role: "assistant", content: `${intro}\n${charge.brCode}` });
+        saveConversations();
+        await saveLeadState(chatId, {}, "send_pix", false);
+
+        void (async () => {
+          for (let i = 0; i < 60; i++) {
+            await sleep(5000);
+            const st = await funnel.checkPixOnPanel({
+              chargeId: charge.id,
+              externalId: charge.externalId
+            });
+            if (st?.paid) {
+              await confirmPayment(
+                peer,
+                chatId,
+                conv,
+                "pagamento confirmado amor 😘 ja to liberando seu acesso"
+              );
+              return;
+            }
+          }
+        })();
+        return;
+      }
+
+      console.warn("PIX gateway TG falhou, usando chave manual:", charge?.error || charge);
+    }
+
+    const pixKey = String(process.env.PIX_KEY || cfg.pixKey || "").trim();
+    const pixName = String(process.env.PIX_RECIPIENT || cfg.pixRecipientName || "").trim();
     if (!pixKey) {
       await sendText(peer, chatId, "me manda um oi que ja te passo o pix amor 💕");
       return;

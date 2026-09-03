@@ -153,6 +153,58 @@ async function validateReceiptOnPanel(base64, mimetype, filename) {
   }
 }
 
+async function createPixOnPanel(input = {}) {
+  const { url, secret, botId } = panelConfig();
+  if (!url || !secret || !botId) return { ok: false, error: "painel indisponivel" };
+  try {
+    const res = await axios.post(
+      `${url}/internal/pix/create`,
+      {
+        botId,
+        chatId: input.chatId,
+        jid: input.jid || "",
+        platform: input.platform || "whatsapp",
+        amountCents: input.amountCents,
+        productName: input.productName,
+        description: input.description,
+        payerName: input.payerName,
+        payerEmail: input.payerEmail
+      },
+      {
+        headers: { "x-internal": secret, "content-type": "application/json" },
+        timeout: 45000,
+        validateStatus: () => true
+      }
+    );
+    return res.data || { ok: false, error: "resposta invalida" };
+  } catch (e) {
+    return { ok: false, error: e?.message || "erro de rede" };
+  }
+}
+
+async function checkPixOnPanel(input = {}) {
+  const { url, secret, botId } = panelConfig();
+  if (!url || !secret || !botId) return { ok: false, paid: false };
+  try {
+    const res = await axios.post(
+      `${url}/internal/pix/status`,
+      {
+        botId,
+        chargeId: input.chargeId || "",
+        externalId: input.externalId || ""
+      },
+      {
+        headers: { "x-internal": secret, "content-type": "application/json" },
+        timeout: 20000,
+        validateStatus: () => true
+      }
+    );
+    return res.data || { ok: false, paid: false };
+  } catch (_) {
+    return { ok: false, paid: false };
+  }
+}
+
 function leadShowsBuyIntent(text) {
   return BUY_INTENT.test(String(text || ""));
 }
@@ -616,6 +668,8 @@ module.exports = {
   countDialogMessages,
   buildConversationFromHistory,
   validateReceiptOnPanel,
+  createPixOnPanel,
+  checkPixOnPanel,
   leadShowsBuyIntent,
   looksLikeStalling,
   nextColdMessage,

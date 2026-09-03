@@ -9,8 +9,9 @@ import { parseFollowUpSteps, type FollowUpStep } from "./lib/follow-up.js";
 import { parseWaApiProvider, type WaApiProvider } from "./lib/wa-api-types.js";
 import { normalizeAIProvider, type AIProviderId, sanitizeAIModel } from "./lib/ai-providers.js";
 import { parseBotPlatform, type BotPlatform, isWhatsAppBot, isTelegramBot, platformLabel } from "./lib/platform-types.js";
+import { parsePaymentMethod, type PixGatewayId } from "./lib/pix-gateways.js";
 
-export type { BotPlatform };
+export type { BotPlatform, PixGatewayId };
 export { isWhatsAppBot, isTelegramBot, parseBotPlatform, platformLabel };
 
 const dataDir = env.DATA_DIR;
@@ -50,7 +51,9 @@ export type BotConfig = {
   audioLibrary: NamedAudio[];
   avatarUrl: string;
   active: boolean;
-  paymentMethod: "pix" | "laranjinha";
+  /** pix = chave manual; nexuspag/wiinpay/laranjinha = gateway copia e cola */
+  paymentMethod: PixGatewayId;
+  /** API key criptografada do gateway ativo (NexusPag / WiinPay / Laranjinha) */
   laranjinhaApiKeyEncrypted?: string;
   productName: string;
   productPriceCents: number;
@@ -235,7 +238,7 @@ function rowToBot(row: {
     audioLibrary: parseAudioLibrary(row.audio_library),
     avatarUrl: row.avatar_url ?? "",
     active: row.active,
-    paymentMethod: row.payment_method === "laranjinha" ? "laranjinha" : "pix",
+    paymentMethod: parsePaymentMethod(row.payment_method),
     laranjinhaApiKeyEncrypted: row.laranjinha_api_key_encrypted ?? undefined,
     productName: row.product_name ?? "VIP",
     productPriceCents: row.product_price_cents ?? 4990,
@@ -312,7 +315,7 @@ export async function loadBots(userId?: string) {
     videoCallAvatarUrl: b.videoCallAvatarUrl ?? "",
     locale: b.locale === "en-US" ? "en-US" : "pt-BR",
     backupToken: b.backupToken,
-    paymentMethod: b.paymentMethod === "laranjinha" ? "laranjinha" : "pix",
+    paymentMethod: parsePaymentMethod(b.paymentMethod),
     audioLibrary: parseAudioLibrary(b.audioLibrary),
     giftPrompt: b.giftPrompt ?? "",
     giftItems: parseGiftItems(b.giftItems),

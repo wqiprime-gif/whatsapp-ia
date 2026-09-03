@@ -2234,17 +2234,73 @@ async function sendChamadaVideo(client, messageFrom, conversation) {
 }
 
   async function enviarChavePix(messageFrom, conversation) {
+    const config = loadBotConfig();
     const { pixKey, pixRecipientName } = getPixConfig();
-    if (!pixKey) {
-      await client.sendMessage(messageFrom, 'Amor, a chave Pix ainda não foi configurada aqui — avisa o admin 😅');
-      return false;
-    }
 
     try {
-      // Áudio do funil amarrado à ação: explica o pagamento antes da chave.
       const pixLib = getAudioLibrary();
       const pixAudio = resolveAudioBySlug('chave_pix', pixLib);
       if (pixAudio) await sendNamedAudioVoiceOnce(client, messageFrom, pixAudio);
+
+      const chatId = funnel.chatIdFromJid(messageFrom);
+      let amountCents = Number(config.productPriceCents) || 4990;
+      let productName = config.productName || 'VIP';
+      try {
+        const st = await funnel.fetchLeadState(chatId);
+        if (Number(st?.selectedProductPriceCents) > 0) amountCents = Number(st.selectedProductPriceCents);
+        if (st?.selectedProductName) productName = st.selectedProductName;
+      } catch (_) {}
+
+      const method = String(config.paymentMethod || 'pix').toLowerCase();
+      if (method === 'nexuspag' || method === 'wiinpay' || method === 'laranjinha') {
+        const charge = await funnel.createPixOnPanel({
+          chatId,
+          jid: messageFrom,
+          platform: 'whatsapp',
+          amountCents,
+          productName,
+          description: `${productName} — WhatsApp`
+        });
+
+        if (charge?.ok && charge.mode === 'gateway' && charge.brCode) {
+          const intro = `pix copia e cola do ${productName} (R$ ${(amountCents / 100).toFixed(2).replace('.', ',')}):`;
+          await sendTextHuman(client, messageFrom, intro);
+          await new Promise((r) => setTimeout(r, 900));
+          await sendTextHuman(client, messageFrom, String(charge.brCode));
+          await new Promise((r) => setTimeout(r, 900));
+          await sendTextHuman(client, messageFrom, 'quando pagar me manda o comprovante aqui 😘');
+          console.log(`✅ PIX gateway (${method}) enviado para ${messageFrom}`);
+          if (conversation) {
+            conversation.push({ role: 'assistant', content: `${intro} ${charge.brCode}` });
+            conversation.push({ role: 'system', content: `PIX ${method} ${charge.id} enviado.` });
+          }
+
+          void (async () => {
+            for (let i = 0; i < 60; i++) {
+              await new Promise((r) => setTimeout(r, 5000));
+              const st = await funnel.checkPixOnPanel({
+                chargeId: charge.id,
+                externalId: charge.externalId
+              });
+              if (st?.paid) {
+                await confirmarComprovante(
+                  messageFrom,
+                  'pagamento confirmado amor 😘 ja to liberando seu acesso'
+                );
+                return;
+              }
+            }
+          })();
+          return true;
+        }
+
+        console.warn('PIX gateway WA falhou, usando chave manual:', charge?.error || charge);
+      }
+
+      if (!pixKey) {
+        await client.sendMessage(messageFrom, 'Amor, a chave Pix ainda não foi configurada aqui — avisa o admin 😅');
+        return false;
+      }
 
       const lines = [String(pixKey).trim(), "manda o comprovante aqui depois que pagar tá?"];
       for (const line of lines) {
