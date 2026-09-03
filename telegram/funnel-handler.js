@@ -175,6 +175,13 @@ function createFunnelHandler(deps) {
         sent = true;
       }
     }
+    if (!sent) {
+      const fallback = path.join(__dirname, "..", "hotbot", "precos.jpg");
+      if (fs.existsSync(fallback)) {
+        await sendMedia(peer, chatId, fallback, "meus pacotes amor 😈");
+        sent = true;
+      }
+    }
     if (!sent) await sendText(peer, chatId, table);
     conv.push({ role: "system", content: "Tabela de pacotes enviada." });
     conv.push({ role: "assistant", content: "Qual pacote te interessa, amor? 💕" });

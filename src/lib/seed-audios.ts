@@ -2,6 +2,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { rootDir } from "../config.js";
 import { type NamedAudio } from "../bots.js";
+import { normalizeSlug } from "./named-audio.js";
 
 /**
  * Áudios padrão (notas de voz) entregues junto com a instância nova, para o
@@ -44,14 +45,27 @@ export const SEED_AUDIO_CATALOG = SEED_AUDIOS.map(({ file, label, slug, triggers
 }));
 
 const seedDir = path.join(rootDir, "assets", "seed-audios");
+const hotbotDir = path.join(rootDir, "hotbot");
+
+function resolveSeedFilePath(file: string): string | null {
+  const safe = path.basename(file);
+  const candidates = [
+    path.join(seedDir, safe),
+    path.join(hotbotDir, safe),
+    path.join(process.cwd(), "assets", "seed-audios", safe),
+    path.join(process.cwd(), "hotbot", safe)
+  ];
+  for (const full of candidates) {
+    if (full && fsSync.existsSync(full)) return full;
+  }
+  return null;
+}
 
 /** Caminho absoluto de um áudio padrão pelo nome do arquivo (para servir no painel). */
 export function seedAudioPath(file: string): string | null {
   const safe = path.basename(file);
-  const allowed = SEED_AUDIOS.some((s) => s.file === safe);
-  if (!allowed) return null;
-  const full = path.join(seedDir, safe);
-  return fsSync.existsSync(full) ? full : null;
+  if (!SEED_AUDIOS.some((s) => s.file === safe)) return null;
+  return resolveSeedFilePath(safe);
 }
 
 /**
@@ -64,9 +78,8 @@ export async function buildDefaultAudioLibrary(): Promise<NamedAudio[]> {
   const library: NamedAudio[] = [];
 
   for (const seed of SEED_AUDIOS) {
-    const source = path.join(seedDir, seed.file);
-    if (!fsSync.existsSync(source)) {
-      console.warn(`[seed-audios] arquivo ausente, pulando: ${source}`);
+    if (!resolveSeedFilePath(seed.file)) {
+      console.warn(`[seed-audios] arquivo ausente, pulando: ${seed.file}`);
       continue;
     }
     library.push({
@@ -78,4 +91,24 @@ export async function buildDefaultAudioLibrary(): Promise<NamedAudio[]> {
   }
 
   return library;
+}
+
+/** Garante os 6 áudios padrão na biblioteca; itens existentes do cliente têm prioridade. */
+export async function mergeDefaultAudioLibrary(existing: NamedAudio[] = []): Promise<NamedAudio[]> {
+  const defaults = await buildDefaultAudioLibrary();
+  const bySlug = new Map<string, NamedAudio>();
+  for (const item of defaults) {
+    const slug = normalizeSlug(item.slug || "");
+    if (slug) bySlug.set(slug, item);
+  }
+  for (const item of existing) {
+    const slug = normalizeSlug(item.slug || item.label || "");
+    if (slug) bySlug.set(slug, item);
+  }
+  const defaultSlugs = new Set(defaults.map((d) => normalizeSlug(d.slug || "")).filter(Boolean));
+  const extras = existing.filter((item) => {
+    const slug = normalizeSlug(item.slug || item.label || "");
+    return slug && !defaultSlugs.has(slug);
+  });
+  return [...bySlug.values(), ...extras];
 }

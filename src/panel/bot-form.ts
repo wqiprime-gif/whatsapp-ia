@@ -139,64 +139,82 @@ function seedListReadOnly() {
 /** Notas de voz do funil — cadastradas junto com a instância. */
 export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-preview-form", isNew = false) {
   const library = bot?.audioLibrary ?? [];
+  const libraryBySlug = new Map(
+    library.map((item) => {
+      const slug = (item.slug || item.label.toLowerCase().replace(/\s+/g, "_")).trim();
+      return [slug, item] as const;
+    })
+  );
 
-  const seedList = isNew
-    ? `<div class="audio-grid audio-grid-form">
-      ${SEED_AUDIO_CATALOG.map(
-        (a) => `
-        <article class="audio-card" data-audio-card>
-          <div class="audio-card-head">
-            <span class="audio-badge">${icons.audio}</span>
-            <div>
-              <h4>${escapeHtml(a.label)}</h4>
-              <p class="audio-triggers"><code>[[audio:${escapeHtml(a.slug)}]]</code> · ${escapeHtml(a.triggers || "só pela IA no prompt")}</p>
-            </div>
-          </div>
-          <audio controls preload="none" src="${escapeHtml(a.previewUrl)}" class="audio-player" data-audio-player></audio>
-          <div class="audio-card-actions">
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-              Trocar áudio
-              <input form="${formId}" type="file" name="seedAudioFile_${escapeHtml(a.slug)}" accept="audio/*,.ogg,.opus" hidden data-audio-replace />
-            </label>
-          </div>
-          <p class="form-hint" data-audio-replace-name style="display:none;margin-top:6px"></p>
-        </article>`
-      ).join("")}
-    </div>
-    <p class="form-hint">Clique em <strong>Trocar áudio</strong> em cada card para escolher outro arquivo. Ao salvar a instância, o áudio novo entra no funil.</p>`
-    : "";
-
-  const list =
-    library.length === 0 && !isNew
-      ? `${seedListReadOnly()}<p class="form-hint">Áudios padrão ativos (a IA já usa). Recarregue a página para gerenciá-los individualmente, ou adicione os seus abaixo.</p>`
-      : library.length > 0
-        ? `<div class="audio-grid audio-grid-form">
-      ${library
-        .map(
-          (item, i) => `
-        <article class="audio-card" data-audio-card>
-          <div class="audio-card-head">
-            <span class="audio-badge">${icons.audio}</span>
-            <div>
-              <h4>${escapeHtml(item.label)}</h4>
-              <p class="audio-triggers"><code>[[audio:${escapeHtml(item.slug || item.label.toLowerCase().replace(/\s+/g, "_"))}]]</code> · ${escapeHtml(item.triggers || item.keywords || "só pela IA no prompt")}</p>
-            </div>
-          </div>
-          <audio controls preload="none" src="${escapeHtml(item.url)}" class="audio-player" data-audio-player></audio>
-          <div class="audio-card-actions">
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-              Trocar áudio
-              <input form="${formId}" type="file" name="replaceAudioFile_${i}" accept="audio/*,.ogg,.opus" hidden data-audio-replace />
-            </label>
-            <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Abrir</a>
-            <label class="audio-remove"><input type="checkbox" form="${formId}" name="removeAudioIndexes" value="${i}" /> Remover</label>
-          </div>
-          <p class="form-hint" data-audio-replace-name style="display:none;margin-top:6px"></p>
-        </article>`
-        )
-        .join("")}
-    </div>`
+  function audioCard(item: { label: string; slug: string; triggers: string; url: string }, index?: number) {
+    const slug = item.slug;
+    const replaceName =
+      index === undefined || index < 0 ? `seedAudioFile_${slug}` : `replaceAudioFile_${index}`;
+    const remove =
+      index !== undefined && index >= 0
+        ? `<label class="audio-remove"><input type="checkbox" form="${formId}" name="removeAudioIndexes" value="${index}" /> Remover</label>`
         : "";
+    return `
+      <article class="audio-card" data-audio-card>
+        <div class="audio-card-head">
+          <span class="audio-badge">${icons.audio}</span>
+          <div>
+            <h4>${escapeHtml(item.label)}</h4>
+            <p class="audio-triggers"><code>[[audio:${escapeHtml(slug)}]]</code> · ${escapeHtml(item.triggers || "só pela IA no prompt")}</p>
+          </div>
+        </div>
+        <audio controls preload="none" src="${escapeHtml(item.url)}" class="audio-player" data-audio-player></audio>
+        <div class="audio-card-actions">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            Trocar áudio
+            <input form="${formId}" type="file" name="${replaceName}" accept="audio/*,.ogg,.opus" hidden data-audio-replace />
+          </label>
+          ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Abrir</a>` : ""}
+          ${remove}
+        </div>
+        <p class="form-hint" data-audio-replace-name style="display:none;margin-top:6px"></p>
+      </article>`;
+  }
+
+  const seedList = `<div class="audio-grid audio-grid-form">
+      ${SEED_AUDIO_CATALOG.map((a) => {
+        const saved = libraryBySlug.get(a.slug);
+        const item = saved
+          ? {
+              label: saved.label || a.label,
+              slug: a.slug,
+              triggers: saved.triggers || saved.keywords || a.triggers,
+              url: saved.url
+            }
+          : { label: a.label, slug: a.slug, triggers: a.triggers, url: a.previewUrl };
+        const idx = saved ? library.findIndex((x) => (x.slug || "") === a.slug) : -1;
+        return audioCard(item, idx);
+      }).join("")}
+    </div>
+    <p class="form-hint">Clique em <strong>Trocar áudio</strong> em cada card para substituir. Ao salvar a instância, os áudios entram no funil.</p>`;
+
+  const customExtras = library
+    .filter((item) => {
+      const slug = (item.slug || "").trim();
+      return slug && !SEED_AUDIO_CATALOG.some((a) => a.slug === slug);
+    })
+    .map((item) => {
+      const globalIdx = library.indexOf(item);
+      return audioCard(
+        {
+          label: item.label,
+          slug: item.slug || item.label.toLowerCase().replace(/\s+/g, "_"),
+          triggers: item.triggers || item.keywords || "",
+          url: item.url
+        },
+        globalIdx
+      );
+    })
+    .join("");
+
+  const list = isNew
+    ? `<p class="form-hint"><strong>Áudios padrão incluídos na criação:</strong></p>${seedList}`
+    : `${seedList}${customExtras ? `<div class="audio-grid audio-grid-form" style="margin-top:12px">${customExtras}</div>` : ""}`;
 
   return `
     <div class="form-section form-section-preview span-2" id="audios-funil">
@@ -204,10 +222,10 @@ export function audioConfigBlock(bot: BotConfig | undefined, formId = "bot-previ
         <span class="form-section-icon form-section-icon-cyan">${icons.audio}</span>
         <div>
           <h4>Áudios do funil (notas de voz)</h4>
-          <p>Gravações enviadas no WhatsApp quando a IA usa <code>[[audio:slug]]</code> ou quando o lead dispara um gatilho. Clique em <strong>Trocar áudio</strong> para substituir qualquer um.</p>
+          <p>Gravações enviadas no Telegram/WhatsApp quando a IA usa <code>[[audio:slug]]</code> ou quando o lead dispara um gatilho. Clique em <strong>Trocar áudio</strong> para substituir qualquer um.</p>
         </div>
       </div>
-      ${isNew ? `<p class="form-hint"><strong>Áudios padrão incluídos na criação:</strong></p>${seedList}` : list}
+      ${list}
       <div class="audio-add-grid audio-add-grid-3" style="margin-top:12px">
         <label class="field">
           O que o áudio <strong>fala</strong>

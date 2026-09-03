@@ -300,8 +300,17 @@ function markAudioSent(chatId, slug) {
 }
 
 function isGreetingText(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (
+    /^(oi+|oii+|oie+|ol[aá])[\s!.?😊🙂❤️]*(amor|bb|bebe|baby|linda|gata|mozao|mozinho|delicia|gostosa|gostoso)?[\s!.?😊🙂❤️]*$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
   return /^(oi+|oii+|oie+|ol[aá]|bom dia|boa tarde|boa noite|e ai|eai|hey|hi|hello)[\s!.?😊🙂❤️]*$/i.test(
-    String(text || "").trim()
+    t
   );
 }
 

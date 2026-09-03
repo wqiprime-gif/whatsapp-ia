@@ -42,7 +42,8 @@ import {
 } from "../bots.js";
 import { applyWaFieldsFromForm, applyAIFieldsFromForm, defaultMetaVerifyToken } from "../lib/wa-bot-fields.js";
 import { followUpStepsFromForm } from "../lib/follow-up.js";
-import { buildDefaultAudioLibrary, seedAudioPath } from "../lib/seed-audios.js";
+import { buildDefaultAudioLibrary, mergeDefaultAudioLibrary, seedAudioPath } from "../lib/seed-audios.js";
+import { normalizeSlug } from "../lib/named-audio.js";
 import { type BotPlatform } from "../lib/platform-types.js";
 import { parseMetaWebhookBody, verifyMetaWebhook } from "../lib/meta-cloud-api.js";
 import { sendRemarketingMulti } from "../lib/remarketing.js";
@@ -159,6 +160,7 @@ async function panelUserMeta(userId: string) {
 }
 
 const AVATAR_MAX_DATA_BYTES = 3_000_000;
+const PRICE_TABLE_MAX_DATA_BYTES = 5_000_000;
 
 async function saveProfileAvatar(file: AsyncIterable<Buffer>, originalName: string) {
   const chunks: Buffer[] = [];
@@ -200,6 +202,22 @@ async function saveUploadedFile(file: AsyncIterable<Buffer>, originalName: strin
   const chunks: Buffer[] = [];
   for await (const chunk of file) chunks.push(chunk);
   await fs.writeFile(filePath, Buffer.concat(chunks));
+  return `/uploads/${fileName}`;
+}
+
+/** Salva imagem da tabela no Postgres (data URL) para sobreviver redeploy no Railway. */
+async function savePriceTableImageUpload(file: AsyncIterable<Buffer>, originalName: string) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of file) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  if (useDatabase() && buf.length > 0 && buf.length <= PRICE_TABLE_MAX_DATA_BYTES) {
+    const mime = mimeTypeFromPath(originalName);
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  }
+  await fs.mkdir(uploadsDir, { recursive: true });
+  const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const fileName = `${Date.now()}-${randomUUID()}-${safeName}`;
+  await fs.writeFile(path.join(uploadsDir, fileName), buf);
   return `/uploads/${fileName}`;
 }
 
@@ -265,6 +283,10 @@ async function parseBotMultipart(request: FastifyRequest) {
         callVideoUpload = await saveCallVideoUpload(part.file, part.filename);
         continue;
       }
+      if (part.fieldname === "priceTableImage") {
+        priceTableUpload = await savePriceTableImageUpload(part.file, part.filename);
+        continue;
+      }
       const url = await saveUploadedFile(part.file, part.filename);
       if (
         part.fieldname === "previewFiles" ||
@@ -279,7 +301,6 @@ async function parseBotMultipart(request: FastifyRequest) {
         deliveryUploads.push(url);
       }
       if (part.fieldname === "newAudioFile") newNamedAudioUrl = url;
-      if (part.fieldname === "priceTableImage") priceTableUpload = url;
       if (part.fieldname === "callAvatarFile") callAvatarUpload = url;
       const replaceMatch = /^replaceAudioFile_(\d+)$/.exec(part.fieldname);
       if (replaceMatch) {
@@ -353,12 +374,15 @@ function mergeAudioLibrary(
   existing: NamedAudio[],
   fields: Record<string, string>,
   newUrl: string,
-  replacements: Record<number, string> = {}
+  replacements: Record<number, string> = {},
+  slugReplacements: Record<string, string> = {}
 ): NamedAudio[] {
   let library = existing.map((item, index) => {
     const nextUrl = replacements[index];
-    if (!nextUrl) return item;
-    return { ...item, url: nextUrl };
+    if (nextUrl) return { ...item, url: nextUrl };
+    const slug = normalizeSlug(item.slug || item.label || "");
+    if (slug && slugReplacements[slug]) return { ...item, url: slugReplacements[slug] };
+    return item;
   });
   const removeRaw = fields.removeAudioIndexes || "";
   const removeSet = new Set(
@@ -1969,13 +1993,20 @@ export async function registerPanelRoutes(
     if (!user) return;
     let botId = "";
     try {
-      const { fields, newNamedAudioUrl, audioReplacements } = await parseBotMultipart(request);
+      const { fields, newNamedAudioUrl, audioReplacements, seedAudioReplacements } =
+        await parseBotMultipart(request);
       botId = fields.botId?.trim() || "";
       if (!botId) throw new Error("Instância não informada.");
       const bot = await getBotById(botId, user.id);
       if (!bot) throw new Error("Instância não encontrada.");
 
-      const library = mergeAudioLibrary(bot.audioLibrary ?? [], fields, newNamedAudioUrl, audioReplacements);
+      const library = mergeAudioLibrary(
+        await mergeDefaultAudioLibrary(bot.audioLibrary ?? []),
+        fields,
+        newNamedAudioUrl,
+        audioReplacements,
+        seedAudioReplacements
+      );
       await upsertBot({ ...bot, audioLibrary: library });
       hooks.syncBots();
       return reply.redirect(
@@ -2546,15 +2577,13 @@ export async function registerPanelRoutes(
     const bot = await getBotById(params.id, user.id);
     if (!bot) return reply.redirect(flashRedirect("/instances", "Instância não encontrada.", "err"));
 
-    // Backfill: instâncias antigas ficaram sem biblioteca de áudios. Popula com os
-    // áudios padrão (URLs estáveis /seed-audios/) para aparecerem e serem editáveis.
-    if (!bot.audioLibrary || bot.audioLibrary.length === 0) {
-      const seeded = await buildDefaultAudioLibrary();
-      if (seeded.length > 0) {
-        bot.audioLibrary = seeded;
-        await upsertBot(bot);
-        hooks.syncBots();
-      }
+    // Backfill: instâncias antigas ficaram sem biblioteca completa. Mescla os
+    // áudios padrão faltantes (URLs estáveis /seed-audios/) para aparecerem e serem editáveis.
+    const mergedAudios = await mergeDefaultAudioLibrary(bot.audioLibrary ?? []);
+    if (mergedAudios.length !== (bot.audioLibrary?.length ?? 0)) {
+      bot.audioLibrary = mergedAudios;
+      await upsertBot(bot);
+      hooks.syncBots();
     }
 
     const query = z.object({ msg: z.string().optional(), t: z.string().optional() }).parse(request.query);
@@ -2582,11 +2611,13 @@ export async function registerPanelRoutes(
         priceTableUpload,
         callVideoUpload,
         callAvatarUpload,
-        audioReplacements
+        audioReplacements,
+        seedAudioReplacements
       } = await parseBotMultipart(request);
       const body = botFormFieldsSchema.parse(fields);
       await ensureInstanceAIKey(user, body, existing);
       const laranjinhaKey = body.laranjinhaApiKey?.trim();
+      const baseAudios = await mergeDefaultAudioLibrary(existing.audioLibrary ?? []);
       const merged = applyTelegramFieldsFromForm(
         applyAIFieldsFromForm(
           applyWaFieldsFromForm(
@@ -2602,10 +2633,11 @@ export async function registerPanelRoutes(
         previewMediaUrls: mergePreviewUrls(existing.previewMediaUrls, fields, previewUploads),
               deliveryMediaUrls: mergeDeliveryUrls(existing.deliveryMediaUrls, fields, deliveryUploads),
               audioLibrary: mergeAudioLibrary(
-                existing.audioLibrary ?? [],
+                baseAudios,
                 fields,
                 newNamedAudioUrl,
-                audioReplacements
+                audioReplacements,
+                seedAudioReplacements
               ),
         active: body.active === "true",
         paymentMethod: body.paymentMethod,

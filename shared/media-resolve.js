@@ -11,6 +11,18 @@ function resolveMediaLocalPathSync(url, options = {}) {
   if (!clean) return null;
   if (fs.existsSync(clean)) return clean;
 
+  if (clean.startsWith("data:")) {
+    const match = clean.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const cacheDir = path.join(options.instancesDataDir || path.join(__dirname, ".cache"), "media-cache");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const ext = match[1].includes("png") ? ".png" : match[1].includes("webp") ? ".webp" : ".jpg";
+      const out = path.join(cacheDir, `data-sync${ext}`);
+      if (!fs.existsSync(out)) fs.writeFileSync(out, Buffer.from(match[2], "base64"));
+      return out;
+    }
+  }
+
   const instancesDataDir = options.instancesDataDir || "";
   const telegramDir = options.telegramDir || path.join(__dirname, "..", "telegram");
   const rootDir = options.rootDir || path.join(__dirname, "..");
@@ -48,11 +60,23 @@ function resolveMediaLocalPathSync(url, options = {}) {
 }
 
 async function resolveMediaLocalPath(url, options = {}) {
-  const local = resolveMediaLocalPathSync(url, options);
-  if (local) return local;
-
   const clean = String(url || "").trim();
   if (!clean) return null;
+
+  if (clean.startsWith("data:")) {
+    const match = clean.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const cacheDir = path.join(options.instancesDataDir || path.join(__dirname, ".cache"), "media-cache");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const ext = match[1].includes("png") ? ".png" : match[1].includes("webp") ? ".webp" : ".jpg";
+      const out = path.join(cacheDir, `data-${Date.now()}${ext}`);
+      fs.writeFileSync(out, Buffer.from(match[2], "base64"));
+      return out;
+    }
+  }
+
+  const local = resolveMediaLocalPathSync(url, options);
+  if (local) return local;
 
   const panelUrl = String(process.env.PANEL_URL || "").replace(/\/$/, "");
   if (!panelUrl) return null;
